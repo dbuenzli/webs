@@ -1,0 +1,53 @@
+OASISFormat: 0.3
+Name: webs
+Version: %%VERSION%%
+Synopsis: Web server interface to OCaml
+Authors: Daniel Bünzli <daniel.buenzli at erratique.ch>
+Copyrights: (c) 2012 Daniel C. Bünzli
+License: BSD3
+Homepage: http://erratique.ch/software/webs
+Description:
+ Webs defines a generic and low-level interface between web servers
+ and services implemented in OCaml. The connection is mediated
+ by a connector. Webs provices CGI and SCGI connectors.
+ .
+ Webs is made of a single independent module and distributed under the
+ BSD3 license.
+
+OCamlVersion: >= 3.12.0
+Plugins: META (0.3)
+BuildTools:ocamlbuild
+
+Library webs
+ Path: src
+ Modules: Webs
+
+Executable test
+ Path: test
+ MainIs: test.ml
+ CompiledObject: Best
+ BuildDepends: webs
+ Install: false
+
+Test test
+ Command: $test
+
+Document api
+ Title: Webs's documentation and API reference
+ Type: ocamlbuild (0.3)
+ BuildTools+: ocamldoc
+ XOCamlbuildLibraries: webs
+ XOCamlbuildPath: doc
+
+Document distribution
+ Title: "Webs's README and CHANGES files"
+ DataFiles: README CHANGES
+
+Document samples
+ Title: "Webs's sample code"
+ DataFiles: test/*.ml
+
+SourceRepository head
+ Type: git
+ Location: git://erratique.ch/repos/webs.git
+ Browser: http://erratique.ch/repos/webs
