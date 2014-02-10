@@ -1,0 +1,7 @@
+version = "%%VERSION%%"
+description = "Web server interface"
+archive(byte) = "webs.cma"
+archive(byte, plugin) = "webs.cma"
+archive(native) = "webs.cmxa"
+archive(native, plugin) = "webs.cmxs"
+exists_if = "webs.cma"

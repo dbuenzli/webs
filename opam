@@ -1,0 +1,14 @@
+opam-version: "1"
+maintainer: "Daniel Bünzli <daniel.buenzl i@erratique.ch>"
+homepage: "http://erratique.ch/software/webs"
+authors: ["Daniel Bünzli <daniel.buenzli i@erratique.ch>"]
+doc: "http://erratique.ch/software/webs/doc/Webs"
+tags: [ "www" "webserver" ]
+license: "BSD3"
+depends: ["ocamlfind"]
+ocaml-version: [>= "4.00.1"]
+build: 
+[
+  ["./pkg/pkg-git" ] 
+  ["./pkg/build" "true" ]
+]

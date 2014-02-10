@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# Usage: build has_native
+
+set -e 
+LOC=`dirname $0`
+
+. $LOC/pkg-builder
+
+NATIVE=$1
+
+add lib pkg/META		
+add lib src/webs.mli
+add lib src/webs.cmti
+add lib src/webs.cmi
+add lib src/webs.cmx
+add lib src/webs.cma
+add lib src/webs.a
+add lib src/webs.cmxa
+add lib src/webs.cmxs
+
+add doc README.md
+add doc CHANGES.md
+
+build
+install webs
