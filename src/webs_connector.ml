@@ -1,32 +1,40 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
+open Rresult
 
-module Dict = Webs_dict
-type dict = Dict.t
+(* Errors *)
 
-(* Services *)
+type error =
+  [ `Webserver of R.msg | `Connector of R.msg | `Service of R.exn_trap ]
 
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
+let pp_error ppf = function
+| `Webserver (`Msg m) -> Format.fprintf ppf "@[webserver: %s@]" m
+| `Connector (`Msg m) -> Format.fprintf ppf "@[connector: %s@]" m
+| `Service t -> Format.fprintf ppf "@[service: %a@]" R.pp_exn_trap t
 
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
+let error_to_msg = function
+| Ok _ as v -> v
+| Error e -> Error (`Msg (Format.asprintf "%a" pp_error e))
+
+let open_error = function
+| Ok _ as r -> r | Error #error as r -> r
 
 (* Connectors *)
 
-module Connector = Webs_connector
-type connector = Connector.t
+type conf = Webs_dict.t
+type t = conf -> (Webs_req.t -> Webs_resp.t) -> (unit, error) result
+
+(* Standard configuration keys *)
+
+let sendfile_header : string Webs_dict.key = Webs_dict.key ()
+let service_exn_log : Format.formatter Webs_dict.key = Webs_dict.key ()
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without

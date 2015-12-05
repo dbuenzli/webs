@@ -1,32 +1,44 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
+open Webs
 
-module Dict = Webs_dict
-type dict = Dict.t
+let echo r = failwith "TODO"
+(*
+  let b = Buffer.create 512 in
+  let add = Buffer.add_string in
+  let add_header (n, v) =
+    add b "\n "; add b n; add b " = \""; add b v; add b "\"";
+  in
+  add b "request_remote_addr = \""; add b r.request_remote_addr;
+  add b "\"\nrequest_protocol = \""; add b r.request_protocol;
+  add b "\"\nrequest_is_https = "; add b (string_of_bool r.request_is_https);
+  add b "\nrequest_method = \""; add b r.request_method;
+  add b "\"\nrequest_uri = \""; add b r.request_uri;
+  add b "\"\nrequest_headers = ";
+  List.iter add_header (List.sort compare r.request_headers);
+  add b "\nrequest_body = ";
+  begin match body with
+  | None -> add b "None"
+  | Some (t, l, _) ->
+	    add b "\""; add b t; add b "\", ";
+	   add b (string_of_int l); add b " bytes\n";
+	   add b " TODO print body\n";
+  end;
+  HTTP.(s200_ok,
+        [h content_type "text/plain"], `R_builder (Buffer.contents b))
+*)
 
-(* Services *)
+let log_req ppf s = failwith "TODO"
+let log_resp ppf s = failwith "TODO"
+let log ppf s = failwith "TODO"
 
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
-
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
-
-(* Connectors *)
-
-module Connector = Webs_connector
-type connector = Connector.t
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without

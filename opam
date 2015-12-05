@@ -1,14 +1,17 @@
-opam-version: "1"
+opam-version: "1.2"
 maintainer: "Daniel Bünzli <daniel.buenzl i@erratique.ch>"
+authors: ["Daniel Bünzli <daniel.buenzl i@erratique.ch>"]
 homepage: "http://erratique.ch/software/webs"
-authors: ["Daniel Bünzli <daniel.buenzli i@erratique.ch>"]
 doc: "http://erratique.ch/software/webs/doc/Webs"
 tags: [ "www" "webserver" ]
 license: "BSD3"
-depends: ["ocamlfind"]
-ocaml-version: [>= "4.00.1"]
-build: 
+available: [ ocaml-version >= "4.01.0"]
+depends: [ "ocamlfind" "rresult" "astring" ]
+depopts: [ "cmdliner" ]
+build:
 [
-  ["./pkg/pkg-git" ] 
-  ["./pkg/build" "true" ]
+  [ "ocaml" "pkg/git.ml" ]
+  [ "ocaml" "pkg/build.ml" "native=%{ocaml-native}%"
+                           "native-dynlink=%{ocaml-native-dynlink}%"
+                           "cmdliner=%{cmdliner:installed}%"
 ]

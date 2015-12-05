@@ -1,32 +1,70 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
+(* Response bodies *)
 
-module Dict = Webs_dict
-type dict = Dict.t
+type consumer = (bytes * int * int) option -> unit
+type body =
+  | Stream of (consumer -> unit)
+  | File of (int * int) option * string
 
-(* Services *)
+let stream_body producer = Stream producer
 
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
+let string_body s =
+  Stream begin fun yield ->
+    (* We could use Bytes.unsafe_of_string since the consumer
+       is not supposed to mutate the bytes. But let's not do
+       that for now. *)
+    yield (Some (Bytes.of_string s, 0, String.length s));
+    yield None
+  end
 
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
+let empty_body = Stream (fun yield -> yield None)
+let file_body ?range name = File (range, name)
 
-(* Connectors *)
+let pp_body ppf = function
+| Stream _ -> Format.fprintf ppf "stream"
+| File (r, n) ->
+    let pp_range ppf = function
+    | None -> ()
+    | Some (pos, len) ->
+        Format.fprintf ppf "@[<1>(pos@ %d)@]@ \
+                            @[<1>(len@ %d)@]" pos len
+    in
+    Format.fprintf ppf "@[<1>(body@ %S@ %a)@]" n pp_range r
 
-module Connector = Webs_connector
-type connector = Connector.t
+(* Responses *)
+
+type t =
+  { version : Webs_http.version;
+    status : Webs_http.status;
+    headers : Webs_http.headers;
+    body : body; }
+
+let v ?(version = (1,1)) status headers body =
+  { version; status; headers; body }
+
+let version r = r.version
+let status r = r.status
+let headers r = r.headers
+let body r = r.body
+
+let with_status r status = { r with status }
+let with_headers r headers = { r with headers }
+let with_body r body = { r with body }
+
+let pp ppf r =
+  Format.fprintf ppf
+    "@[<1>(response@ @[<1>(status %a)@]@ %a@ %a@]"
+    Webs_http.pp_status r.status
+    Webs_http.pp_headers r.headers
+    pp_body r.body
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without

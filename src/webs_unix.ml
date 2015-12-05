@@ -1,32 +1,17 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
+open Webs
 
-module Dict = Webs_dict
-type dict = Dict.t
-
-(* Services *)
-
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
-
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
-
-(* Connectors *)
-
-module Connector = Webs_connector
-type connector = Connector.t
+(* let listen = `Addr (Unix.ADDR_INET (Unix.inet6_addr_loopback, 8080)) *)
+let listen = Dict.key ()
+let default = Dict.empty
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without

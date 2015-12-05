@@ -1,3 +1,9 @@
-<**/*.{ml,mli}> : bin_annot, annot
+<**/*.{ml,mli}> : bin_annot, safe_string
 <src> : include
+<src/*> : package(rresult), package(astring)
+<src/webs_cgi*> : package(unix)
+<src/webs_scgi*> : package(unix)
+<src/webs_unix*> : package(unix)
+<src/webs_cli*> : package(cmdliner)
 <test> : include
+<test/*> : package(rresult), package(unix)

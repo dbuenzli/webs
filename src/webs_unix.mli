@@ -1,32 +1,30 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
+(** Configuration keys for [Unix] based connectors. *)
 
-module Dict = Webs_dict
-type dict = Dict.t
+(** {1:std Standard keys} *)
 
-(* Services *)
+val listen : [ `Addr of Unix.sockaddr | `Fd of Unix.file_descr ] Webs.Dict.key
+(** [listen] is a key defining where the connector should listen for
+	  connections from the web server.
 
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
+	  {b Purpose.} If a connector supports this key it will listen for
+	  requests on the provided connection specification. *)
 
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
+(** {1:dconfig Default configuration} *)
 
-(* Connectors *)
-
-module Connector = Webs_connector
-type connector = Connector.t
+val default : Webs.dict
+(** [default] is a configuration that has the following
+	  keys :
+	  {ul
+	  {- {!listen} with [`Addr ("localhost", 8080)]}}. *)
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without

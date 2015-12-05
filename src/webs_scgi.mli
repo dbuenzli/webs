@@ -1,32 +1,54 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
+(** {{:http://python.ca/scgi/protocol.txt}SCGI} connector.
 
-module Dict = Webs_dict
-type dict = Dict.t
+    {b Important.} This connector uses two non-standard SCGI variables.
+    {ul
+     {- [REQUEST_URI], your web server must provide it in the SCGI variables.}
+     {- [HTTPS], your web server must provide it in the SCGI variables
+         with the value ["on"] if you want to work over HTTPS.}} *)
 
-(* Services *)
+(** {1 Connector} *)
 
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
+val connect : Webs.Connector.t
 
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
+(** {1:conf Configuration keys}
+	  {ul
+	  {- {!Conf.sendfile_header}}
+	  {- {!Conf.cgi_variables}}
+	  {- {!Conf.listen}}}
+	  {1 Web server interaction details}
 
-(* Connectors *)
+	  {2:req Request}
 
-module Connector = Webs_connector
-type connector = Connector.t
+        The connector listens for connections on the address specified
+        by {!Conf.listen}.
+
+	  The {!Service.request} is constructed as follows.
+	  {ul
+	  {- [request_protocol], the value of the [SERVER_PROTOCOL] variable.}
+	  {- [request_method], the value of the [REQUEST_METHOD] variable.}
+	  {- [request_uri], the value of the [REQUEST_URI] variable.}
+	  {- [request_headers], the value of all the [HTTP_*] variables,
+           are in a corresponding HTTP header, aswell as those mentionned
+	  in {!Conf.cgi_variables}.}
+	  {- [request_remote_addr], the value of the [REMOTE_ADDR] variable.}
+	  {- [request_is_https] is [true] iff there is a [HTTPS] variable
+	  with a value of ["on"] or ["true"].}}
+
+	  The request body, if any, is read from the connection.
+
+	  {2:resp Response}
+
+	  The response writes the status and headers on the connection, followed
+	  by the response body. *)
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without

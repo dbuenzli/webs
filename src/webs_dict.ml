@@ -1,32 +1,59 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
+(* Dictionaries see http://mlton.org/PropertyList *)
+
+(* Keys *)
+
+module Key = struct
+  let univ (type s) () =
+    let module M = struct exception E of s option end in
+    (fun x -> M.E (Some x)), (function M.E x -> x | _ -> None)
+
+  let key_id =
+    let count = ref (-1) in
+    fun () -> incr count; !count
+
+  type 'a key =
+    { id : int;
+      name : string;
+      to_univ : 'a -> exn;
+      of_univ : exn -> 'a option; }
+
+  let create () (type v) =
+    let id = key_id () in
+    let to_univ, of_univ = univ () in
+    { id; name = ""; to_univ; of_univ }
+
+  type t = V : 'a key -> t
+  let compare (V k0) (V k1) = (compare : int -> int -> int) k0.id k1.id
+end
+
+type 'a key = 'a Key.key
+let key = Key.create
+
 (* Dictionaries *)
 
-module Dict = Webs_dict
-type dict = Dict.t
+module M = (Map.Make (Key) : Map.S with type key = Key.t)
+type t = exn M.t
 
-(* Services *)
+let empty = M.empty
+let is_empty = M.is_empty
+let mem k d = M.mem (Key.V k) d
+let add k v d  = M.add (Key.V k) (k.Key.to_univ v) d
+let rem k d = M.remove (Key.V k) d
+let find k d = try k.Key.of_univ (M.find (Key.V k) d) with Not_found -> None
+let get k d = match find k d with
+| Some v -> v
+| None -> invalid_arg "key unbound in dictionary"
 
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
-
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
-
-(* Connectors *)
-
-module Connector = Webs_connector
-type connector = Connector.t
+let pp ppf d = Format.fprintf ppf "@[(dict TODO)@]"
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without

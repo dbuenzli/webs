@@ -1,32 +1,65 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
+(* HTTP requests *)
 
-module Dict = Webs_dict
-type dict = Dict.t
+type body = unit -> (bytes * int * int) option
 
-(* Services *)
+type t =
+  { version : Webs_http.version;
+    meth : Webs_http.meth;
+    path : Webs_http.path;
+    query : string option;
+    headers : Webs_http.headers;
+    dict : Webs_dict.t;
+    body_len : int option;
+    body : unit -> (bytes * int * int) option }
 
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
+let v ?(dict = Webs_dict.empty) version meth ~path ?query headers
+    ?body_len body =
+  { meth; path; query; version; headers; dict; body_len; body; }
 
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
+let version r = r.version
+let meth r = r.meth
+let path r = r.path
+let query r = r.query
+let headers r = r.headers
+let dict r = r.dict
+let body_len r = r.body_len
+let body r = r.body
 
-(* Connectors *)
+let with_headers r headers = { r with headers }
+let with_body r ~body_len body = { r with body_len; body }
+let with_path r path = { r with path }
+let with_dict r dict = { r with dict }
 
-module Connector = Webs_connector
-type connector = Connector.t
+let pp_body_len ppf = function
+| None -> Format.fprintf ppf "unknown"
+| Some len -> Format.fprintf ppf "%d" len
+
+let pp_query ppf = function
+| None -> Format.fprintf ppf "none"
+| Some q -> Format.fprintf ppf "%S" q
+
+let pp ppf r =
+  Format.fprintf ppf
+    "@[<1>(request@ @[(version %a)@]@ @[<1>(method %a)@]@ \
+                    @[<1>(path %a)@]@ @[<1>(query %a)@]@  \
+                    %a@ %a@ \
+                    @[<1>(body-len %a)@])@]"
+    Webs_http.pp_version r.version
+    Webs_http.pp_meth r.meth
+    (Webs_http.pp_path ~human:false ()) r.path
+    pp_query r.query
+    Webs_http.pp_headers r.headers
+    Webs_dict.pp r.dict
+    pp_body_len r.body_len
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without

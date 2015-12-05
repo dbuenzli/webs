@@ -1,32 +1,29 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
+(** Utility [Webs] services and layers *)
 
-module Dict = Webs_dict
-type dict = Dict.t
+(** {1 Services} *)
 
-(* Services *)
+val echo : Webs.service
+(** [echo] is a service that returns the request as a [text/plain] document. *)
 
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
+(** {1 Layers} *)
 
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
+val log_req : Format.formatter -> Webs.layer
+(** [log_req ppf s] is like [s] but logs the requests on [ppf]. *)
 
-(* Connectors *)
+val log_resp : Format.formatter -> Webs.layer
+(** [response_logger ppf s] is like [s] but logs its responses on [ppf]. *)
 
-module Connector = Webs_connector
-type connector = Connector.t
+val log : Format.formatter -> Webs.layer
+(** [debug ppf s] is [log_req ppf (log_resp ppf s)]. *)
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without

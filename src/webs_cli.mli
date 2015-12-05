@@ -1,32 +1,14 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
+(** Command line interface support. *)
 
-module Dict = Webs_dict
-type dict = Dict.t
-
-(* Services *)
-
-module HTTP = Webs_http
-module Req = Webs_req
-module Resp = Webs_resp
-
-type req = Req.t
-type resp = Resp.t
-type service = req -> resp
-type layer = service -> service
-
-(* Connectors *)
-
-module Connector = Webs_connector
-type connector = Connector.t
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2012 Daniel C. Bünzli
+   Copyright (c) 2015 Daniel C. Bünzli.
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
