@@ -1,4 +1,4 @@
-<**/*.{ml,mli}> : bin_annot, safe_string
+<**/*.{ml,mli}> : bin_annot, safe_string, package(bytes)
 <src> : include
 <src/*> : package(rresult), package(astring), package(hmap)
 <src/webs_cgi*> : package(unix)
@@ -6,4 +6,4 @@
 <src/webs_unix*> : package(unix)
 <src/webs_cli*> : package(cmdliner)
 <test> : include
-<test/*> : package(rresult), package(unix)
+<test/*> : package(rresult), package(astring), package(unix)

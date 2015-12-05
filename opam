@@ -5,7 +5,7 @@ homepage: "http://erratique.ch/software/webs"
 doc: "http://erratique.ch/software/webs/doc/Webs"
 tags: [ "www" "webserver" ]
 license: "BSD3"
-available: [ ocaml-version >= "4.01.0"]
+available: [ ocaml-version >= "4.02.0"]
 depends: [ "ocamlfind" "rresult" "astring" ]
 depopts: [ "cmdliner" ]
 build:
