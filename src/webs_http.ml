@@ -71,7 +71,7 @@ let trim_ows s =
   let i = ref 0 and j = ref max in
   while !i <= max && is_ows s.[!i] do incr i done;
   while !j >= !i && is_ows s.[!j] do decr j done;
-  if !j >= !i then String.with_pos_len s ~start:!i ~len:(!j - !i + 1) else ""
+  if !j >= !i then String.with_range s ~first:!i ~len:(!j - !i + 1) else ""
 
 (* HTTP DIGIT https://tools.ietf.org/html/rfc5234#appendix-B.1 *)
 
@@ -444,24 +444,24 @@ let decode_path s =
         Buffer.add_char buf c;
         seg_buf buf start (k + 1)
     | _ -> None
-  and seg start k =
+  and seg first k =
     if k > max then
       begin
-        if start > max
+        if first > max
         then (* end with '/' *) Some (List.rev ("" :: (!segs)))
         else
-        Some (List.rev (String.with_pos_len s ~start ~len:(max - start + 1) ::
+        Some (List.rev (String.with_range s ~first ~len:(max - first + 1) ::
                         !segs))
       end
     else match s.[k] with
     | '/' -> (* start new segment *)
-        segs := (String.with_pos_len s ~start ~len:(k - start)) :: !segs;
+        segs := (String.with_range s ~first ~len:(k - first)) :: !segs;
         seg (k + 1) (k + 1)
     | '%' -> (* percent decode segment via buffer *)
         let buf = Lazy.force buf in
-        Buffer.clear buf; Buffer.add_substring buf s start (k - start);
-        seg_buf buf start k
-    | c when is_non_pct_pchar c -> seg start (k + 1)
+        Buffer.clear buf; Buffer.add_substring buf s first (k - first);
+        seg_buf buf first k
+    | c when is_non_pct_pchar c -> seg first (k + 1)
     | _ -> None
   in
   seg 1 1

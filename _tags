@@ -1,6 +1,6 @@
 <**/*.{ml,mli}> : bin_annot, safe_string
 <src> : include
-<src/*> : package(rresult), package(astring)
+<src/*> : package(rresult), package(astring), package(hmap)
 <src/webs_cgi*> : package(unix)
 <src/webs_scgi*> : package(unix)
 <src/webs_unix*> : package(unix)

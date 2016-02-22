@@ -8,7 +8,7 @@
 
 (** {1:std Standard keys} *)
 
-val listen : [ `Addr of Unix.sockaddr | `Fd of Unix.file_descr ] Webs.Dict.key
+val listen : [ `Addr of Unix.sockaddr | `Fd of Unix.file_descr ] Hmap.key
 (** [listen] is a key defining where the connector should listen for
 	  connections from the web server.
 
@@ -17,7 +17,7 @@ val listen : [ `Addr of Unix.sockaddr | `Fd of Unix.file_descr ] Webs.Dict.key
 
 (** {1:dconfig Default configuration} *)
 
-val default : Webs.dict
+val default : Hmap.t
 (** [default] is a configuration that has the following
 	  keys :
 	  {ul

@@ -21,53 +21,6 @@
 
     {e Release %%VERSION%% - %%MAINTAINER%% } *)
 
-(** {1 Dictionaries} *)
-
-type dict
-(** The type for type-safe heterogenous dictionaries. *)
-
-(** Dictionaries.
-
-    A dictionary is a set of {{!keys}keys} mapping to typed values. *)
-module Dict : sig
-
-  (** {1:keys Keys} *)
-
-  type 'a key
-  (** The type for dictionary keys whose lookup value is ['a]. *)
-
-  val key : unit -> 'a key
-  (** [key ()] is a new dictionary key. *)
-
-  (** {1:dict Dictionaries} *)
-
-  type t = dict
-  (** The type for dictionaries. *)
-
-  val empty : dict
-  (** [empty] is the empty dictionary. *)
-
-  val is_empty : dict -> bool
-  (** [is_empty d] is [true] iff [d] is empty. *)
-
-  val mem : 'a key -> dict -> bool
-  (** [mem k d] is [true] iff [k] has a mapping in [d]. *)
-
-  val add : 'a key -> 'a -> dict -> dict
-  (** [add k v d] is [d] with [k] mapping to [v]. *)
-
-  val rem : 'a key -> dict -> dict
-  (** [rem k d] is [d] with [k] unbound. *)
-
-  val find : 'a key -> dict -> 'a option
-  (** [find d k] is [k]'s mapping in [d], if any. *)
-
-  val get : 'a key -> dict -> 'a
-  (** [get k d] is [k]'s mapping in [d].
-
-      {b Raises.} [Invalid_argument] if [k] is not bound in [d]. *)
-end
-
 (** {1 Services} *)
 
 open Rresult
@@ -790,11 +743,11 @@ module Req : sig
   type t = req
   (** The type for HTTP requests. *)
 
-  val v : ?dict:dict -> HTTP.version -> HTTP.meth -> path:HTTP.path ->
+  val v : ?info:Hmap.t -> HTTP.version -> HTTP.meth -> path:HTTP.path ->
     ?query:string -> HTTP.headers -> ?body_len:int -> body -> req
   (** [v dict v m p q hs bl b] is an HTTP request with the given components.
-      [uri_query] and [body_len] defaults to [None]. [dict] defaults to
-      {!Dict.empty}. *)
+      [uri_query] and [body_len] defaults to [None]. [info] defaults to
+      {!Hmap.empty}. *)
 
   val version : req -> HTTP.version
   (** [version r] is [r]'s
@@ -825,8 +778,8 @@ module Req : sig
   (** [headers r] is [r]'s HTTP headers. Includes at least
       the {!HTTP.host} header. *)
 
-  val dict : req -> dict
-  (** [dict r] is [r]'s dictionary. Initially empty it can be used be
+  val info : req -> Hmap.t
+  (** [info r] is [r]'s information. Initially empty it can be used be
       services and layers to store and share data. *)
 
   val body_len : req -> int option
@@ -845,8 +798,8 @@ module Req : sig
   val with_path : req -> HTTP.path -> req
   (** [with_path req p] is [req] with path [p]. *)
 
-  val with_dict : req -> dict -> req
-  (** [with_dict req d] is [req] with dictionary [d]. *)
+  val with_info : req -> Hmap.t -> req
+  (** [with_info req d] is [req] with information [i]. *)
 
   val pp : Format.formatter -> req -> unit
   (** [pp ppf req] prints and unspecified representation of [req]
@@ -944,7 +897,7 @@ module Connector : sig
                | `Service of R.exn_trap ]
   (** The type for connector errors. See {!err}. *)
 
-  type conf = Dict.t
+  type conf = Hmap.t
   (** The type for connector configuration. *)
 
   type t = conf -> service -> (unit, error) result
@@ -980,7 +933,7 @@ module Connector : sig
       {{!std}standard} ones if appropriate. See also the {!Webs_unix}
       configuration keys. *)
 
-  val sendfile_header : string Dict.key
+  val sendfile_header : string Hmap.key
   (** [sendfile_header] is key defining a header name.
 
       {b Purpose.} If a connector supports this key, file response bodies are
@@ -990,7 +943,7 @@ module Connector : sig
       {{:https://tn123.org/mod_xsendfile/}mod_xsendfile}
       and {{:http://www.lighttpd.net/}Lightppd}. *)
 
-  val service_exn_log : Format.formatter Dict.key
+  val service_exn_log : Format.formatter Hmap.key
   (** [error_log] is a key defining a formatter to log service errors.
 
         {b Purpose.} If a connector supports this key, it must log

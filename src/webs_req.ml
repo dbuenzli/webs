@@ -14,27 +14,26 @@ type t =
     path : Webs_http.path;
     query : string option;
     headers : Webs_http.headers;
-    dict : Webs_dict.t;
+    info : Hmap.t;
     body_len : int option;
     body : unit -> (bytes * int * int) option }
 
-let v ?(dict = Webs_dict.empty) version meth ~path ?query headers
-    ?body_len body =
-  { meth; path; query; version; headers; dict; body_len; body; }
+let v ?(info = Hmap.empty) version meth ~path ?query headers ?body_len body =
+  { meth; path; query; version; headers; info; body_len; body; }
 
 let version r = r.version
 let meth r = r.meth
 let path r = r.path
 let query r = r.query
 let headers r = r.headers
-let dict r = r.dict
+let info r = r.info
 let body_len r = r.body_len
 let body r = r.body
 
 let with_headers r headers = { r with headers }
 let with_body r ~body_len body = { r with body_len; body }
 let with_path r path = { r with path }
-let with_dict r dict = { r with dict }
+let with_info r info = { r with info }
 
 let pp_body_len ppf = function
 | None -> Format.fprintf ppf "unknown"
@@ -48,14 +47,13 @@ let pp ppf r =
   Format.fprintf ppf
     "@[<1>(request@ @[(version %a)@]@ @[<1>(method %a)@]@ \
                     @[<1>(path %a)@]@ @[<1>(query %a)@]@  \
-                    %a@ %a@ \
+                    %a@ \
                     @[<1>(body-len %a)@])@]"
     Webs_http.pp_version r.version
     Webs_http.pp_meth r.meth
     (Webs_http.pp_path ~human:false ()) r.path
     pp_query r.query
     Webs_http.pp_headers r.headers
-    Webs_dict.pp r.dict
     pp_body_len r.body_len
 
 (*---------------------------------------------------------------------------

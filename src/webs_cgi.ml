@@ -24,7 +24,7 @@ let err_malformed_env b =
 
 (* Configuration keys *)
 
-let vars = Dict.key ()
+let vars = Hmap.Key.create ()
 
 (* Environment variable decoding *)
 
@@ -87,13 +87,13 @@ let http_vars_defs acc =
         normalize_name name;
         match HTTP.H.decode_name (Bytes.unsafe_to_string name) with
         | None ->
-            err_var_header_name (String.with_pos_len d ~start:0 ~len:eq_pos)
+            err_var_header_name (String.with_range d ~len:eq_pos)
         | Some name ->
             if name = HTTP.H.content_type || name = HTTP.H.content_length
             then (* skip *) Ok acc else
-            let v_start = eq_pos + 1 in
-            let v_len = String.length d - v_start in
-            let v = String.with_pos_len d ~start:v_start ~len:v_len in
+            let v_first = eq_pos + 1 in
+            let v_len = String.length d - v_first in
+            let v = String.with_range d ~first:v_first ~len:v_len in
             Ok (HTTP.H.def name v acc)
   in
   Array.fold_left add (Ok acc) (Unix.environment ())
@@ -186,7 +186,8 @@ let write_status_line oc resp =
   output_string oc "\r\n";
   ()
 
-let write_headers oc resp =
+let write_headers oc resp = ()
+(*
   let write_header n v =
     output_string oc (HTTP.H.encode_name n);
     output_char oc ':';
@@ -200,7 +201,7 @@ let write_headers oc resp =
     else write_header n (HTTP.H.encode_multi_value vs)
   in
 *)
-  failwith "TODO"; ()
+*)
 
 let write_resp oc resp =
   try
@@ -219,7 +220,7 @@ let write_resp oc resp =
 (* Connector *)
 
 let connect conf service =
-  let cgi_vars = match Dict.find vars conf with
+  let cgi_vars = match Hmap.find vars conf with
   | None -> [] | Some vars -> vars
   in
   match req_of_cgi_env cgi_vars with

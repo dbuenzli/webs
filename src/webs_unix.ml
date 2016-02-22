@@ -7,8 +7,8 @@
 open Webs
 
 (* let listen = `Addr (Unix.ADDR_INET (Unix.inet6_addr_loopback, 8080)) *)
-let listen = Dict.key ()
-let default = Dict.empty
+let listen = Hmap.Key.create ()
+let default = Hmap.empty
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2015 Daniel C. Bünzli.

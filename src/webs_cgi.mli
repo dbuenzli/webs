@@ -33,7 +33,7 @@ open Webs
 	  {ul
 	  {- {!Conf.sendfile_header}}} *)
 
-val vars : string list Dict.key
+val vars : string list Hmap.key
 (** [vars] is a list of CGI environment variables that are added
     to the request's {!Webs.Req.headers} in the request if they are
     defined. See {{!req}here} for details about how the header is

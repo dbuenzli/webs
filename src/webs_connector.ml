@@ -25,13 +25,13 @@ let open_error = function
 
 (* Connectors *)
 
-type conf = Webs_dict.t
+type conf = Hmap.t
 type t = conf -> (Webs_req.t -> Webs_resp.t) -> (unit, error) result
 
 (* Standard configuration keys *)
 
-let sendfile_header : string Webs_dict.key = Webs_dict.key ()
-let service_exn_log : Format.formatter Webs_dict.key = Webs_dict.key ()
+let sendfile_header : string Hmap.key = Hmap.Key.create ()
+let service_exn_log : Format.formatter Hmap.key = Hmap.Key.create ()
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2015 Daniel C. Bünzli.

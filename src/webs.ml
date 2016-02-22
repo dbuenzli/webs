@@ -4,11 +4,6 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(* Dictionaries *)
-
-module Dict = Webs_dict
-type dict = Dict.t
-
 (* Services *)
 
 module HTTP = Webs_http

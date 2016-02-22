@@ -1,4 +1,4 @@
-PKG cmdliner rresult astring
+PKG cmdliner rresult astring hmap
 S src
 S test
 B _build/**
