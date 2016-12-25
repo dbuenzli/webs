@@ -1,6 +1,5 @@
 (* This code is in the public domain *)
 
-open Rresult
 open Webs
 
 let revolt r = match Req.meth r with
@@ -12,8 +11,7 @@ let revolt r = match Req.meth r with
     let headers = HTTP.H.(empty |> def allow (HTTP.encode_meth `GET)) in
     Resp.v HTTP.s405_not_allowed headers Resp.empty_body
 
-
-let conf = Dict.(add Webs_cgi.vars ["SERVER_SOFTWARE"] empty)
+let conf = Hmap.(add Webs_cgi.vars ["SERVER_SOFTWARE"] empty)
 
 let () = match Webs_cgi.connect conf revolt with
 | Error e -> Format.eprintf "%a%!" Webs.Connector.pp_error e; exit 1

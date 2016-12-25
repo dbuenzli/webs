@@ -1,65 +1,64 @@
 description = "Web server interface to OCaml"
 version = "%%VERSION%%"
 
-requires = "rresult"
+requires = "rresult hmap astring"
 archive(byte) = "webs.cma"
-archive(byte, plugin) = "webs.cma"
 archive(native) = "webs.cmxa"
-archive(native, plugin) = "webs.cmxs"
+plugin(byte) = "webs.cma"
+plugin(native) = "webs.cmxs"
 exists_if = "webs.cma"
 
 package "cgi" (
   description = "Webs CGI connector"
   version = "%%VERSION%%"
-  requires "rresult webs"
+  requires = "rresult webs"
   archive(byte) = "webs_cgi.cma"
-  archive(byte, plugin) = "webs_cgi.cma"
   archive(native) = "webs_cgi.cmxa"
-  archive(native, plugin) = "webs_cgi.cmxs"
+  plugin(byte) = "webs_cgi.cma"
+  plugin(native) = "webs_cgi.cmxs"
   exists_if = "webs_cgi.cma"
 )
 
 package "scgi" (
   description = "Webs SCGI connector"
   version = "%%VERSION%%"
-  requires "rresult webs bos.unix"
-  requires "bos.unix webs"
+  requires = "rresult webs bos"
   archive(byte) = "webs_scgi.cma"
-  archive(byte, plugin) = "webs_scgi.cma"
   archive(native) = "webs_scgi.cmxa"
-  archive(native, plugin) = "webs_scgi.cmxs"
+  plugin(byte) = "webs_scgi.cma"
+  plugin(native) = "webs_scgi.cmxs"
   exists_if = "webs_scgi.cma"
 )
 
 package "unix" (
   description = "Webs configuration keys for unix backends"
   version = "%%VERSION%%"
-  requires "unix rresult webs"
+  requires = "unix rresult webs"
   archive(byte) = "webs_services.cma"
-  archive(byte, plugin) = "webs_services.cma"
   archive(native) = "webs_services.cmxa"
-  archive(native, plugin) = "webs_services.cmxs"
+  plugin(byte) = "webs_services.cma"
+  plugin(native) = "webs_services.cmxs"
   exists_if = "webs_services.cma"
 )
 
 package "use" (
   description = "Webs utility services and layers"
   version = "%%VERSION%%"
-  requires "webs"
+  requires = "webs"
   archive(byte) = "webs_use.cma"
-  archive(byte, plugin) = "webs_use.cma"
   archive(native) = "webs_use.cmxa"
-  archive(native, plugin) = "webs_use.cmxs"
+  plugin(byte) = "webs_use.cma"
+  plugin(native) = "webs_use.cmxs"
   exists_if = "webs_use.cma"
 )
 
 package "cli" (
   description = "Webs command line interface support"
   version = "%%VERSION%%"
-  requires "cmdliner webs"
+  requires = "cmdliner webs"
   archive(byte) = "webs_cli.cma"
-  archive(byte, plugin) = "webs_cli.cma"
   archive(native) = "webs_cli.cmxa"
-  archive(native, plugin) = "webs_cli.cmxs"
+  plugin(byte) = "webs_cli.cma"
+  plugin(native) = "webs_cli.cmxs"
   exists_if = "webs_cli.cma"
 )
