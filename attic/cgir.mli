@@ -1,5 +1,5 @@
 (*----------------------------------------------------------------------------
-   Copyright (c) 2007 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2007 The webs programmers. All rights reserved.
    Distributed under a BSD license, see license at the end of the file.
    Cgir version %%VERSION%%
   ----------------------------------------------------------------------------*)
@@ -184,7 +184,7 @@ let () = main ()
 *)
 
 (*----------------------------------------------------------------------------
-  Copyright (c) %%COPYRIGHTYEAR%%, Daniel C. Bünzli
+  Copyright (c) %%COPYRIGHTYEAR%%, The webs programmers
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -199,7 +199,7 @@ let () = main ()
      documentation and/or other materials provided with the
      distribution.
 
-  3. Neither the name of the Daniel C. Bünzli nor the names of
+  3. Neither the name of the The webs programmers nor the names of
      contributors may be used to endorse or promote products derived
      from this software without specific prior written permission.
 

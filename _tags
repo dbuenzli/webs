@@ -1,9 +1,16 @@
-<**/*.{ml,mli}> : bin_annot, safe_string
-true : package(rresult), package(hmap), package(astring)
+true : bin_annot, safe_string
+<_b0> : -traverse
 <src> : include
+<src/vendor> : include
 <src/webs_cgi*> : package(unix)
-<src/webs_scgi*> : package(unix)
+<src/webs_httpc*> : thread, package(threads.posix, unix)
 <src/webs_unix*> : package(unix)
+<src/webs_unix.{cma,cmxa}> : record_webs_unix_stubs
+<src/webs_unix.cmxs> : link_webs_unix_stubs
+<src/webs_kit.{cma,cmxa}> : record_webs_kit_stubs
+<src/webs_kit.cmxs> : link_webs_kit_stubs
 <src/webs_cli*> : package(cmdliner)
 <test> : include
-<test/*> : package(unix)
+<test/*> : package(unix), use_webs_unix_stubs, use_webs_kit_stubs
+<test/{httpc,multic}*> : thread, package(threads.posix)
+<test/webs_tool*> : thread, package(threads.posix), package(cmdliner)

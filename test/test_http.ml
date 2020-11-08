@@ -1,138 +1,133 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 The webs programmers. All rights reserved.
    Distributed under the ISC license, see terms at the end of the file.
-   %%NAME%% %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-open Testing
 open Webs
 
-let test_version =
-  test "Webs.HTTP.{decode,encode}_version" @@ fun () ->
-  let pp_ipair ppf (x,y) = Format.fprintf ppf "(%d,%d)" x y in
-  let eq_dec = eq_option ~eq:(=) ~pp:pp_ipair in
-  eq_dec (HTTP.decode_version "HTTP/0.9") (Some (0, 9));
-  eq_dec (HTTP.decode_version "HTTP/1.0") (Some (1, 0));
-  eq_dec (HTTP.decode_version "HTTP/1.1") (Some (1, 1));
-  eq_dec (HTTP.decode_version "HTTP/1.2") (Some (1, 2));
-  eq_dec (HTTP.decode_version "HTTP/2.2") (Some (2, 2));
-  eq_dec (HTTP.decode_version "HTTP /1.1") None;
-  eq_dec (HTTP.decode_version "HTTP/1.1 ") None;
-  eq_dec (HTTP.decode_version "HTTP/1.10") None;
-  eq_dec (HTTP.decode_version "HTTP/10.1") None;
-  eq_str (HTTP.encode_version (0, 9)) "HTTP/0.9";
-  eq_str (HTTP.encode_version (1, 0)) "HTTP/1.0";
-  eq_str (HTTP.encode_version (1, 1)) "HTTP/1.1";
-  eq_str (HTTP.encode_version (2, 2)) "HTTP/2.2";
-  app_invalid ~pp:pp_str HTTP.encode_version (2,10);
+let log = print_endline
+
+let raises_invalid f = try f (); assert false with Invalid_argument _ -> ()
+
+let test_version () =
+  log "Webs.Http.Version.{encode,decode}";
+  assert (Http.Version.decode "HTTP/0.9" = Ok (0, 9));
+  assert (Http.Version.decode "HTTP/1.0" = Ok (1, 0));
+  assert (Http.Version.decode "HTTP/1.1" = Ok (1, 1));
+  assert (Http.Version.decode "HTTP/1.2" = Ok (1, 2));
+  assert (Http.Version.decode "HTTP/2.2" = Ok (2, 2));
+  assert (Result.is_error @@ Http.Version.decode "HTTP /1.1");
+  assert (Result.is_error @@ Http.Version.decode "HTTP/1.1 ");
+  assert (Result.is_error @@ Http.Version.decode "HTTP/1.10");
+  assert (Result.is_error @@ Http.Version.decode "HTTP/10.1");
+  assert (Http.Version.encode (0, 9) = "HTTP/0.9");
+  assert (Http.Version.encode (1, 0) = "HTTP/1.0");
+  assert (Http.Version.encode (1, 1) = "HTTP/1.1");
+  assert (Http.Version.encode (2, 2) = "HTTP/2.2");
   ()
 
-let test_method =
-  test "Webs.HTTP.{decode,encode}_meth" @@ fun () ->
-  let eq_meth = eq_option ~eq:(=) ~pp:HTTP.pp_meth in
-  eq_meth (HTTP.decode_meth "GET") (Some `GET);
-  eq_meth (HTTP.decode_meth "HEAD") (Some `HEAD);
-  eq_meth (HTTP.decode_meth "POST") (Some `POST);
-  eq_meth (HTTP.decode_meth "PUT") (Some `PUT);
-  eq_meth (HTTP.decode_meth "DELETE") (Some `DELETE);
-  eq_meth (HTTP.decode_meth "CONNECT") (Some `CONNECT);
-  eq_meth (HTTP.decode_meth "OPTIONS") (Some `OPTIONS);
-  eq_meth (HTTP.decode_meth "TRACE") (Some `TRACE);
-  eq_meth (HTTP.decode_meth "PATCH") (Some `PATCH);
-  eq_meth (HTTP.decode_meth "Get") (Some (`Other "Get"));
-  eq_meth (HTTP.decode_meth " GET") None;
-  eq_meth (HTTP.decode_meth " Get") None;
-  eq_meth (HTTP.decode_meth "Get,Get") None;
-  eq_str (HTTP.encode_meth `GET) "GET";
-  eq_str (HTTP.encode_meth `HEAD) "HEAD";
-  eq_str (HTTP.encode_meth `POST) "POST";
-  eq_str (HTTP.encode_meth `PUT) "PUT";
-  eq_str (HTTP.encode_meth `DELETE) "DELETE";
-  eq_str (HTTP.encode_meth `CONNECT) "CONNECT";
-  eq_str (HTTP.encode_meth `OPTIONS) "OPTIONS";
-  eq_str (HTTP.encode_meth `TRACE) "TRACE";
-  eq_str (HTTP.encode_meth `PATCH) "PATCH";
-  eq_str (HTTP.encode_meth (`Other "Get")) "Get";
-  app_invalid ~pp:pp_str HTTP.encode_meth (`Other " Get");
-  app_invalid ~pp:pp_str HTTP.encode_meth (`Other "Get,Get");
+let test_method () =
+  log "Webs.Http.Meth.{encode,decode}";
+  assert (Http.Meth.decode "GET" = Ok `GET);
+  assert (Http.Meth.decode "HEAD" = Ok `HEAD);
+  assert (Http.Meth.decode "POST" = Ok `POST);
+  assert (Http.Meth.decode "PUT" = Ok `PUT);
+  assert (Http.Meth.decode "DELETE" = Ok `DELETE);
+  assert (Http.Meth.decode "CONNECT" = Ok `CONNECT);
+  assert (Http.Meth.decode "OPTIONS" = Ok `OPTIONS);
+  assert (Http.Meth.decode "TRACE" = Ok `TRACE);
+  assert (Http.Meth.decode "PATCH" = Ok `PATCH);
+  assert (Http.Meth.decode "Get" = Ok (`Other "Get"));
+  assert (Result.is_error @@ Http.Meth.decode " GET");
+  assert (Result.is_error @@ Http.Meth.decode " Get");
+  assert (Result.is_error @@ Http.Meth.decode "Get,Get");
+  assert (Http.Meth.encode `GET = "GET");
+  assert (Http.Meth.encode `HEAD = "HEAD");
+  assert (Http.Meth.encode `POST = "POST");
+  assert (Http.Meth.encode `PUT = "PUT");
+  assert (Http.Meth.encode `DELETE = "DELETE");
+  assert (Http.Meth.encode `CONNECT = "CONNECT");
+  assert (Http.Meth.encode `OPTIONS = "OPTIONS");
+  assert (Http.Meth.encode `TRACE = "TRACE");
+  assert (Http.Meth.encode `PATCH = "PATCH");
+  assert (Http.Meth.encode (`Other "Get") = "Get");
+  raises_invalid (fun () -> Http.Meth.encode (`Other " Get"));
+  raises_invalid (fun () -> Http.Meth.encode (`Other "Get,Get"));
   ()
 
-let test_headers_case =
-  test "Webs.HTTP.headers case" @@ fun () ->
-  let hs = HTTP.H.(empty |> def (name "ha") "ho") in
-  eq_bool HTTP.H.(is_def (name "Ha") hs) true;
+let test_headers_case () =
+  log "Webs.Http.headers case";
+  let hs = Http.H.(empty |> set (Http.Name.v "ha") "ho") in
+  assert (Http.H.(mem (Http.Name.v "Ha") hs));
   ()
 
-let test_path =
-  test "Webs.HTTP.{decode,encode}_path" @@ fun () ->
-  let eq_path = eq_option ~eq:(=) ~pp:(HTTP.pp_path ()) in
-  eq_path (HTTP.decode_path "/") (Some [""]);
-  eq_path (HTTP.decode_path "//") (Some ["";""]);
-  eq_path (HTTP.decode_path "/a/b/c") (Some ["a"; "b"; "c";]);
-  eq_path (HTTP.decode_path "/a/b//c") (Some ["a"; "b"; ""; "c";]);
-  eq_path (HTTP.decode_path "/a/b/c/") (Some ["a"; "b"; "c";""]);
-  eq_path (HTTP.decode_path "/a/b//c") (Some ["a"; "b"; ""; "c";]);
-  eq_path (HTTP.decode_path "/a/b/c/%20") (Some ["a"; "b"; "c"; " "]);
-  eq_path (HTTP.decode_path "/a/b//c//") (Some ["a"; "b"; ""; "c"; ""; ""]);
-  eq_path (HTTP.decode_path "/a/%2F/b") (Some ["a"; "/"; "b";]);
-  eq_path (HTTP.decode_path "/a//b") (Some ["a"; ""; "b";]);
-  eq_path (HTTP.decode_path "/r%C3%A9volte") (Some ["r\xC3\xA9volte";]);
-  eq_path (HTTP.decode_path "/r%c3%a9volte") (Some ["r\xC3\xA9volte";]);
-  eq_path (HTTP.decode_path "/a/not%2520/b") (Some ["a"; "not%20"; "b"]) ;
-  eq_path (HTTP.decode_path "/a/b/c/ ") None;
-  eq_path (HTTP.decode_path " /a/b/c/") None;
-  eq_path (HTTP.decode_path "/a/?/c/") None;
-  eq_path (HTTP.decode_path "/a/#/c/") None;
-  eq_path (HTTP.decode_path "/a/[/c/") None;
-  eq_path (HTTP.decode_path "/a/%") None;
-  eq_path (HTTP.decode_path "/a/%!") None;
-  eq_path (HTTP.decode_path "/a/%F!") None;
-  eq_str (HTTP.encode_path [""]) "/";
-             eq_str (HTTP.encode_path [""; ""]) "//";
-  eq_str (HTTP.encode_path ["a";"b";"c"]) "/a/b/c";
-  eq_str (HTTP.encode_path ["a";"b";"";"c";]) "/a/b//c";
-  eq_str (HTTP.encode_path ["a";"b";"c";""]) "/a/b/c/";
-  eq_str (HTTP.encode_path ["a";"b";"c";" "]) "/a/b/c/%20";
-  eq_str (HTTP.encode_path ["a";"b";"c";"";""]) "/a/b/c//";
-  eq_str (HTTP.encode_path ["a"; "b/"; "c"]) "/a/b%2F/c";
-  eq_str (HTTP.encode_path ["r\xC3\xC9volte"]) "/r%C3%C9volte";
-  eq_str (HTTP.encode_path ["a"; "not%20"; "b"]) "/a/not%2520/b";
-  eq_str (HTTP.encode_path ["a"; "/"; "b"]) "/a/%2F/b";
-  eq_str (HTTP.encode_path ["a"; "a,b;c=3"; "c"]) "/a/a,b;c=3/c";
-  app_invalid ~pp:pp_str HTTP.encode_path [];
+let test_path () =
+  log "Webs.Http.Path.{encode,decode}";
+  assert (Http.Path.decode "/" = Ok [""]);
+  assert (Http.Path.decode "//" = Ok ["";""]);
+  assert (Http.Path.decode "/a/b/c" = Ok ["a"; "b"; "c";]);
+  assert (Http.Path.decode "/a/b//c" = Ok ["a"; "b"; ""; "c";]);
+  assert (Http.Path.decode "/a/b/c/" = Ok ["a"; "b"; "c";""]);
+  assert (Http.Path.decode "/a/b//c" = Ok ["a"; "b"; ""; "c";]);
+  assert (Http.Path.decode "/a/b/c/%20" = Ok ["a"; "b"; "c"; " "]);
+  assert (Http.Path.decode "/a/b//c//" = Ok ["a"; "b"; ""; "c"; ""; ""]);
+  assert (Http.Path.decode "/a/%2F/b" = Ok ["a"; "/"; "b";]);
+  assert (Http.Path.decode "/a//b" = Ok ["a"; ""; "b";]);
+  assert (Http.Path.decode "/r%C3%A9volte" = Ok ["r\xC3\xA9volte";]);
+  assert (Http.Path.decode "/r%c3%a9volte" = Ok ["r\xC3\xA9volte";]);
+  assert (Http.Path.decode "/a/not%2520/b" = Ok ["a"; "not%20"; "b"]) ;
+  assert (Result.is_error @@ Http.Path.decode "/a/b/c/ ");
+  assert (Result.is_error @@ Http.Path.decode " /a/b/c/");
+  assert (Result.is_error @@ Http.Path.decode "/a/?/c/");
+  assert (Result.is_error @@ Http.Path.decode "/a/#/c/");
+  assert (Result.is_error @@ Http.Path.decode "/a/[/c/");
+  assert (Http.Path.decode "/a/%" = Ok ["a"; "%"]);
+  assert (Http.Path.decode "/a/%!" = Ok ["a"; "%!"]);
+  assert (Http.Path.decode "/a/%F!" = Ok ["a"; "%F!"]);
+  assert (Http.Path.encode [""] = "/");
+  assert (Http.Path.encode [""; ""] = "//");
+  assert (Http.Path.encode ["a";"b";"c"] = "/a/b/c");
+  assert (Http.Path.encode ["a";"b";"";"c";] = "/a/b//c");
+  assert (Http.Path.encode ["a";"b";"c";""] = "/a/b/c/");
+  assert (Http.Path.encode ["a";"b";"c";" "] = "/a/b/c/%20");
+  assert (Http.Path.encode ["a";"b";"c";"";""] = "/a/b/c//");
+  assert (Http.Path.encode ["a"; "b/"; "c"] = "/a/b%2F/c");
+  assert (Http.Path.encode ["r\xC3\xC9volte"] = "/r%C3%C9volte");
+  assert (Http.Path.encode ["a"; "not%20"; "b"] = "/a/not%2520/b");
+  assert (Http.Path.encode ["a"; "/"; "b"] = "/a/%2F/b");
+  assert (Http.Path.encode ["a"; "a,b;c=3"; "c"] = "/a/a,b;c=3/c");
+  assert (Http.Path.encode [] = "");
   ()
 
-let test_digits =
-  test "Webs.HTTP.{decode,encode}_digits" @@ fun () ->
+let test_digits () =
+  log "Webs.Http.H.digits_{of,to}_string";
   let overflow = (Format.asprintf "%d0" max_int) in
-  let eq_digits = eq_option ~eq:(=) ~pp:Format.pp_print_int in
-  eq_digits (HTTP.decode_digits "0") (Some 0);
-  eq_digits (HTTP.decode_digits "42") (Some 42);
-  eq_digits (HTTP.decode_digits "042") (Some 42);
-  eq_digits (HTTP.decode_digits "1024") (Some 1024);
-  eq_digits (HTTP.decode_digits overflow) None;
-  eq_digits (HTTP.decode_digits "") None;
-  eq_digits (HTTP.decode_digits "-1") None;
-  eq_str (HTTP.encode_digits 0) "0";
-  eq_str (HTTP.encode_digits 42) "42";
-  eq_str (HTTP.encode_digits 1024) "1024";
-  app_invalid ~pp:pp_str HTTP.encode_digits (-1);
-  app_invalid ~pp:pp_str HTTP.encode_digits min_int;
+  assert (Http.H.digits_of_string "0" = Ok 0);
+  assert (Http.H.digits_of_string "42" = Ok 42);
+  assert (Http.H.digits_of_string "042" = Ok 42);
+  assert (Http.H.digits_of_string "1024" = Ok 1024);
+  assert (Result.is_error @@ Http.H.digits_of_string overflow);
+  assert (Result.is_error @@ Http.H.digits_of_string "");
+  assert (Result.is_error @@ Http.H.digits_of_string "-1");
+  assert (Http.H.digits_to_string 0 = "0");
+  assert (Http.H.digits_to_string 42 = "42");
+  assert (Http.H.digits_to_string 1024 = "1024");
+  raises_invalid (fun () -> Http.H.digits_to_string (-1));
+  raises_invalid (fun () -> Http.H.digits_to_string min_int);
   ()
 
-let suite =
-  suite "Testing Webs.HTTP" @@ fun () ->
+let main () =
   test_version ();
   test_method ();
   test_headers_case ();
   test_path ();
   test_digits ();
-  ()
+  print_endline "All tests succeeded."
 
-let () = suite ()
+let () = main ()
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2015 Daniel C. Bünzli
+   Copyright (c) 2015 The webs programmers
 
    Permission to use, copy, modify, and/or distribute this software for any
    purpose with or without fee is hereby granted, provided that the above

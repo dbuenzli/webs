@@ -1,0 +1,16 @@
+{0:tutorial Tutorial}
+
+{1:basics Basics}
+
+Webs is a library not a framework, it provides you tools to build an
+application rather than decide on how it should be structured.
+
+Webs' view of a web service is however not different from most web
+server-side frameworks and sees it as a function mapping HTTP
+requests to responses.
+
+{ul
+{- Note about routing and callback soups}
+{- Note about "middleware" which are not}
+{- Note about transforming req/resp to/from data structure
+   and keep the routing to minimal service binding points}}

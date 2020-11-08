@@ -1,17 +1,54 @@
-description = "Web server interface to OCaml"
-version = "%%VERSION%%"
+description = "Web service toolkit"
+version = "%%VERSION_NUM%%"
 
-requires = "rresult hmap astring"
+requires = ""
 archive(byte) = "webs.cma"
 archive(native) = "webs.cmxa"
 plugin(byte) = "webs.cma"
 plugin(native) = "webs.cmxs"
 exists_if = "webs.cma"
 
+package "kit" (
+  description = "Webs toolkit"
+  version = "%%VERSION_NUM%%"
+  directory = "kit"
+  requires = "webs"
+  archive(byte) = "webs_kit.cma"
+  archive(native) = "webs_kit.cmxa"
+  plugin(byte) = "webs_kit.cma"
+  plugin(native) = "webs_kit.cmxs"
+  exists_if = "webs_kit.cma"
+)
+
+package "websocket" (
+  description = "Webs websocket library"
+  version = "%%VERSION_NUM%%"
+  directory = "websocket"
+  requires = "webs webs.kit"
+  archive(byte) = "webs_websocket.cma"
+  archive(native) = "webs_websocket.cmxa"
+  plugin(byte) = "webs_websocket.cma"
+  plugin(native) = "webs_websocket.cmxs"
+  exists_if = "webs_websocket.cma"
+)
+
+package "unix" (
+  description = "Webs unix tooling"
+  version = "%%VERSION_NUM%%"
+  directory = "unix"
+  requires = "unix webs"
+  archive(byte) = "webs_unix.cma"
+  archive(native) = "webs_unix.cmxa"
+  plugin(byte) = "webs_unix.cma"
+  plugin(native) = "webs_unix.cmxs"
+  exists_if = "webs_unix.cma"
+)
+
 package "cgi" (
   description = "Webs CGI connector"
-  version = "%%VERSION%%"
-  requires = "rresult webs"
+  version = "%%VERSION_NUM%%"
+  directory = "cgi"
+  requires = "unix webs webs.kit webs.unix"
   archive(byte) = "webs_cgi.cma"
   archive(native) = "webs_cgi.cmxa"
   plugin(byte) = "webs_cgi.cma"
@@ -19,43 +56,23 @@ package "cgi" (
   exists_if = "webs_cgi.cma"
 )
 
-package "scgi" (
-  description = "Webs SCGI connector"
-  version = "%%VERSION%%"
-  requires = "rresult webs bos"
-  archive(byte) = "webs_scgi.cma"
-  archive(native) = "webs_scgi.cmxa"
-  plugin(byte) = "webs_scgi.cma"
-  plugin(native) = "webs_scgi.cmxs"
-  exists_if = "webs_scgi.cma"
-)
-
-package "unix" (
-  description = "Webs configuration keys for unix backends"
-  version = "%%VERSION%%"
-  requires = "unix rresult webs"
-  archive(byte) = "webs_services.cma"
-  archive(native) = "webs_services.cmxa"
-  plugin(byte) = "webs_services.cma"
-  plugin(native) = "webs_services.cmxs"
-  exists_if = "webs_services.cma"
-)
-
-package "use" (
-  description = "Webs utility services and layers"
-  version = "%%VERSION%%"
-  requires = "webs"
-  archive(byte) = "webs_use.cma"
-  archive(native) = "webs_use.cmxa"
-  plugin(byte) = "webs_use.cma"
-  plugin(native) = "webs_use.cmxs"
-  exists_if = "webs_use.cma"
+package "httpc" (
+  description = "Webs HTTP/1.1 connector"
+  version = "%%VERSION_NUM%%"
+  directory = "httpc"
+  requires = "threads unix webs webs.unix"
+  archive(byte) = "webs_httpc.cma"
+  archive(native) = "webs_httpc.cmxa"
+  plugin(byte) = "webs_httpc.cma"
+  plugin(native) = "webs_httpc.cmxs"
+  exists_if = "webs_httpc.cma"
 )
 
 package "cli" (
   description = "Webs command line interface support"
-  version = "%%VERSION%%"
-  requires = "cmdliner webs"
+  version = "%%VERSION_NUM%%"
+  directory = "cli"
+  requires = "cmdliner webs webs.unix webs.httpc"
   archive(byte) = "webs_cli.cma"
   archive(native) = "webs_cli.cmxa"
   plugin(byte) = "webs_cli.cma"

@@ -1,0 +1,199 @@
+{0 Web service howto}
+
+This manual gets you started to connect your service to an HTTP
+gateway.
+
+{1:service Define your service}
+
+In this example we use the pre-canned {!val:Webs.Resp.echo} service
+which writes back requests and their bodies as 404. We use
+{!Webs_cli.quick_serve} function, it kills a bit of boilerplate and
+setups a basic command line interface. The function uses the
+HTTP/1.1 {!Webs_httpc} gateway connector which makes it for convenient
+local testing.
+
+{[
+cat - > min.ml <<EOF
+open Webs
+
+let service = Resp.echo
+let main () = Webs_cli.quick_serve ~name:"min" service
+let () = if !Sys.interactive then () else main ()
+EOF
+]}
+
+Compile the service:
+
+{v
+ocamlfind ocamlopt -linkpkg -thread -g -package webs,webs.cli -o min min.ml
+v}
+
+Now run the service and check it works correctly. By default
+{!Webs_cli.quick_serve} bind [localhost] on the port [8000] so try:
+{v
+./min &
+curl -i http://localhost:8000
+v}
+You should get a response like:
+{v
+HTTP/1.1 404 Not Found
+content-type: text/plain;charset=utf-8
+content-length: 152
+connection: close
+
+(version HTTP/1.1)
+(method GET)
+(request-target /)
+(path "")
+(query )
+(accept "*/*")
+(host "localhost:8000")
+(user-agent "curl/7.64.1")
+(body-length 0)
+v}
+
+{1:gateway Connect the gateway}
+
+If you can't find instructions for your web server
+below you should be able to apply those of [nginx] {e mutatis mutandis}.
+
+{2:nginx Nginx}
+
+We assume you are running [nginx] to serve the [https://example.org]
+web site and that you want to bind your service using
+[https://example.org/myservice/] as the root for requests.
+
+Edit the configuration file of your web site in
+[/etc/nginx/sites-available/example.org] and add the
+following location block:
+
+{[
+location /myservice/ {
+   proxy_http_version 1.1;
+   proxy_pass http://localhost:8000/; # Slash drops /myservice/ from reqs
+   proxy_set_header Upgrade $http_upgrade;       # If you need websockets
+   proxy_set_header Connection $http_connection; # If you need websockets
+}
+]}
+
+Now reload the web server configuration. One of the following two should
+do.
+
+{v
+systemctl reload nginx   # If you are using systemd
+nginx -s reload          # Otherwise
+v}
+
+Your service must now be connected to the interwebs over HTTPS. Try:
+{[
+curl -i https://example.org/myservice/hello
+]}
+to see if you get a response. If not you may want to dig into nginx's
+error logs, for example in [/var/logs/nginx] or [journalctl -u nginx.service].
+
+There are quite a few things that can be tweaked in that [proxy_pass]
+location block, for example to add custom request headers for your
+service, see the nginx
+{{:https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/}reverse
+proxy manual} for details.
+
+{1:serving_files Serving files}
+
+File serving over HTTP should correctly handle:
+
+{ul
+{- {{:https://en.wikipedia.org/wiki/Directory_traversal_attack}
+   Directory traversals} exploits. That is make sure only files from
+   a given dedicated directory are being served. For this use
+   {!Webs.Http.Path.to_undotted_filepath} to transform request
+   targets into file paths.}
+{- Etags and range requests for efficient and restartable transfers.}}
+
+You can use {!Webs_unix.send_file} to serve files with your
+service. This takes care of these points and transmits the file with
+the {{:https://linux.die.net/man/2/sendfile}[sendfile(2)]} system call
+if available. The advantage of this approach is that it keeps your
+gateway configuration simple.
+
+Alternatively most gateways let backend services handoff requests back
+to the gateway by writing special headers in the response. Use the
+function {!Webs_kit.Gateway.send_file} for this. How to use it exactly
+depends on your gateway. The advantage of this approach is that your
+service doesn't depend on {!Unix} (you may care) and allows to take
+advantage of your gateway's load balancing capabilities.
+
+These two alternatives are detailed on a simple example below.
+
+{2:service_files Via the service}
+
+In this example any [GET] request of the form [/assets/*] is
+looked up as the [/my/files/*] file and directly served by the
+service.
+
+{[
+open Webs
+open Webs_kit
+let ( let* ) = Result.bind
+
+let docroot = "/my/files"
+let service r =
+  Resp.result @@ match Req.path r with
+  | "assets" :: _ ->
+      let* r = Res.allow [`GET] r in
+      Webs_unix.send_file ~docroot r
+  | _ ->
+      Ok (Resp.v Http.s404_not_found)
+
+let main () = Webs_cli.quick_serve ~name:"files_unix" service
+let () = if !Sys.interactive then () else main ()
+]}
+
+{2:gateway_files Via the gateway}
+
+In this example the service runs with [nginx] on [/myservice] and
+any [GET] request on the service of the form [/assets/*]
+is served by the gateway as the [/my/files/*] file.
+
+We start by configuring [nginx] as follows:
+
+{v
+location /myservice/ {
+   proxy_http_version 1.1;
+   proxy_pass http://localhost:8000/; # Slash drops /myservice/ from reqs
+}
+
+location /myservice-files/assets
+{
+  internal;
+  alias /my/files;
+}
+v}
+
+With this configuration internal redirects of the form
+[/myservice-files/assets/*] serve the file [/my/files/*].
+
+Now our Webs service just captures [/assets/*] requests and internally
+redirects them to [/myservice-files/assets/*] by using
+{!Webs_kit.Gateway.send_file} with the [nginx] specific
+{!Webs_kit.Gateway.x_accel_redirect} header.
+
+{[
+open Webs
+open Webs_kit
+let ( let* ) = Result.bind
+
+let prefix = "/myservice-files"
+let service r =
+  Resp.result @@ match Req.path r with
+  | "assets" :: _ ->
+      let* r = Res.allow [`GET] r in
+      Gateway.send_file ~prefix ~header:Gateway.x_accel_redirect r
+  | _ ->
+      Ok (Resp.v Http.s404_not_found)
+
+let main () = Webs_cli.quick_serve ~name:"files_gateway" service
+let () = if !Sys.interactive then () else main ()
+]}
+
+Note that if your [nginx] gateway is configured to do so this properly
+handles [etags] and range requests.

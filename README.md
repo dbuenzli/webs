@@ -1,25 +1,21 @@
-Webs — Web service interface for OCaml
--------------------------------------------------------------------------------
+Webs — Web service toolkit for OCaml
+====================================
 %%VERSION%%
 
-Webs defines a generic and *low-level* interface for web services
-implemented in OCaml.
+Webs is a toolkit for programming web services in OCaml. It provides:
 
-The interaction between the service and the HTTP web server that runs
-it is mediated by a connector whose details depend on the
-webserver.
+* A generic low-level interface for defining web services in terms
+  of HTTP request-responses cycles.
+* Optional service building blocks. File serving, authenticated
+  cookies, sessions, etc.
+* Connectors. They run services and are in charge of talking 
+  to the HTTP gateway or client. CGI and HTTP/1.1 gateway
+  connectors are provided, but you can bring your own.
 
-Webs provides optional CGI and SCGI connectors.
+Webs tries as much as possible to be a library and not a framework.
 
-Webs depends on [rresult][rresult], [hmap][hmap] and
-[astring][astring].  The optional SCGI connector depend on [bos][bos]
-and OCaml's Unix library.  Webs and its connectors are distributed the
-ISC license.
-
-[rresult]: http://erratique.ch/software/rresult
-[hmap]: http://erratique.ch/software/hmap
-[astring]: http://erratique.ch/software/astring
-[bos]: http://erratique.ch/software/bos
+Webs is distributed under the ISC license. It has no dependencies. The
+connector libraries depend on OCaml's `Unix` and `Thread` modules.
 
 Home page: http://erratique.ch/software/webs  
 
@@ -28,24 +24,24 @@ Home page: http://erratique.ch/software/webs
 Webs can be installed with `opam`:
 
     opam install webs
+    opam install webs cmdliner   # with cmdliner support
 
 If you don't use `opam` consult the [`opam`](opam) file for build
 instructions.
 
 ## Documentation
 
-The documentation and API reference is generated from the source
-interfaces. It can be consulted [online][doc] or via `odig doc webs`.
+The documentation can be consulted [online][doc] or via `odig doc webs`.
 
-[doc]: http://erratique.ch/software/webs/doc/Webs
+Questions are welcome but better asked on the [OCaml forum][ocaml-forum] 
+than on the issue tracker.
 
-## Sample programs
+[doc]: https://erratique.ch/software/webs/doc
+[ocaml-forum]: https://discuss.ocaml.org/
 
-If you installed webs with `opam` sample programs are located in
-the directory `opam config var webs:doc`.
+## Sample programs 
 
-In the distribution sample programs are located in the `test`
-directory of the distribution. They can be built with:
+A few programs can be found in the [test][test] directory. 
 
-    topkg build --tests true && topkg test
-
+The [`webs`](test/webs_tool) command line tool serves your files
+over HTTP/1.1.

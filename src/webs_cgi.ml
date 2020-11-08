@@ -1,238 +1,206 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 The webs programmers. All rights reserved.
    Distributed under the ISC license, see terms at the end of the file.
-   %%NAME%% %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-open Rresult
-open Astring
 open Webs
 
-(* Errors *)
+let strf = Printf.sprintf
+let ( let* ) = Result.bind
 
-let err_var_undef var =
-  R.error_msgf "variable %S: undefined in environment" var
+module Smap = Map.Make (String)
+let chop_prefix ~prefix s =
+  if not (Http.string_starts_with ~prefix s) then s else
+  Http.string_subrange ~first:(String.length prefix) s
 
-let err_var_dec var v kind =
-  R.error_msgf "variable %S: cannot decode %s from value %S" var kind v
+let io_buffer_size = 65536 (* IO_BUFFER_SIZE 4.0.0 *)
 
-let err_var_header_name var =
-  R.error_msgf "variable %S: cannot be represented by a header name" var
+(* Convert CGI environment variables to header names *)
 
-let err_malformed_env b =
-  R.error_msgf "malformed environment binding: %S" b
+let var_to_header_name ?(start = 0) ?(prefix = "") s =
+  let b = Bytes.create (String.length s - start) in
+  for i = 0 to String.length s - 1 - start do
+    let c = String.get s (i + start) in
+    if c = '_' then Bytes.set b i '-' else
+    Bytes.set b i (Char.lowercase_ascii c)
+  done;
+  let name = Bytes.unsafe_to_string b in
+  Http.Name.of_string (if prefix <> "" then prefix ^ name else name)
 
-(* Configuration keys *)
+let http_var_to_header_name var = var_to_header_name ~start:5 var
+let extra_var_to_header_name var =
+  match var_to_header_name ~prefix:"x-cgi-" var with
+  | Error e -> invalid_arg e | Ok n -> n
 
-let vars = Hmap.Key.create ()
+(* Connectors *)
 
-(* Environment variable decoding *)
+type t =
+  { extra_vars : (string * Http.name) list;
+    max_req_body_byte_size : int;
+    log : Connector.log_msg -> unit; }
 
-let wrap_decoder var v k dec = match dec v with
-| None -> err_var_dec var v k
-| Some v -> Ok v
-
-let decode_var var k dec =
-  try wrap_decoder var (Sys.getenv var) k dec with
-  | Not_found -> err_var_undef var
-
-let decode_var_opt var k dec =
-  try wrap_decoder var (Sys.getenv var) k dec with
-  | Not_found -> Ok None
-
-(* Request components *)
-
-let get_version () =
-  decode_var "SERVER_PROTOCOL" "HTTP version" HTTP.decode_version
-
-let get_meth () =
-  decode_var "REQUEST_METHOD" "HTTP method" HTTP.decode_meth
-
-let get_path_and_query () =
-  let decode_uri_request = function
-  | "" -> None
-  | v ->
-      let p, q = match String.cut ~sep:"?" v with
-      | None -> v, None
-      | Some (p, q) -> p, Some q
-      in
-      match HTTP.decode_path p with
-      | None -> None
-      | Some segs -> Some (segs, q)
-  in
-  decode_var "REQUEST_URI" "path and query" decode_uri_request
-
-(* Request headers *)
-
-let normalize_name n =                          (* lowercase map '_' to '-'. *)
-  for i = 0 to Bytes.length n - 1 do
-    let c = Bytes.get n i in
-    if c = '_' then Bytes.set n i '-' else
-    Bytes.set n i (Char.Ascii.lowercase c)
-  done
-
-let http_vars_defs acc =
-  let rec add acc d = acc >>= fun acc ->
-    let len = String.length d in
-    if len < 5
-       || not (d.[0] = 'H' && d.[1] = 'T' && d.[2] = 'T' && d.[3] = 'P' &&
-               d.[4] = '_')
-    then Ok acc else
-    match String.find (Char.equal '=') d with
-    | None -> err_malformed_env d
-    | Some eq_pos ->
-        let name_len = eq_pos - 5 in
-        let name = Bytes.create name_len in
-        Bytes.blit_string d 5 name 0 name_len;
-        normalize_name name;
-        match HTTP.H.decode_name (Bytes.unsafe_to_string name) with
-        | None ->
-            err_var_header_name (String.with_range d ~len:eq_pos)
-        | Some name ->
-            if name = HTTP.H.content_type || name = HTTP.H.content_length
-            then (* skip *) Ok acc else
-            let v_first = eq_pos + 1 in
-            let v_len = String.length d - v_first in
-            let v = String.with_range d ~first:v_first ~len:v_len in
-            Ok (HTTP.H.def name v acc)
-  in
-  Array.fold_left add (Ok acc) (Unix.environment ())
-
-let cgi_var_header_name var =
-  let prefix = "x-cgi-" in
-  let pre_len = String.length prefix in
-  let var_len = String.length var in
-  let name = Bytes.create (pre_len + var_len) in
-  Bytes.blit_string prefix 0 name 0 pre_len;
-  Bytes.blit_string var 0 name pre_len var_len;
-  normalize_name name;
-  HTTP.H.decode_name (Bytes.unsafe_to_string name)
-
-let cgi_vars_defs cgi_vars acc =
-  let rec loop acc = function
-  | [] -> Ok acc
-  | var :: vars ->
-      begin match cgi_var_header_name var with
-      | None -> err_var_header_name var
-      | Some n ->
-          let acc' = try HTTP.H.def n (Sys.getenv var) acc with
-          | Not_found -> acc
-          in
-          loop acc' vars
-      end
-  in
-  loop acc cgi_vars
-
-let get_headers cgi_vars =
-  let var_def var n hs =
-    try (match Sys.getenv var with "" -> hs | v -> HTTP.H.def n v hs)
-    with Not_found -> hs
-  in
-  HTTP.H.(empty
-          |> var_def "CONTENT_LENGTH" content_length
-          |> var_def "CONTENT_TYPE" content_type
-          |> cgi_vars_defs cgi_vars
-          >>= http_vars_defs)
-
-(* Request body *)
-
-let get_body_len () =
-  let decode_content_len = function
-  | "" -> Some None
-  | v ->
-      match HTTP.decode_digits v with
-      | None -> None
-      | Some v -> Some (Some v)
-  in
-  decode_var_opt "CONTENT_LENGTH" "content length" decode_content_len
-
-let get_body ic body_len = match body_len with
-| None -> fun () -> None
-| Some len ->
-    let todo = ref len in
-    let buf = ref (Bytes.create 65535) in
-    fun () ->
-      if !todo = 0 then (buf := Bytes.empty; None) else
-      let len = min !todo (Bytes.length !buf) in
-      let rc = input ic !buf 0 len in
-      todo := !todo - rc;
-      Some (!buf, 0, rc)
+let create
+    ?(log = Connector.default_log ~trace:false ())
+    ?(max_req_body_byte_size = 10 * 1024 * 1024) ?(extra_vars = []) ()
+  =
+  let with_header_name v = v, extra_var_to_header_name v in
+  let extra_vars = List.map with_header_name extra_vars in
+  { extra_vars; max_req_body_byte_size; log }
 
 (* Request *)
 
-let req_of_cgi_env cgi_vars =
-  get_version ()
-  >>= fun version -> get_meth ()
-  >>= fun meth -> get_path_and_query ()
-  >>= fun (path, query) -> get_headers cgi_vars
-  >>= fun headers -> get_body_len ()
-  >>= fun body_len ->
-  let body = get_body Pervasives.stdin body_len in
-  Ok (Req.v version meth ~path ?query headers ?body_len body)
+let err_malformed_env = "malformed environment"
+let err_var_miss var = strf "variable %S undefined in environment" var
+let err_var_decode var e = strf "error decoding %S: %s" var e
 
-(* Response *)
+let[@inline] is_http_var s =
+  String.length s > 5 &&
+  s.[0] = 'H' && s.[1] = 'T' && s.[2] = 'T' && s.[3] = 'P' && s.[4] = '_'
 
-let stream_of_body = function
-| Resp.Stream s -> Ok s
-| Resp.File (range, file) -> failwith "TODO"
+let content_vars =
+  [ "CONTENT_TYPE", Http.H.content_type;
+    "CONTENT_LENGTH", Http.H.content_length ]
 
-
-let write_status_line oc resp =
-  output_string oc (HTTP.encode_version (Resp.version resp));
-  output_char oc ' ';
-  output_string oc (HTTP.encode_digits (Resp.status resp));
-  output_char oc ' ';
-  output_string oc (HTTP.status_reason_phrase (Resp.status resp));
-  output_string oc "\r\n";
-  ()
-
-let write_headers oc resp = ()
-(*
-  let write_header n v =
-    output_string oc (HTTP.H.encode_name n);
-    output_char oc ':';
-    output_string oc v;
-    output_string oc "\r\n";
+let headers_of_env ~extra_vars env =
+  let add_var ~add_empty env hs (var, name) = match Smap.find_opt var env with
+  | Some v when add_empty || v <> "" ->
+      Http.H.set name (Http.Private.trim_ows v) hs
+  | _ -> hs
   in
-(*
-  let write_header_multi n vs =
-    if HTTP.H.(name_equal n set_cookie)
-    then List.iter (fun v -> write_header n v) vs
-    else write_header n (HTTP.H.encode_multi_value vs)
+  let rec loop i max env hs others =
+    if i > max then hs, others else
+    let b = env.(i) in
+    match String.index_opt b '=' with
+    | None -> failwith err_malformed_env
+    | Some eq ->
+        let var = Http.string_subrange ~last:(eq - 1) b in
+        let value = Http.string_subrange ~first:(eq + 1) b in
+        match is_http_var var with
+        | false -> loop (i + 1) max env hs (Smap.add var value others)
+        | true ->
+            match http_var_to_header_name var with
+            | Error e -> failwith e
+            | Ok v ->
+                let hs = Http.H.set v (Http.Private.trim_ows value) hs in
+                loop (i + 1) max env hs others
   in
-*)
-*)
+  let hs, env = loop 0 (Array.length env - 1) env Http.H.empty Smap.empty in
+  let hs = List.fold_left (add_var ~add_empty:true env) hs extra_vars in
+  let hs = List.fold_left (add_var ~add_empty:false env) hs content_vars in
+  hs, env
 
-let write_resp oc resp =
+let get_var var decode env = match Smap.find_opt var env with
+| None -> failwith (err_var_miss var)
+| Some value ->
+    match decode value with
+    | Ok value -> value | Error e -> failwith (err_var_decode e var)
+
+let header_section_of_env ~extra_vars env =
+  let hs, env = headers_of_env ~extra_vars env in
+  let version = get_var "SERVER_PROTOCOL" Http.Version.decode env in
+  let meth = get_var "REQUEST_METHOD" Http.Meth.decode env in
+  let request_target = get_var "REQUEST_URI" Result.ok env in
+  let request_target = match Smap.find_opt "REQUEST_TARGET_PREFIX" env with
+  | None -> request_target
+  | Some prefix -> chop_prefix ~prefix request_target
+  in
+  version, meth, request_target, hs
+
+let body_length hs = match Http.H.request_body_length hs with
+| Error e -> Error (`Malformed e)
+| Ok (`Length l) -> Ok (Some l)
+| Ok `Chunked -> Error (`Not_implemented "chunked bodies") (* TODO *)
+
+let read_req c env fd_in =
   try
-    let write_body = function
-    | None -> close_out oc
-    | Some (buf, pos, len) -> output oc buf pos len
+    let extra_vars = c.extra_vars in
+    let version, meth, target, hs = header_section_of_env ~extra_vars env in
+    let buf = Bytes.create io_buffer_size in
+    let max_req_body_byte_size = c.max_req_body_byte_size in
+    let first_start = 0 and first_len = 0 in
+    let* body_length = body_length hs in
+    let body =
+      Webs_unix.Connector.req_body_reader
+        ~max_req_body_byte_size ~body_length fd_in buf ~first_start ~first_len
     in
-    stream_of_body (Resp.body resp) >>= fun stream ->
-    write_status_line oc resp;
-    write_headers oc resp;
-    stream write_body;
-    Ok ()
-  with exn -> failwith "TODO"
+    Ok (Req.v ~version meth target ~headers:hs ~body_length ~body)
+  with
+  | Failure e -> Error (`Malformed e)
+  (* FIXME maybe for error from header_section we should rather throw
+     unexpected connector *)
 
+(* Responses *)
 
-(* Connector *)
-
-let connect conf service =
-  let cgi_vars = match Hmap.find vars conf with
-  | None -> [] | Some vars -> vars
+let encode_resp_header_section st reason hs =
+  let crlf = "\r\n" in
+  let enc_header n v acc =
+    let encode n acc v =
+      Http.Name.to_string n :: ": " :: v :: crlf :: acc
+    in
+    if not (Http.Name.equal n Http.H.set_cookie) then encode n acc v else
+    let cookies = Http.H.values_of_set_cookie_value v in
+    List.fold_left (encode Http.H.set_cookie) acc cookies
   in
-  match req_of_cgi_env cgi_vars with
-  | Error (`Msg _ as e) -> Error (`Webserver e)
-  | Ok req ->
-      match R.trap_exn service req with
-      | Error trap -> Error (`Service trap)
-      | Ok resp -> write_resp stdout resp
+  String.concat "" @@
+  "Status:" :: string_of_int st :: " " :: reason :: crlf ::
+  Http.H.fold enc_header hs [crlf]
 
+let write_resp c fd resp =
+  let resp, write_body = Webs_unix.Connector.resp_body_writer resp in
+  (* TODO check what to do with the connection in case of upgrade *)
+  let hs = Http.H.(Resp.headers resp |> set_if_undef connection "close") in
+  let st = Resp.status resp and reason = Resp.reason resp in
+  let sec = encode_resp_header_section st reason hs in
+  let sec = Bytes.unsafe_of_string sec in
+  Webs_unix.Connector.write fd sec 0 (Bytes.length sec);
+  write_body fd
+
+(* Serving *)
+
+let resp_of_error e =
+  let reason e = if e = "" then None else Some e in
+  match e with
+  | `Service -> Resp.v Http.s500_server_error
+  | `Too_large -> Resp.v Http.s413_payload_too_large (* FIXME *)
+  | `Malformed e -> Resp.v Http.s400_bad_request ?reason:(reason e)
+  | `Not_implemented e -> Resp.v Http.s501_not_implemented ?reason:(reason e)
+
+let apply_service c service req =
+  try
+    let resp = service req in
+    c.log (`Trace (Some req, Some resp)); (* TODO we don't want that here *)
+    Ok resp
+  with
+  | e ->
+      let bt = Printexc.get_raw_backtrace () in
+      match e with
+      | Out_of_memory as e -> Printexc.raise_with_backtrace e bt
+      | Sys.Break as e -> Printexc.raise_with_backtrace e bt
+      | Stack_overflow as e | e -> c.log (`Service_exn (e, bt)); Error `Service
+
+let serve_req c env fd_in fd_out service =
+  try
+    let req = read_req c env fd_in in
+    let resp = Result.bind req (apply_service c service) in
+    let resp = Result.fold ~ok:Fun.id ~error:resp_of_error resp in
+    Ok (write_resp c fd_out resp)
+  with
+  | e ->
+      (* apply_service catches some of exns and turns them into 500.
+         If we are here we started writing the response and are beyond
+         being able to respond with a 500. *)
+      let bt = Printexc.get_raw_backtrace () in
+      match e with
+      | Out_of_memory as e -> Printexc.raise_with_backtrace e bt
+      | Sys.Break as e -> Printexc.raise_with_backtrace e bt
+      | Stack_overflow as _e | _e ->
+          c.log (`Connector_exn (e, bt)); Error "Connector error"
+
+let serve c service =
+  serve_req c (Unix.environment ()) Unix.stdin Unix.stdout service
 
 (*---------------------------------------------------------------------------
-   Copyright (c) 2015 Daniel C. Bünzli
+   Copyright (c) 2015 The webs programmers
 
    Permission to use, copy, modify, and/or distribute this software for any
    purpose with or without fee is hereby granted, provided that the above

@@ -1,7 +1,0 @@
-#!/bin/sh 
-
-SOCK=/tmp/cgi.sock
-ERRLOG=/tmp/cgierr.log
-
-rm -f $SOCK
-fcgiwrap -s unix:$SOCK > $ERRLOG 2>&1 &

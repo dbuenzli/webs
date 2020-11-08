@@ -1,113 +1,108 @@
 (*---------------------------------------------------------------------------
-   Copyright (c) 2015 Daniel C. Bünzli. All rights reserved.
+   Copyright (c) 2015 The webs programmers. All rights reserved.
    Distributed under the ISC license, see terms at the end of the file.
-   %%NAME%% %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(** CGI connector.
+(** CGI gateway connector.
 
-    [Webs_cgi] is a CGI connector. {{!req}See how} {!Webs.req} values
-    are derived from the CGI environment.
+    This connector serves one request via CGI.
 
-    {b Important.} This connector uses one non-standard CGI variable.
-    {ul
-    {- [REQUEST_URI]. Your web server must provide it in the CGI environment
-       with the requested
-      {{:http://tools.ietf.org/html/rfc7230#section-5.3.1}origin-form} value.}}
+    {b Important.} Reconstructing the raw request target from CGI's
+    [PATH_INFO] and [QUERY_STRING] is not really possible and
+    [PATH_INFO]s can easily get confused by requests like
+    ["/s1/s2%2Fha/s3"]. To side step this issue this connector relies on the
+    non-standard [REQUEST_URI] variable in which the raw url-encoded
+    request target should be passed. [nginx] passes that by default
+    with the value of [$request_uri], unfortunately it doesn't seem
+    to be able to chop a prefix from that variable without getting
+    url-decoded results. You can add the [REQUEST_TARGET_PREFIX] in
+    the environment whose value will be chopped from [REQUEST_URI].
+
+    See the {{!page-web_service_howto}Web service howto} manual for
+    instructions.
 
     {b References.}
     {ul
     {- D. Robinson et al.
        {{:http://tools.ietf.org/html/rfc3875}
-       {e The Common Gateway Interface (CGI) Version 1.1}. 2004.}}}
+       {e The Common Gateway Interface (CGI) Version 1.1}. 2004.}}} *)
 
-    {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
-
-open Rresult
 open Webs
 
-(** {1:conf Configuration keys}
+(** {1:connector Connector} *)
 
-    Default configuration keys.
+type t
+(** The type for CGI connectors. Serves one request by reading
+    headers from the environment and the body from {!Unix.stdin}. *)
 
+val create :
+  ?log:(Connector.log_msg -> unit) -> ?max_req_body_byte_size:int ->
+  ?extra_vars:string list -> unit -> t
+(** [create ()] is a new CGI connector with parameters:
+    {ul
+    {- [extra_vars] is a list of environment variables whose content is
+       added to the request headers (defaults to [[]]). The header name
+       of a variable is made by lowercasing it, mapping ['_'] to ['-']
+       and prefixing the result with [x-cgi]. For example
+       [SERVER_SOFTWARE] becomes [x-cgi-server-software].}
+    {- [max_req_body_byte_size] is the maximal request body size in bytes.
+       FIXME not enforced, unclear where this is to put the limit on, for
+       streaming bodies, if we cut the line the service might end up
+       being confused (but then it should also cater for that possibility).}
+    {- [log] logs connector log messages. It defaults
+       {!Webs.Connector.default_log} with trace message disabled.}} *)
+
+val serve : t -> Webs.service -> (unit, string) result
+(** [serve c s] runs service [s] with connector [c]. This blocks until
+    the response of [s] for the request has been served. The error is
+    returned in case of connector error, it's a good practice to write
+    the message on stderr and exit with a non-zero exit code if that
+    happend. *)
+
+(** {1:req_derivation Request derivation}
+
+	  The  {!Webs.Req.t} value is constructed from the environment and
+    {!Unix.stdin} as follows:
 	  {ul
-	  {- {!Conf.sendfile_header}}} *)
-
-val vars : string list Hmap.key
-(** [vars] is a list of CGI environment variables that are added
-    to the request's {!Webs.Req.headers} in the request if they are
-    defined. See {{!req}here} for details about how the header is
-    named.
-
-    The variables must be valid HTTP
-    {{:https://tools.ietf.org/html/rfc7230#section-3.2.6}token}s,
-    otherwise the connector will error. *)
-
-(** {1 Connector} *)
-
-val connect : Webs.connector
-
-(** {1:req Requests}
-
-	  A  {!Webs.req} value is constructed from the CGI environment as follows.
-	  {ul
-	  {- {!Webs.Req.meth} is the value of the
-       {{:http://tools.ietf.org/html/rfc3875#section-4.3}[REQUEST_METHOD]}
-       variable decoded by {!Webs.HTTP.decode_meth}.}
-	  {- {!Webs.Req.path} is determined by cutting the (non standard)
-       [REQUEST_URI] variable at the first ['?'] and applying
-       {!Webs.HTTP.decode_path} on the left hand side.}
-    {- {!Webs.Req.query} is determined by spitting the (non standard)
-       [REQUEST_URI] variable at the first ['?'] and take the right hand
-       side.}
 	  {- {!Webs.Req.version} is the value of the
        {{:http://tools.ietf.org/html/rfc3875#section-4.1.16}[SERVER_PROTOCOL]}
-       variable decoded by {!Webs.HTTP.decode_version}.}
+       variable.}
+	  {- {!Webs.Req.meth} is the value of the
+       {{:http://tools.ietf.org/html/rfc3875#section-4.3}[REQUEST_METHOD]}
+       variable.}
+    {- {!Webs.Req.request_target} is the value of the (non standard)
+       [REQUEST_URI] variable, chopped from the value in the
+       [REQUEST_TARGET_PREFIX] variable (if present).}
 	  {- {!Webs.Req.headers} has the following headers defined:
     {ul
-       {- {!Webs.HTTP.H.content_type} if the variable
+       {- {!Webs.Http.H.content_type} if the variable
           {{:http://tools.ietf.org/html/rfc3875#section-4.1.3}[CONTENT_TYPE]}
           is defined and non empty.}
-       {- {!Webs.HTTP.H.content_length} header is defined if the variable
+       {- {!Webs.Http.H.content_length} if the variable
           {{:http://tools.ietf.org/html/rfc3875#section-4.1.2}[CONTENT_LENGTH]}
           is defined and non empty.}
        {- For any other variable of the form [HTTP_$VAR] there is a
-          corresponding [$VAR] header whose name is made by
-          lowercasing [$VAR] and mapping ['_'] to ['-']. Note
-          that aboth the variables [HTTP_CONTENT_TYPE] and
-          [HTTP_CONTENT_LENGTH] are ignored if defined.}
-       {- For any defined CGI environment variable mentioned in the
-          connector's configuration key {!vars} a header is added.
-          The header name corresponding to a
-          variable is derived by lowercasing the CGI variable, map any ['_']
-          character to ['-'] and prefix it with [x-cgi-]. For example the
-          header name for [GATEWAY_INTERFACE] is
-          [x-cgi-gateway-interface].}}}
-    {- {!Webs.Req.body_len} is the value of
-       {{:http://tools.ietf.org/html/rfc3875#section-4.1.2}[CONTENT_LENGTH]}
-       decoded by {!Webs.HTTP.decode_digits} if defined and non empty.}
-    {- {!Webs.Req.body}, is the result of reading {!stdin}}} *)
+          corresponding [$var] header whose name is made by
+          lowercasing [$VAR] and mapping ['_'] to ['-']. For
+          example [HTTP_USER_AGENT] becomes {!Webs.Http.H.user_agent}.
+          If defined the variables [HTTP_CONTENT_TYPE] and
+          [HTTP_CONTENT_LENGTH] are overriden by the previous two
+          definitions.}
+       {- For any other [$VAR] in [extra_vars] given when
+          the connector is {!create}d, a header is added with the value
+          of the variable. The header name
+          of a variable is made by lowercasing it, mapping ['_'] to ['-']
+          and prefixing the result with [x-cgi]. For example
+          [SERVER_SOFTWARE] becomes [x-cgi-server-software].}}}
+    {- {!Webs.Req.body_length} is determined from the headers according to
+       {!Webs.Http.H.request_body_length}.}
+    {- {!Webs.Req.body}, is the result of reading {!Unix.stdin}}}
 
-(** {1:resp Responses}
+    If the request derivation fails in some way an 500 is returned and
+    an error should be printed on standard error. *)
 
-    The response status and headers are written on [stdout]. The response
-    body is handled as follows:
-    {ul
-    {- For a stream body, it is simply output on [stdout].}
-    {- For a file body. First a full absolute file path is determined by
-       appending the relative file path of the body to the absolute
-       path given in the environment variable ["DOCUMENT_ROOT"]. If
-       this variable is absent or empty or if the resulting
-       path escapes the ["DOCUMENT_ROOT"] this results in response
-       is ignore and transformed to a 502.
-
-       Then if the file range is [None] (i.e. the whole file) and
-       {!Connector.sendfile_header} is specified. The filepath
-       is returned in the given header (FIXME should be the original
-       relative file ?).}}
-*)
 (*---------------------------------------------------------------------------
-   Copyright (c) 2015 Daniel C. Bünzli
+   Copyright (c) 2015 The webs programmers
 
    Permission to use, copy, modify, and/or distribute this software for any
    purpose with or without fee is hereby granted, provided that the above
