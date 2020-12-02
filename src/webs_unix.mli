@@ -13,10 +13,22 @@ open Webs
     response connections}. See {{!web_service_howto.serving_files}this
     section} of the web service howto. *)
 
+val etag_of_file : string -> Unix.file_descr -> (string option, string) result
+(** [etag_of_file _ fd] is an [etag] for [fd]. It uses the [nginx]
+    scheme [hex(mtime)-hex(size)]. *)
+
 val send_file :
-  ?etag:(Unix.stats -> Unix.file_descr -> string option) ->
+  ?etag:(string -> Unix.file_descr -> (string option, string) result) ->
   docroot:string -> Req.t -> (Resp.t, Resp.t) result
 (** [send_file ~docroot req].
+
+    {ul
+    {- An etag is computed or the file via [etag] which is given
+       the filename and its open file descriptor. [etag] defaults
+       {!etag_of_file}, if you
+       compute your own respect the
+       {{:https://tools.ietf.org/html/rfc7232#section-2.3}[entity-tag]}
+       format. } }
 
     {b TODO.} Implement the full logic with etags, conditionals
     and ranges. *)

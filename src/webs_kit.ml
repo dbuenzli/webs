@@ -47,7 +47,7 @@ module Gateway = struct
     | Ok file ->
         let prefix = Option.value ~default:"/" prefix in
         let file = Http.Path.prefix_filepath prefix file in
-        let headers = Http.H.(set header file empty) in
+        let headers = Http.H.(def header file empty) in
         Ok (Resp.v Http.s200_ok ~headers ~explain:(header :> string))
 
   let x_accel_redirect = Http.Name.v "x-accel-redirect"
@@ -263,7 +263,7 @@ module Authenticated_cookie = struct
   let set ?atts ~key ~expire ~name data resp =
     let value = Authenticatable.encode ~key ~expire data in
     let cookie = Http.Cookie.encode ?atts ~name value in
-    let hs = Http.H.set_set_cookie cookie (Resp.headers resp) in
+    let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
     Resp.with_headers hs resp
 end
 
@@ -379,7 +379,7 @@ module Basic_auth = struct
   let enticate ?(cancel = fun _ -> cancel) ~check ~realm r =
     let error_401 ~explain =
       let auth = Printf.sprintf {|basic realm="%s", charset="utf-8"|} realm in
-      let hs = Http.H.(set www_authenticate auth empty) in
+      let hs = Http.H.(def www_authenticate auth empty) in
       let resp = Resp.with_status ~explain Http.s401_unauthorized (cancel r) in
       Error (Resp.override_headers hs resp)
     in

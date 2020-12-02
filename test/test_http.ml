@@ -57,7 +57,7 @@ let test_method () =
 
 let test_headers_case () =
   log "Webs.Http.headers case";
-  let hs = Http.H.(empty |> set (Http.Name.v "ha") "ho") in
+  let hs = Http.H.(empty |> def (Http.Name.v "ha") "ho") in
   assert (Http.H.(mem (Http.Name.v "Ha") hs));
   ()
 

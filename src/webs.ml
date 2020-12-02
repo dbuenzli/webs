@@ -224,6 +224,7 @@ module Http = struct
   let err_headers_length_conflicts = "conflicting body length specification"
   let err_headers_length = "cannot determine body length"
   let err_empty_multi_value = "multi value cannot be the empty list"
+  let err_etag = "not an entity-tag"
 
   (* HTTP whitespace, see https://tools.ietf.org/html/rfc7230#section-3.2.3 *)
 
@@ -402,20 +403,21 @@ module Http = struct
     | true -> Option.map string_lowercase (Smap.find_opt n hs)
     | false -> Smap.find_opt n hs
 
-    let remove = Smap.remove
+    let undef = Smap.remove
     let get ?lowervalue n hs = match find ?lowervalue n hs with
     | None -> invalid_arg (err_header_undefined n)
     | Some v -> v
 
-    let set n v hs = Smap.add n v hs
-    let set_if_undef n v hs = if mem n hs then hs else set n v hs
+    let def = Smap.add
+    let def_if_some n o hs = match o with None -> hs | Some v -> def n v hs
+    let def_if_undef n v hs = if mem n hs then hs else def n v hs
 
     let _append_value sep n v hs = match Smap.find_opt n hs with
     | None -> Smap.add n v hs
     | Some v' -> Smap.add n (String.concat sep [v; v']) hs
 
-    let append_value n v hs = _append_value "," n v hs
-    let set_set_cookie v hs = _append_value "\x00" "set-cookie" v hs
+    let add n v hs = _append_value "," n v hs
+    let add_set_cookie v hs = _append_value "\x00" "set-cookie" v hs
     let fold = Smap.fold
     let override hs ~by =
       let merge_right _ _ v = Some v in
@@ -678,12 +680,12 @@ module Http = struct
     type t = string list Smap.t (* The list is never empty *)
     let empty = Smap.empty
     let mem = Smap.mem
-    let set k v q = Smap.add k [v] q
-    let append k v q =
+    let def k v q = Smap.add k [v] q
+    let add k v q =
       let vs = match Smap.find_opt k q with None -> [v] | Some vs -> vs @ [v] in
       Smap.add k vs q
 
-    let remove = Smap.remove
+    let undef = Smap.remove
     let find k q = match Smap.find_opt k q with
     | None -> None | Some vs -> Some (List.hd vs)
 
@@ -755,7 +757,7 @@ module Http = struct
               pct_decode_space_as_plus b kv ~first:0 ~last:(i - 1),
               pct_decode_space_as_plus b kv ~first:(i + 1) ~last:max
           in
-          loop b (append k v acc) kvs
+          loop b (add k v acc) kvs
       | [] -> acc
       in
       loop (Buffer.create 255) empty (String.split_on_char '&' s)
@@ -1155,7 +1157,7 @@ module Resp = struct
     =
     let reason = get_reason status reason in
     let headers = match body with
-    | Empty -> Http.H.(set content_length "0" hs)
+    | Empty -> Http.H.(def content_length "0" hs)
     | _ -> hs
     in
     { version; status; reason; headers; body; explain; env }
@@ -1173,12 +1175,8 @@ module Resp = struct
     { r with status; reason; explain }
 
   let with_headers headers r = { r with headers }
-  let override_headers headers r =
+  let override_headers ~by:headers r =
     { r with headers = Http.H.override r.headers ~by:headers }
-
-  let append_headers headers r =
-    let headers = Http.H.fold Http.H.append_value headers r.headers in
-    { r with headers }
 
   let with_body body r = { r with body }
   let with_env env r = { r with env }
@@ -1199,7 +1197,7 @@ module Resp = struct
   let content ?explain ?(set = Http.H.empty) ~mime_type:t st s =
     let l = string_of_int (String.length s) in
     let hs = Http.H.empty in
-    let hs = Http.H.(hs |> set content_length l |> set content_type t) in
+    let hs = Http.H.(hs |> def content_length l |> def content_type t) in
     let hs = Http.H.override hs ~by:set in
     v ?explain st ~headers:hs ~body:(body_of_string s)
 
@@ -1217,13 +1215,13 @@ module Resp = struct
 
   let redirect ?explain ?(set = Http.H.empty) st loc =
     let hs = Http.H.empty in
-    let hs = Http.H.(hs |> set location loc) in
+    let hs = Http.H.(hs |> def location loc) in
     let hs = Http.H.override hs ~by:set in
     v ?explain st ~headers:hs
 
   let not_allowed ?explain ?reason ?(set = Http.H.empty) ~allow () =
     let ms = String.concat ", " (List.map Http.Meth.encode allow) in
-    let hs = Http.H.(set allow ms empty) in
+    let hs = Http.H.(def allow ms empty) in
     let hs = Http.H.override hs ~by:set in
     v ?explain ?reason ~headers:hs Http.s405_not_allowed
 

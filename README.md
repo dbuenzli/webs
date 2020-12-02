@@ -12,7 +12,7 @@ Webs is a toolkit for programming web services in OCaml. It provides:
   to the HTTP gateway or client. CGI and HTTP/1.1 gateway
   connectors are provided, but you can bring your own.
 
-Webs tries as much as possible to be a library and not a framework.
+Webs is not a framework, it is a collection of libraries.
 
 Webs is distributed under the ISC license. It has no dependencies. The
 connector libraries depend on OCaml's `Unix` and `Thread` modules.

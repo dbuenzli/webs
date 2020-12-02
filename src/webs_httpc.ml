@@ -89,8 +89,8 @@ let decode_headers buf crlfs =
       let acc =
         (* This looks ok according to RFC 7230 3.2.2 *)
         if Http.Name.equal name Http.H.set_cookie
-        then Http.H.set_set_cookie value acc
-        else Http.H.append_value name value acc
+        then Http.H.add_set_cookie value acc
+        else Http.H.add name value acc
       in
       loop acc buf crlf crlfs
   in
@@ -124,7 +124,7 @@ let write_resp c fd resp =
   let resp, write_body = Webs_unix.Connector.resp_body_writer resp in
   let version = Resp.version resp and st = Resp.status resp in
   (* TODO check what to do with the connection in case of upgrade *)
-  let hs = Http.H.(Resp.headers resp |> set_if_undef connection "close") in
+  let hs = Http.H.(Resp.headers resp |> def_if_undef connection "close") in
   let r = Resp.reason resp in
   let sec = Http.Private.encode_resp_header_section version st r hs in
   let sec = Bytes.unsafe_of_string sec in

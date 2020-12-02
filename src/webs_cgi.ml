@@ -64,7 +64,7 @@ let content_vars =
 let headers_of_env ~extra_vars env =
   let add_var ~add_empty env hs (var, name) = match Smap.find_opt var env with
   | Some v when add_empty || v <> "" ->
-      Http.H.set name (Http.Private.trim_ows v) hs
+      Http.H.def name (Http.Private.trim_ows v) hs
   | _ -> hs
   in
   let rec loop i max env hs others =
@@ -81,7 +81,7 @@ let headers_of_env ~extra_vars env =
             match http_var_to_header_name var with
             | Error e -> failwith e
             | Ok v ->
-                let hs = Http.H.set v (Http.Private.trim_ows value) hs in
+                let hs = Http.H.def v (Http.Private.trim_ows value) hs in
                 loop (i + 1) max env hs others
   in
   let hs, env = loop 0 (Array.length env - 1) env Http.H.empty Smap.empty in
@@ -148,7 +148,7 @@ let encode_resp_header_section st reason hs =
 let write_resp c fd resp =
   let resp, write_body = Webs_unix.Connector.resp_body_writer resp in
   (* TODO check what to do with the connection in case of upgrade *)
-  let hs = Http.H.(Resp.headers resp |> set_if_undef connection "close") in
+  let hs = Http.H.(Resp.headers resp |> def_if_undef connection "close") in
   let st = Resp.status resp and reason = Resp.reason resp in
   let sec = encode_resp_header_section st reason hs in
   let sec = Bytes.unsafe_of_string sec in

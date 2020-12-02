@@ -8,12 +8,15 @@ open Webs_kit
 let ( let* ) = Result.bind
 
 let service docroot req =
-  Resp.result @@ match Req.path req with
-  | "assets" :: _ ->
+  Resp.result @@ (* match Req.path req with
+  | "assets" :: _ -> (* TODO  do something about chopping prefix *)
       let* req = Res.allow [`GET] req in
       Webs_unix.send_file ~docroot req
   | _ ->
-      Ok (Resp.v Http.s404_not_found)
+                    Ok (Resp.v Http.s404_not_found) *)
+  let* req = Res.allow [`GET] req in
+  Webs_unix.send_file ~docroot req
+
 
 let main () =
   let conf = Webs_cli.conf_docroot () in

@@ -22,4 +22,8 @@ let () =
     Pkg.test ~run:false "test/cgi";
     Pkg.test "test/test_http";
     Pkg.test ~run:false "test/multic";
-  ]
+    Pkg.doc "doc/index.mld" ~dst:"odoc-pages/index.mld";
+    Pkg.doc
+      "doc/web_service_howto.mld" ~dst:"odoc-pages/web_service_howto.mld";
+    Pkg.doc "doc/tutorial.mld" ~dst:"odoc-pages/tutorial.mld";
+]

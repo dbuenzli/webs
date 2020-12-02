@@ -252,23 +252,26 @@ module Http : sig
     (** [get n hs] is like {!find} but raises [Invalid_argument] if [n]
         is not defined in [hs]. *)
 
-    val set : name -> string -> headers -> headers
-    (** [set n v hs] is [hs] with [n] defined to [v]. *)
+    val def : name -> string -> headers -> headers
+    (** [def n v hs] is [hs] with [n] defined to [v]. *)
 
-    val set_if_undef : name -> string -> headers -> headers
-    (** [set_if_undef n v hs] is [hs] with [n] defined to [v] if [n] is
+    val def_if_some : name -> string option -> headers -> headers
+    (** [def_some n o hs] is [hs] with [n] defined to [v] if [o]
+        is [Some v] and [hs] otherwise. *)
+
+    val def_if_undef : name -> string -> headers -> headers
+    (** [def_if_undef n v hs] is [hs] with [n] defined to [v] if [n] is
         not defined in [hs]. *)
 
-    val append_value : name -> string -> headers -> headers
-    (** [append_value n v hs] appends [v] to the multi-valued header
-        [n] in [hs]. *)
+    val add : name -> string -> headers -> headers
+    (** [add n v hs] appends [v] to the multi-valued header [n] in [hs]. *)
 
-    val set_set_cookie : string -> headers -> headers
-    (** [set_set_cookie c hs] adds a {!set_cookie} header with value [c].
+    val add_set_cookie : string -> headers -> headers
+    (** [add_set_cookie c hs] adds a {!set_cookie} header with value [c].
         This appends to {!set_cookie}, see {!t}. *)
 
-    val remove : name -> headers -> headers
-    (** [remove n hs] is [hs] with [n] undefined. *)
+    val undef : name -> headers -> headers
+    (** [undef n hs] is [hs] with [n] undefined. *)
 
     val override : headers -> by:headers -> headers
     (** [override hs ~by] are the headers of both [hs] and [by]
@@ -649,15 +652,15 @@ module Http : sig
     val mem : string -> t -> bool
     (** [mem k q] is true [iff] key [k] is bound in [q]. *)
 
-    val set : string -> string -> t -> t
-    (** [set k v q] is [q] with [k] bound only to value [v]. *)
+    val def : string -> string -> t -> t
+    (** [def k v q] is [q] with [k] bound only to value [v]. *)
 
-    val append : string -> string -> t -> t
-    (** [append k v q] is [q] with value [v] appended to
+    val add : string -> string -> t -> t
+    (** [add k v q] is [q] with value [v] appended to
         [k]'s values (or {!set} if there was no binding for [k]). *)
 
-    val remove : string -> t -> t
-    (** [remove k q] is [q] with [k] unbound. *)
+    val undef : string -> t -> t
+    (** [undef k q] is [q] with [k] unbound. *)
 
     val find : string -> t -> string option
     (** [find k q] is the value of [k]'s first binding in [q], if any. *)
@@ -1138,12 +1141,9 @@ module Resp : sig
   val with_headers : Http.headers -> t -> t
   (** [with_headers hs r] is [r] with headers [hs]. *)
 
-  val override_headers : Http.headers -> t -> t
+  val override_headers : by:Http.headers -> t -> t
   (** [override_headers by r] is [r] with headers
       [H.override (headers r) ~by]. *)
-
-  val append_headers : Http.headers -> t -> t
-  (** [append_headers hs r] is [r] with headers [hs] appended. *)
 
   val with_body : body -> t -> t
   (** [with_body b r] is [r] with body [b]. *)

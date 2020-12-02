@@ -133,7 +133,7 @@ let err_no_version = "No sec-websocket-version header"
 let err_unsupported_version v = "unsupported sec-websocket-version: " ^  v
 
 let websocket_headers () =
-  Http.H.(empty |> set connection "Upgrade" |> set upgrade "websocket")
+  Http.H.(empty |> def connection "Upgrade" |> def upgrade "websocket")
 
 let err_require_upgrade () =
   Resp.v Http.s426_upgrade_required ~headers:(websocket_headers ())
@@ -141,9 +141,9 @@ let err_require_upgrade () =
 let resp_websocket ?protocol key =
   let a = accept_key key in
   let hs = websocket_headers () in
-  let hs = Http.H.set sec_websocket_accept a hs in
+  let hs = Http.H.def sec_websocket_accept a hs in
   let hs = match protocol with
-  | None -> hs | Some p -> Http.H.set sec_websocket_protocol p hs
+  | None -> hs | Some p -> Http.H.def sec_websocket_protocol p hs
   in
   Resp.v Http.s101_switching_protocols ~headers:hs
 
@@ -157,7 +157,7 @@ let upgrade req =
   | None -> Resp.v Http.s400_bad_request ~reason:err_no_version
   | Some s when s <> "13" ->
       (* RFC 6455 §4.2.2. 4 *)
-      let hs = Http.H.(set sec_websocket_version "13" empty) in
+      let hs = Http.H.(def sec_websocket_version "13" empty) in
       let reason = err_unsupported_version s in
       Resp.v Http.s426_upgrade_required ~headers:hs ~reason
   | Some _ ->

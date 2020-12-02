@@ -14,7 +14,7 @@ type Resp.connection += Fd of Unix.file_descr
 (* Unixies *)
 
 let unix_buffer_size = 65536 (* UNIX_BUFFER_SIZE 4.0.0 *)
-let uerror e = Error (Unix.error_message e)
+let uerror e = Unix.error_message e
 let close_noerr fd = try Unix.close fd with Unix.Unix_error (e, _, _) -> ()
 
 let rec lseek src off cmd = try Unix.lseek src off cmd with
@@ -59,11 +59,23 @@ let copy ?buf:b ~src ~off ~len dst = (* sendfile fallback *)
   let () = ignore (lseek src off Unix.SEEK_SET) in
   loop b src dst len
 
-let rec prepare_send_file ?range file =
-  let err e = `Error (strf "send file %s: %s" file (Unix.error_message e)) in
+let rec etag_of_file file fd =
+  try
+    let stat = Unix.fstat fd in
+    let mtime = truncate stat.Unix.st_mtime in
+    let size = stat.Unix.st_size in
+    Ok (Some (Printf.sprintf {|"%x-%x"|} mtime size))
+  with
+  | Unix.Unix_error (Unix.EINTR, _, _) -> etag_of_file file fd
+  | Unix.Unix_error (e, _, _) -> Error (uerror e)
+
+let rec prepare_send_file ?(etag = etag_of_file) ?range file =
+  let err e = `Error e in
   try
     let fd = Unix.openfile file Unix.[O_RDONLY] 0 in
     try
+      let* etag = Result.map_error err (etag file fd) in
+      (* TODO that dance looks ridiculus now that etag uses stat. *)
       let file_size = lseek fd 0 Unix.SEEK_END in
       let () = ignore (lseek fd 0 Unix.SEEK_SET) in
       let first, last = match range with
@@ -71,13 +83,14 @@ let rec prepare_send_file ?range file =
       in
       if first < 0 || last < 0 || first > last || last >= file_size
       then Error `Invalid_range
-      else Ok (fd, first, last - first + 1, file_size)
+      else Ok (fd, first, last - first + 1, file_size, etag)
     with
-    | Unix.Unix_error (e, _, _) -> close_noerr fd; Error (err e)
+    | Unix.Unix_error (e, _, _) -> close_noerr fd; Error (err (uerror e))
   with
-  | Unix.Unix_error (Unix.EINTR, _, _) -> prepare_send_file file
+  | Unix.Unix_error (Unix.EINTR, _, _) -> prepare_send_file ~etag ?range file
   | Unix.Unix_error (Unix.EACCES, _, _) -> Error `Access
-  | Unix.Unix_error (e, _, _) -> Error (err e)
+  | Unix.Unix_error (Unix.ENOENT, _, _) -> Error `Not_found
+  | Unix.Unix_error (e, _, _) -> Error (err (uerror e))
 
 let raw_send_file ~src ~off ~len dst =
   try really_sendfile ~src ~off ~len dst with
@@ -120,20 +133,26 @@ let file_spec_of_req ~docroot r = match Req.meth r with
     end
 | _ -> Error (Resp.not_allowed ~allow:[`GET; `HEAD] ())
 
-let default_etag st fd =
-  (* TODO, do it the nginx way hex(mtime)-hex(size*)
-  None
-
-let send_file ?(etag = default_etag) ~docroot r =
+let send_file ?etag ~docroot r =
+  let explain file e = strf "%s: %s" file e in
   let* st, file, range = file_spec_of_req ~docroot r in
-  match prepare_send_file ?range file with
-  | Error `Access -> Error (Resp.v ~explain:"EACCESS" Http.s404_not_found)
-  | Error `Invalid_range -> failwith "sendfile invalid-range err TODO"
-  | Error (`Error e) -> failwith ("sendfile err TODO  " ^ e)
-  | Ok (src, off, len, file_len) ->
+  match prepare_send_file ?etag ?range file with
+  | Error `Access ->
+      let explain = explain file "permission denied" in
+      Error (Resp.v ~explain Http.s404_not_found)
+  | Error `Not_found ->
+      let explain = explain file "no such file" in
+      Error (Resp.v ~explain Http.s404_not_found)
+  | Error `Invalid_range ->
+      failwith "sendfile invalid-range err TODO"
+  | Error (`Error err) ->
+      let explain = explain file err in
+      Error (Resp.v ~explain Http.s500_server_error)
+  | Ok (src, off, len, file_len, etag_value) ->
       let file_type = Webs_kit.Mime_type.of_ext (Filename.extension file) in
       (* TODO handle range addition and content-length *)
-      let headers = Http.H.(set content_type file_type empty) in
+      let headers = Http.H.(def content_type file_type empty) in
+      let headers = Http.H.(def_if_some etag etag_value headers) in
       let send_file = function
       | Fd fd ->
           (* TODO can leak if we never get to consume the stream,
@@ -166,14 +185,14 @@ let rec fd_of_listener = function
 | `Sockaddr addr ->
     let domain = Unix.domain_of_sockaddr addr in
     match Unix.socket ~cloexec:true domain Unix.SOCK_STREAM 0 with
-    | exception Unix.Unix_error (e, _, _) -> uerror e
+    | exception Unix.Unix_error (e, _, _) -> Error (uerror e)
     | fd ->
         try
           Unix.setsockopt fd Unix.SO_REUSEADDR true;
           Unix.bind fd addr;
           Ok (fd, true)
         with
-        | Unix.Unix_error (e, _, _) -> close_noerr fd; uerror e
+        | Unix.Unix_error (e, _, _) -> close_noerr fd; Error (uerror e)
 
 let listener_of_string ?(default_port = 8000) s =
   if String.contains s Filename.dir_sep.[0]
