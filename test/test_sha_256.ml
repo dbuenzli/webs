@@ -89,6 +89,44 @@ let hmac_vecs = (* from https://tools.ietf.org/html/rfc4231 *)
      "9b09ffa71b942fcb27635fbcd5b0e944bfdc63644f0713938a7f51535c3a35e2"
   ]
 
+let pbkdf2_hmac_vecs = (* from https://stackoverflow.com/a/5136918 *)
+(* password, salt, count, key_length, output *)
+  [ "password", "salt", 1, 32,
+    "\x12\x0f\xb6\xcf\xfc\xf8\xb3\x2c\
+      \x43\xe7\x22\x52\x56\xc4\xf8\x37\
+      \xa8\x65\x48\xc9\x2c\xcc\x35\x48\
+      \x08\x05\x98\x7c\xb7\x0b\xe1\x7b";
+    (**)
+    "password", "salt", 2, 32,
+    "\xae\x4d\x0c\x95\xaf\x6b\x46\xd3\
+      \x2d\x0a\xdf\xf9\x28\xf0\x6d\xd0\
+      \x2a\x30\x3f\x8e\xf3\xc2\x51\xdf\
+      \xd6\xe2\xd8\x5a\x95\x47\x4c\x43";
+    (**)
+    "password", "salt", 4096, 32,
+    "\xc5\xe4\x78\xd5\x92\x88\xc8\x41\
+      \xaa\x53\x0d\xb6\x84\x5c\x4c\x8d\
+      \x96\x28\x93\xa0\x01\xce\x4e\x11\
+      \xa4\x96\x38\x73\xaa\x98\x13\x4a";
+    (**)
+    "password", "salt", 16777216, 32,
+    "\xcf\x81\xc6\x6f\xe8\xcf\xc0\x4d\
+     \x1f\x31\xec\xb6\x5d\xab\x40\x89\
+     \xf7\xf1\x79\xe8\x9b\x3b\x0b\xcb\
+     \x17\xad\x10\xe3\xac\x6e\xba\x46";
+    (**)
+    "passwordPASSWORDpassword", "saltSALTsaltSALTsaltSALTsaltSALTsalt", 4096,
+    40,
+    "\x34\x8c\x89\xdb\xcb\xd3\x2b\x2f\
+     \x32\xd8\x14\xb8\x11\x6e\x84\xcf\
+     \x2b\x17\x34\x7e\xbc\x18\x00\x18\
+     \x1c\x4e\x2a\x1f\xb8\xdd\x53\xe1\
+     \xc6\x35\x51\x8c\x7d\xac\x47\xe9";
+    (**)
+    "pass\x00word", "sa\x00lt", 4096, 16,
+    "\x89\xb6\x9d\x05\x16\xf8\x29\x89\
+     \x3c\x69\x62\x26\x65\x0a\x86\x87"; ]
+
 let test_hash () =
   print_endline "Testing hash vectors.";
   let assert_vec (msg, h_hex) =
@@ -113,9 +151,18 @@ let test_hmac () =
   in
   List.iter assert_vec hmac_vecs
 
+let test_pbkdf2_hmac () =
+  print_endline "Testing pbkdf2-hmac vectors.";
+  let assert_vec (pass, salt, count, key_len, key) =
+    let key' = Sha_256.pbkdf2_hmac ~key_len ~count ~pass ~salt () in
+    assert (key = key')
+  in
+  List.iter assert_vec pbkdf2_hmac_vecs
+
 let main () =
   test_hash ();
   test_hmac ();
+  test_pbkdf2_hmac ();
   print_endline "All tests succeeded."
 
 let () = main ()

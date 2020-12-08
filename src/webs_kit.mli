@@ -104,7 +104,7 @@ end
 
 (** {1:auth Being authentic} *)
 
-(** SHA-256 hashes and HMAC-SHA-256. *)
+(** SHA-256 hashes, HMAC-SHA-256 and PBKDF2-HMAC-SHA-256 *)
 module Sha_256 : sig
 
   (** {1:values Hash values} *)
@@ -118,10 +118,26 @@ module Sha_256 : sig
   val hash : string -> t
   (** [hash s] is the SHA-256 hash of [s]. *)
 
+  (** {1:hmac HMAC-SHA-256} *)
+
   val hmac : key:string -> string -> t
   (** [hmac ~key msg] is the {{:https://tools.ietf.org/html/rfc2104}RFC 2104}
       HMAC-SHA-256 for key [key] and message [msg].
       [key] should not be less than 32 bytes. *)
+
+  (** {1:pbkdf2 PBKDF2-HMAC-SHA-256} *)
+
+  val pbkdf2_hmac :
+    key_len:int -> count:int -> pass:string -> salt:string -> unit -> string
+  (** [pbkdf2_hmac ~key_len ~count ~pass ~salt ()] derives a key for
+      password [pass] with a salt [salt] and count [count]
+      iterations (use at least [100_000]) to generate a key of length
+      [key_len] using {{:https://tools.ietf.org/html/rfc8018}RFC
+      8018}'s PBKFD2-HMAC-SHA-256.
+
+      Raises [Invalid_argument] if [key_len] or [count] are smaller or
+      equal to [0] or if [key_len] is greater than 2{^32} - 1 * 32
+      or [max_int]. *)
 
   (** {1:preds Predicates and comparisons} *)
 

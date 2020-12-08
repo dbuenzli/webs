@@ -190,6 +190,48 @@ module Sha_256 = struct
         try loop (s_len - 1) s 0 hex 0 with Illegal i -> Error i
 
   let pp ppf h = Format.pp_print_string ppf (to_hex h)
+
+  let pbkdf2_hmac ~key_len ~count ~pass ~salt () =
+    let check_positive s v =
+      if v <= 0 then invalid_arg (strf "%s not positive (%d)" s v)
+    in
+    check_positive "key_len" key_len;
+    check_positive "count" count;
+    let div_round_up x y = (x + y - 1) / y in
+    let max = Int64.(mul (sub (shift_left 1L 32) 1L) 32L) in
+    match Int64.unsigned_to_int max with
+    | None -> invalid_arg (strf "key_len too long (%d)" key_len)
+    | Some _ ->
+        (* TODO avoid the hmac allocs *)
+        let hlen = 32 in
+        let l = div_round_up key_len hlen in
+        let t = Bytes.create (l * hlen) in
+        let salt_len = String.length salt in
+        let u0 =
+          let u0 = Bytes.create (salt_len + 4) in
+          Bytes.blit_string salt 0 u0 0 (String.length salt); u0
+        in
+        let init_u0 i = Bytes.set_int32_be u0 salt_len (Int32.of_int i) in
+        let uj = Bytes.create hlen in
+        for i = 1 to l do
+          init_u0 i;
+          let u1 = hmac ~key:pass (Bytes.unsafe_to_string u0) in
+          let ti_start = (i - 1) * hlen in
+          Bytes.blit_string u1 0 t ti_start hlen;
+          Bytes.blit_string u1 0 uj 0 hlen;
+          for j = 2 to count do
+            let unext = hmac ~key:pass (Bytes.unsafe_to_string uj) in
+            Bytes.blit_string unext 0 uj 0 hlen;
+            for k = 0 to hlen - 1 do
+              Bytes.set_uint8 t (ti_start + k)
+                (Bytes.get_uint8 t (ti_start + k) lxor
+                 Bytes.get_uint8 (Bytes.unsafe_of_string unext) k)
+            done
+          done
+        done;
+        if key_len = Bytes.length t
+        then Bytes.unsafe_to_string t
+        else Bytes.sub_string t 0 key_len
 end
 
 module Authenticatable = struct
