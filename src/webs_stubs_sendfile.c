@@ -57,10 +57,10 @@ CAMLprim value ocaml_webs_sendfile (value src, value off, value len, value dst)
 CAMLprim value ocaml_webs_sendfile (value src, value off, value len, value dst)
 {
   CAMLparam4 (src, off, len, dst);
-  off_t off = Int_val (off);
+  off_t offs = Int_val (off);
   ssize_t res;
   caml_release_runtime_system ();
-  res = sendfile (Int_val (dst), Int_val (src), &off, Int_val (len));
+  res = sendfile (Int_val (dst), Int_val (src), &offs, Int_val (len));
   caml_acquire_runtime_system ();
   if (res == -1) { uerror ("sendfile", Nothing); }
   CAMLreturn (Val_long (res));

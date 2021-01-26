@@ -21,7 +21,7 @@ CAMLprim value ocaml_webs_sha_256 (value msg)
   sha256_finalize (&ctx, &d);
 
   hash = caml_alloc_string (32);
-  sha256_to_bin (&d, String_val (hash));
+  sha256_to_bin (&d, Bytes_val (hash));
 
   CAMLreturn (hash);
 }

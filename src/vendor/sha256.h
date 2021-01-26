@@ -212,7 +212,7 @@ static void sha256_finalize(struct sha256_ctx *ctx, sha256_digest *out)
 /**
  * sha256_to_bin - Transform the SHA256 digest into a binary data
  */
-static void sha256_to_bin(sha256_digest *digest, char *out)
+static void sha256_to_bin(sha256_digest *digest, unsigned char *out)
 {
 	uint32_t *ptr = (uint32_t *) out;
 	int i;
