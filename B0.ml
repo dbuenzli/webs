@@ -44,7 +44,7 @@ let webs_unix_lib =
     `File (Fpath.v "src/webs_stubs_realpath.c") ::
     mod_srcs "webs_unix"
   in
-  let requires = [unix; webs; webs_kit] in
+  let requires = [unix; webs] in
   B0_ocaml.lib webs_unix ~doc:"Webs unix library" ~srcs ~requires
 
 let webs_cgi_lib =

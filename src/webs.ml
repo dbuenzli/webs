@@ -8,6 +8,7 @@ let pf = Format.fprintf
 let pp_cut = Format.pp_print_cut
 let pp_qstring ppf s = pf ppf "%S" s
 let pp_field f pp_v ppf v = pf ppf "@[<h>(%s %a)@]" f pp_v v
+let error_to_failure = function Ok v -> v | Error e -> failwith e
 
 module Http = struct
   module Smap = Map.Make (String)
@@ -188,23 +189,9 @@ module Http = struct
       Buffer.contents b
   end
 
-  (* MIME types *)
-
-  type mime_type = string
-  module Mime_type = struct
-    type t = mime_type
-    let application_json = "application/json"
-    let application_octet_stream = "application/octet-stream"
-    let application_x_www_form_urlencoded = "application/x-www-form-urlencoded"
-    let text_css = "text/css"
-    let text_html = "text/html;charset=utf-8"
-    let text_javascript = "text/javascript"
-    let text_plain = "text/plain;charset=utf-8"
-    let multipart_byteranges = "multipart/byteranges"
-    let multipart_form_data = "multipart/form-data"
-  end
-
   let crlf = "\r\n"
+  let err_miss_eq = "missing '='"
+  let err_miss_dash = "missing '-'"
   let err_space_miss = "missing space"
   let err_empty_string = "empty string"
   let err_digits_neg d = strf "negative number (%d)" d
@@ -217,6 +204,7 @@ module Http = struct
   let err_path_start_slash = "no starting '/'"
   let err_path_char c = strf "%C not a path character" c
   let err_path_seg_stray_dir_sep = "stray directory separator in path segment"
+  let err_path_empty = "empty list of segments"
   let err_rl_garbage = "remaining garbage on the request line"
   let err_header_undefined n = strf "header %s undefined" n
   let err_header_miss_delim = "missing ':' delimiter in header"
@@ -265,20 +253,22 @@ module Http = struct
   let[@inline] digit_of_int i = Char.chr (i + 0x30) (* assert (0 <= i <= 9 *)
   let[@inline] str_digit_of_int i = String.make 1 (digit_of_int i)
 
-  let digits_of_string s =
-    if s = "" then Error err_empty_string else
-    let rec loop k acc max =
-      if k > max then Ok acc else
-      let c = s.[k] in
-      if not (is_digit c) then Error (err_digits_char c) else
-      let acc = acc * 10 + digit_to_int c in
-      if acc < 0 then Error err_digits_overflow else
-      loop (k + 1) acc max
-    in
-    loop 0 0 (String.length s - 1)
+  module Digits = struct
+    let decode s =
+      if s = "" then Error err_empty_string else
+      let rec loop k acc max =
+        if k > max then Ok acc else
+        let c = s.[k] in
+        if not (is_digit c) then Error (err_digits_char c) else
+        let acc = acc * 10 + digit_to_int c in
+        if acc < 0 then Error err_digits_overflow else
+        loop (k + 1) acc max
+      in
+      loop 0 0 (String.length s - 1)
 
-  let digits_to_string n =
-    if n < 0 then invalid_arg (err_digits_neg n) else string_of_int n
+    let encode n =
+      if n < 0 then invalid_arg (err_digits_neg n) else string_of_int n
+  end
 
   (* HTTP token, see https://tools.ietf.org/html/rfc7230#section-3.2.6 *)
 
@@ -337,8 +327,8 @@ module Http = struct
     let equal = String.equal
     let compare = String.compare
     let pp = Format.pp_print_string
-    let to_string n = n
-    let of_string s = try Ok (lower_token_of_string s) with
+    let encode n = n
+    let decode s = try Ok (lower_token_of_string s) with
     | Failure e -> Error e
   end
 
@@ -390,8 +380,6 @@ module Http = struct
     | [] -> invalid_arg err_empty_multi_value
     | vs -> String.concat (String.make 1 sep) vs
 
-    let digits_of_string = digits_of_string
-    let digits_to_string = digits_to_string
     let is_token = is_token
 
     (* Header maps *)
@@ -491,7 +479,7 @@ module Http = struct
       match len, tr with
       | Some _, Some _ -> Error err_headers_length_conflicts (* §3.3.3 3. *)
       | None, None -> Ok (`Length 0) (* §3.3.3 6. *)
-      | Some l, None -> Result.map (fun l -> `Length l) (digits_of_string l)
+      | Some l, None -> Result.map (fun l -> `Length l) (Digits.decode l)
       | None, Some tes ->
           (* §3.3.3 3. *)
           let tes = values_of_string tes in
@@ -499,63 +487,92 @@ module Http = struct
           if chunked then Ok `Chunked else Error err_headers_length
   end
 
-  module Cookie = struct
-    type atts = string
-    let atts
-        ?max_age ?domain ?path ?(secure = false) ?(http_only = true)
-        ?(same_site = "strict") ()
-      =
-      let max_age = match max_age with
-      | None -> "" | Some a -> ";max-age=" ^ string_of_int a
-      in
-      let domain = match domain with None -> "" | Some d -> ";domain=" ^ d in
-      let path = match path with None -> "" | Some p -> ";path=" ^ p in
-      let secure = if secure then ";Secure" else "" in
-      let http_only = if http_only then ";httponly" else "" in
-      let same_site = ";samesite=" ^ same_site in
-      String.concat "" [max_age; domain; path; secure; http_only; same_site]
+  (* Paths *)
 
-    let atts_default = atts ()
-
-    let encode ?(atts = atts_default) ~name value =
-      String.concat "" [name; "="; value; atts]
-
-    let decode_list s =
-      (* Very lax parsing. TODO better,
-         see https://tools.ietf.org/html/rfc6265#section-4.2*)
-      let rec loop acc = function
-      | [] -> Ok (List.rev acc)
-      | c :: cs ->
-          match String.index_opt c '=' with
-          | None -> Error "illegal cookie pair"
-          | Some i ->
-              let n = string_subrange ~last:(i - 1) c in
-              let v = string_subrange ~first:(i + 1) c in
-              let v =
-                if v = "" then ""  else
-                let len = String.length v - 1 in
-                if v.[0] = '\"' && v.[len - 1] = '\"' && len > 1
-                then string_subrange ~first:1 ~last:(len - 2) v else
-                v
-              in
-              loop ((n, v) :: acc) cs
-      in
-      loop [] (H.values_of_string ~sep:';' s)
-  end
-
-  (* Path *)
-
+  type fpath = string
   type path = string list
 
   module Path = struct
+
+    (* Paths *)
+
     type t = path
+
+    let _undot_and_compress ~check (* also applied on discarded segs *) p =
+      let rec loop acc = function
+      | "." :: ps -> loop acc ps
+      | ".." :: ps when acc = [] -> loop acc ps
+      | ".." :: ps -> loop (List.tl acc) ps
+      | "" :: [] -> loop ("" :: acc) []
+      | "" :: ps -> loop acc ps
+      | seg :: ps -> if check seg then loop (seg :: acc) ps else failwith ""
+      | [] -> List.rev acc
+      in
+      loop [] p
+
+    let undot_and_compress p = _undot_and_compress ~check:(Fun.const true) p
+
+    let strip_prefix ~prefix p =
+      let rec loop pre acc = match pre, acc with
+      | _, [] -> None
+      | [], acc -> Some acc
+      | s :: pre, a :: acc when String.equal s a -> loop pre acc
+      | _ -> None
+      in
+      loop prefix p
+
+    (* File paths *)
+
+    let has_no_dir_seps s = (* String.forall :-( *)
+      try
+        for i = 0 to String.length s - 1
+        do if s.[i] = '/' || s.[i] = '\\' then raise Exit else () done;
+        true
+      with Exit -> false
+
+    let has_dir_seps s = not (has_no_dir_seps s)
+
+    let to_absolute_filepath p =
+      match _undot_and_compress ~check:has_no_dir_seps p with
+      | [] -> Error err_path_empty
+      | [""] -> Ok "/"
+      | ps -> Ok (String.concat "/" ("" :: ps))
+      | exception Failure _ -> Error err_path_seg_stray_dir_sep
+
+    let prefix_filepath ~prefix:p0 p1 =
+      let l0 = String.length p0 and l1 = String.length p1 in
+      if l0 = 0 then p1 else
+      if l1 = 0 then p0 else
+      match p0.[l0 - 1], p1.[0] with
+      | '/', '/' ->  String.sub p0 0 (l0 - 1) ^ p1
+      | '/', _ | _, '/' -> p0 ^ p1
+      | _, _ -> String.concat "/" [p0; p1]
+
+      let filepath_ext p = match String.rindex_opt p '.' with
+      | None -> ""
+      | Some dpos ->
+          let max = String.length p - 1 in
+          let seg_start, final_sep_len = match String.rindex_opt p '/' with
+          | None -> 0, 0
+          | Some i when i <> max -> i + 1, 0
+          | Some i when i = max && i = 0 -> assert false
+          | Some i ->
+              match String.rindex_from_opt p (i - 1) '/' with
+              | None -> 0, 1
+              | Some i -> i + 1, 1
+          in
+          if dpos <= seg_start then "" else
+          String.sub p dpos (String.length p - dpos - final_sep_len)
+
+    (* Converting *)
+
     let decode_segment b ~first ~last s =
       Buffer.clear b; Pct.decode_to_buffer b ~first ~last s; Buffer.contents b
 
     (* The following decode allows percents not necessarily followed
-       by two hex-digits, RFC 3986 wouldn't allow that, in the whatwg we get
-       a validation error but the parsing continues. In practice curling
-       URLs with such paths works. *)
+       by two hex-digits, RFC 3986 wouldn't allow that, in the whatwg
+       we get a validation error but the parsing continues. In
+       practice curling URLs with such paths works. *)
 
     let decode s =
       if s = "" then Error err_empty_string else
@@ -581,6 +598,10 @@ module Http = struct
 
     let encode segs =
       let b = Buffer.create 255 in buffer_encode_path b segs; Buffer.contents b
+
+    let pp ppf p =
+      let pp_sep ppf () = pf ppf "@ " and pp_seg ppf s = pf ppf "%S" s in
+      Format.pp_print_list ~pp_sep pp_seg ppf p
 
     let and_query_of_request_target s =
       let subrange ?first ?last s = Some (string_subrange ?first ?last s) in
@@ -621,57 +642,6 @@ module Http = struct
           match decode p with
           | Error _ -> [], None (* TODO what do we do ? this is bad request *)
           | Ok segs -> segs, q
-
-    let _undot_and_compress ~check (* also applied on discarded segs *) p =
-      let rec loop acc = function
-      | "." :: ps -> loop acc ps
-      | ".." :: ps when acc = [] -> loop acc ps
-      | ".." :: ps -> loop (List.tl acc) ps
-      | "" :: [] -> loop ("" :: acc) []
-      | "" :: ps -> loop acc ps
-      | seg :: ps -> if check seg then loop (seg :: acc) ps else failwith ""
-      | [] -> List.rev acc
-      in
-      loop [] p
-
-    let undot_and_compress p = _undot_and_compress ~check:(Fun.const true) p
-
-    let has_no_dir_seps s = (* String.forall :-( *)
-      try
-        for i = 0 to String.length s - 1 do
-          if s.[i] = '/' || s.[i] = '\\' then raise Exit else ()
-        done;
-        true
-      with Exit -> false
-
-    let to_undotted_filepath p =
-      match _undot_and_compress ~check:has_no_dir_seps p with
-      | [] | [""] -> Ok "/"
-      | ps -> Ok (String.concat "/" ("" :: ps))
-      | exception Failure _ -> Error err_path_seg_stray_dir_sep
-
-    let prefix_filepath p0 p1 =
-      let l0 = String.length p0 and l1 = String.length p1 in
-      if l0 = 0 then p1 else
-      if l1 = 0 then p0 else
-      match p0.[l0 - 1], p1.[0] with
-      | '/', '/' ->  String.sub p0 0 (l0 - 1) ^ p1
-      | '/', _ | _, '/' -> p0 ^ p1
-      | _, _ -> String.concat "/" [p0;p1]
-
-    let drop_prefix pre p =
-      let rec loop pre acc = match pre, acc with
-      | [], [] -> [""]
-      | [], acc -> acc
-      | [""], acc -> acc
-      | s :: pre, a :: acc when String.equal s a -> loop pre acc
-      | _ -> p
-      in
-      loop pre p
-
-    let pp ppf p =
-      let pp_sep ppf () = pf ppf "@ " and pp_seg ppf s = pf ppf "%S" s in
-      Format.pp_print_list ~pp_sep pp_seg ppf p
   end
 
   (* Queries *)
@@ -781,6 +751,256 @@ module Http = struct
       pf ppf "@[<v>%a@]" (Format.pp_print_list pp_binding) (Smap.bindings q)
   end
 
+    (* MIME types *)
+
+  type mime_type = string
+  module Mime_type = struct
+    type t = mime_type
+    let application_json = "application/json"
+    let application_octet_stream = "application/octet-stream"
+    let application_x_www_form_urlencoded = "application/x-www-form-urlencoded"
+    let text_css = "text/css"
+    let text_html = "text/html;charset=utf-8"
+    let text_javascript = "text/javascript"
+    let text_plain = "text/plain;charset=utf-8"
+    let multipart_byteranges = "multipart/byteranges"
+    let multipart_form_data = "multipart/form-data"
+
+    type file_ext = string
+    type file_ext_map = t Smap.t
+    let default_file_ext_map =
+      lazy begin
+        Smap.empty
+        |> Smap.add ".aac"  "audio/aac"
+        |> Smap.add ".avi"  "video/x-msvideo"
+        |> Smap.add ".bin"  "application/octet-stream"
+        |> Smap.add ".bmp"  "image/bmp"
+        |> Smap.add ".bz"   "application/x-bzip"
+        |> Smap.add ".bz2"  "application/x-bzip2"
+        |> Smap.add ".css"	"text/css"
+        |> Smap.add ".gz"	  "application/gzip"
+        |> Smap.add ".gif"  "image/gif"
+        |> Smap.add ".htm"  "text/html"
+        |> Smap.add ".html" "text/html"
+        |> Smap.add ".ics"	"text/calendar"
+        |> Smap.add ".jpeg" "image/jpeg"
+        |> Smap.add ".jpg"  "image/jpeg"
+        |> Smap.add ".js"	  "text/javascript"
+        |> Smap.add ".json"	"text/javascript"
+        |> Smap.add ".jsonldx" "application/ld+json"
+        |> Smap.add ".md"   "text/markdown;charset=utf-8"
+        |> Smap.add ".midi"	"audio/midi audio/x-midi"
+        |> Smap.add ".mjs"  "text/javascript"
+        |> Smap.add ".mp3"  "audio/mpeg"
+        |> Smap.add ".mpeg" "video/mpeg"
+        |> Smap.add ".oga"  "audio/ogg"
+        |> Smap.add ".ogv"  "video/ogg"
+        |> Smap.add ".ogx"  "application/ogg"
+        |> Smap.add ".opus"	"audio/opus"
+        |> Smap.add ".otf"	"font/otf"
+        |> Smap.add ".png"	"image/png"
+        |> Smap.add ".pdf"	"application/pdf"
+        |> Smap.add ".rar"	"application/vnd.rar"
+        |> Smap.add ".rtf"	"application/rtf"
+        |> Smap.add ".svg"	"image/svg+xml"
+        |> Smap.add ".tar"	"application/x-tar"
+        |> Smap.add ".tif"  "image/tiff"
+        |> Smap.add ".tiff"	"image/tiff"
+        |> Smap.add ".ts"	  "video/mp2t"
+        |> Smap.add ".ttf"	"font/ttf"
+        |> Smap.add ".txt"	"text/plain;charset=utf-8"
+        |> Smap.add ".wav"	"audio/wav"
+        |> Smap.add ".weba"	"audio/webm"
+        |> Smap.add ".webm"	"video/webm"
+        |> Smap.add ".webp"	"image/webp"
+        |> Smap.add ".woff"	"font/woff"
+        |> Smap.add ".woff2" "font/woff2"
+        |> Smap.add ".xhtml" "application/xhtml+xml"
+        |> Smap.add ".xml"  "application/xml"
+        |> Smap.add ".zip"  "application/zip"
+        |> Smap.add ".7z"	  "application/x-7z-compressed"
+      end
+
+    let of_file_ext ?map:m ext =
+      let m = match m with
+      | None -> Lazy.force default_file_ext_map
+      | Some m -> m
+      in
+      let default = application_octet_stream in
+      Option.value (Smap.find_opt ext m) ~default
+
+    let of_filepath ?map file = of_file_ext ?map (Path.filepath_ext file)
+  end
+
+  (* Etags *)
+
+  module Etag = struct
+
+    (* Etags *)
+
+    type t = { weak : bool; tag : string }
+    let v ~weak tag = { weak; tag }
+    let is_weak s = s.weak
+    let tag s = s.tag
+    let weak_match e0 e1 = String.equal e0.tag e1.tag
+    let strong_match e0 e1 =
+      not e0.weak && not e1.weak && String.equal e0.tag e1.tag
+
+    let is_etagc = function
+    | '\x21' | '\x23' .. '\x7E' | '\x80' .. '\xFF' -> true | _ -> false
+
+    let decode s =
+      try
+        let max = String.length s - 1 in
+        if max < 1 then failwith err_etag else
+        let weak = s.[0] = 'W' && s.[1] = '/' in
+        let start = if weak then 2 else 0 in
+        if not (s.[start] = '\"' && s.[max] = '\"') then failwith err_etag else
+        let first = start + 1 and last = max - 1 in
+        for i = first to last
+        do if not (is_etagc s.[i]) then failwith err_etag done;
+        Ok (v ~weak (string_subrange ~first ~last s))
+      with
+      | Failure e -> Error e
+
+    let encode e = String.concat {|"|} [if e.weak then "W/" else ""; e.tag; ""]
+
+    (* Etag conditions *)
+
+    type cond = [ `Any | `Etags of t list ]
+
+    let decode_cond = function
+    | "*" -> Ok `Any
+    | s ->
+        try
+          let parse_etag s = match decode (trim_ows s) with
+          | Ok s -> s | Error e -> failwith e
+          in
+          let etags = String.split_on_char ',' s in
+          let etags = List.rev @@ List.rev_map parse_etag etags in
+          Ok (`Etags etags)
+        with
+        | Failure e -> Error e
+
+    let encode_cond = function
+    | `Any -> "*" | `Etags etags -> String.concat ", " (List.map encode etags)
+
+    let eval_if_match c t = match t with
+    | None -> false
+    | Some etag ->
+        match c with
+        | `Any -> true
+        | `Etags etags -> List.exists (strong_match etag) etags
+
+    let eval_if_none_match c t = match c with
+    | `Any -> Option.is_none t
+    |  `Etags etags ->
+        match t with
+        | None -> true
+        | Some etag -> not (List.exists (weak_match etag) etags)
+
+    let eval_if_range rt t = match t with
+    | None -> false | Some etag -> strong_match rt etag
+  end
+
+  module Range = struct
+    type bytes = [ `First of int | `Last of int | `Range of int * int ]
+    let eval_bytes ~len b =
+      let max = len - 1 in
+      match b with
+      | `First f -> if f > max then None else Some (f, max)
+      | `Last n -> if n = 0 then None else Some (len - n, max)
+      | `Range (f, l) -> if f > max then None else Some (f, min l max)
+
+    type t = [ `Bytes of bytes list | `Other of string * string ]
+
+    let decode_range s = match String.index_opt s '-' with
+    | None -> failwith err_miss_dash
+    | Some i ->
+        let f = string_subrange ~last:(i - 1) s in
+        let l = string_subrange ~first:(i + 1) s in
+        match f with
+        | "" -> `Last (Digits.decode l |> error_to_failure)
+        | f ->
+            let f = Digits.decode f |> error_to_failure in
+            match l with
+            | "" -> `First f
+            | l ->
+                let l = Digits.decode l |> error_to_failure in
+                if l < f then failwith "invalid range" else
+                `Range (f, l)
+
+    let decode s = match String.index_opt s '=' with
+    | None -> Error err_miss_eq
+    | Some i ->
+        let unit = string_subrange ~last:(i - 1) s in
+        let v = string_subrange ~first:(i + 1) s in
+        match unit with
+        | "bytes" ->
+            let rs = String.split_on_char ',' v in
+            if rs = [] then Error "no range" else
+            (try Ok (`Bytes (List.rev (List.rev_map decode_range rs)))
+             with Failure e -> Error e)
+        | s when is_token s -> Ok (`Other (s, v))
+        | s -> Error (err_token s)
+
+    let encode = function
+    | `Other (u, v) -> String.concat "=" [u;v]
+    | `Bytes rs ->
+        let int = Digits.encode in
+        let encode_bytes acc = function
+        | `First f -> "-" :: int f :: acc
+        | `Last n -> int n :: "-" :: acc
+        | `Range (f, l) -> int l :: "-" :: int f :: acc
+        in
+        let rs = List.rev (List.fold_left encode_bytes [] rs) in
+        String.concat "" ("bytes" :: "=" :: rs)
+  end
+
+  module Cookie = struct
+    type atts = string
+    let atts
+        ?max_age ?domain ?(path = []) ?(secure = false) ?(http_only = true)
+        ?(same_site = "strict") ()
+      =
+      let max_age = match max_age with
+      | None -> "" | Some a -> ";max-age=" ^ string_of_int a
+      in
+      let domain = match domain with None -> "" | Some d -> ";domain=" ^ d in
+      let path = if path = [] then "" else ";path=" ^ (Path.encode path) in
+      let secure = if secure then ";Secure" else "" in
+      let http_only = if http_only then ";httponly" else "" in
+      let same_site = ";samesite=" ^ same_site in
+      String.concat "" [max_age; domain; path; secure; http_only; same_site]
+
+    let atts_default = atts ()
+
+    let encode ?(atts = atts_default) ~name value =
+      String.concat "" [name; "="; value; atts]
+
+    let decode_list s =
+      (* Very lax parsing. TODO better,
+         see https://tools.ietf.org/html/rfc6265#section-4.2*)
+      let rec loop acc = function
+      | [] -> Ok (List.rev acc)
+      | c :: cs ->
+          match String.index_opt c '=' with
+          | None -> Error "illegal cookie pair"
+          | Some i ->
+              let n = string_subrange ~last:(i - 1) c in
+              let v = string_subrange ~first:(i + 1) c in
+              let v =
+                if v = "" then ""  else
+                let len = String.length v - 1 in
+                if v.[0] = '\"' && v.[len - 1] = '\"' && len > 1
+                then string_subrange ~first:1 ~last:(len - 2) v else
+                v
+              in
+              loop ((n, v) :: acc) cs
+      in
+      loop [] (H.values_of_string ~sep:';' s)
+  end
+
   (* Status *)
 
   type status = int
@@ -862,7 +1082,7 @@ module Http = struct
   let s402_payement_required = 402
   let s403_forbidden = 403
   let s404_not_found = 404
-  let s405_not_allowed = 405
+  let s405_method_not_allowed = 405
   let s406_not_acceptable = 406
   let s407_proxy_authentication_required = 407
   let s408_request_time_out = 408
@@ -1036,80 +1256,6 @@ module Env = struct
   let override m ~by = let right _ _ v = Some v in M.union right m by
 end
 
-module Req = struct
-
-  (* Request bodies *)
-
-  type body = unit -> (bytes * int * int) option
-  let empty_body () = None
-  let body_to_string body = match body () with
-  | None -> ""
-  | Some (bytes, start, len) ->
-      let b = Buffer.create 1024 in
-      Buffer.add_subbytes b bytes start len;
-      let rec go b = match body () with
-      | None -> Buffer.contents b
-      | Some (bytes, start, len) -> Buffer.add_subbytes b bytes start len; go b
-      in
-      go b
-
-  (* Requests *)
-
-  type t =
-    { version : Http.version;
-      meth : Http.meth;
-      request_target : string;
-      path : Http.path;
-      query : string option;
-      headers : Http.headers;
-      body_length : int option;
-      body : unit -> (bytes * int * int) option;
-      env : Env.t; }
-
-  let v
-      ?(env = Env.empty) ?(version = (1,1)) ?body_length ?(body = empty_body)
-      ?(headers = Http.H.empty) meth request_target
-    =
-    let path, query =
-      Http.Path.and_query_of_request_target request_target
-    in
-    let body_length = match body_length with
-    | None -> if body == empty_body then Some 0 else None
-    | Some l -> l
-    in
-    { env; meth; request_target; path; query; version; headers;
-      body_length; body; }
-
-  let version r = r.version
-  let meth r = r.meth
-  let request_target r = r.request_target
-  let path r = r.path
-  let query r = r.query
-  let headers r = r.headers
-  let body_length r = r.body_length
-  let body r = r.body
-  let env r = r.env
-  let with_headers headers r = { r with headers }
-  let with_body ~body_length body r = { r with body_length; body }
-  let with_path path r = { r with path }
-  let with_env env r = { r with env }
-  let pp_query ppf = function None -> pf ppf "" | Some q -> pf ppf "%S" q
-  let pp_body_length ppf = function
-  | None -> pf ppf "unknown" | Some l -> pf ppf "%d" l
-
-  let pp ppf r =
-    pf ppf "@[<v>";
-    pp_field "version" Http.Version.pp ppf r.version; pp_cut ppf ();
-    pp_field "method" Http.Meth.pp ppf r.meth; pp_cut ppf ();
-    pp_field "request-target" Format.pp_print_string ppf r.request_target;
-    pp_cut ppf ();
-    pp_field "path" Http.Path.pp ppf r.path; pp_cut ppf ();
-    pp_field "query" pp_query ppf r.query; pp_cut ppf ();
-    Http.H.pp ppf r.headers; pp_cut ppf ();
-    pp_field "body-length" pp_body_length ppf r.body_length;
-    pf ppf "@]"
-end
-
 module Resp = struct
 
   (* Response bodies *)
@@ -1219,17 +1365,138 @@ module Resp = struct
     let hs = Http.H.override hs ~by:set in
     v ?explain st ~headers:hs
 
-  let not_allowed ?explain ?reason ?(set = Http.H.empty) ~allow () =
-    let ms = String.concat ", " (List.map Http.Meth.encode allow) in
+  let method_not_allowed ?explain ?reason ?(set = Http.H.empty) ~allowed () =
+    let ms = String.concat ", " (List.map Http.Meth.encode allowed) in
     let hs = Http.H.(def allow ms empty) in
     let hs = Http.H.override hs ~by:set in
-    v ?explain ?reason ~headers:hs Http.s405_not_allowed
+    v ?explain ?reason ~headers:hs Http.s405_method_not_allowed
+end
+
+
+module Req = struct
+
+  (* Request bodies *)
+
+  type body = unit -> (bytes * int * int) option
+  let empty_body () = None
+  let body_to_string body = match body () with
+  | None -> ""
+  | Some (bytes, start, len) ->
+      let b = Buffer.create 1024 in
+      Buffer.add_subbytes b bytes start len;
+      let rec go b = match body () with
+      | None -> Buffer.contents b
+      | Some (bytes, start, len) -> Buffer.add_subbytes b bytes start len; go b
+      in
+      go b
+
+  (* Requests *)
+
+  type t =
+    { version : Http.version;
+      meth : Http.meth;
+      request_target : string;
+      path : Http.path;
+      query : string option;
+      headers : Http.headers;
+      body_length : int option;
+      body : unit -> (bytes * int * int) option;
+      env : Env.t; }
+
+  let v
+      ?(env = Env.empty) ?(version = (1,1)) ?body_length ?(body = empty_body)
+      ?(headers = Http.H.empty) meth request_target
+    =
+    let path, query =
+      Http.Path.and_query_of_request_target request_target
+    in
+    let body_length = match body_length with
+    | None -> if body == empty_body then Some 0 else None
+    | Some l -> l
+    in
+    { env; meth; request_target; path; query; version; headers;
+      body_length; body; }
+
+  let version r = r.version
+  let meth r = r.meth
+  let request_target r = r.request_target
+  let path r = r.path
+  let query r = r.query
+  let headers r = r.headers
+  let body_length r = r.body_length
+  let body r = r.body
+  let env r = r.env
+  let with_headers headers r = { r with headers }
+  let with_body ~body_length body r = { r with body_length; body }
+  let with_path path r = { r with path }
+  let with_env env r = { r with env }
+  let pp_query ppf = function None -> pf ppf "" | Some q -> pf ppf "%S" q
+  let pp_body_length ppf = function
+  | None -> pf ppf "unknown" | Some l -> pf ppf "%d" l
+
+  let pp ppf r =
+    pf ppf "@[<v>";
+    pp_field "version" Http.Version.pp ppf r.version; pp_cut ppf ();
+    pp_field "method" Http.Meth.pp ppf r.meth; pp_cut ppf ();
+    pp_field "request-target" Format.pp_print_string ppf r.request_target;
+    pp_cut ppf ();
+    pp_field "path" Http.Path.pp ppf r.path; pp_cut ppf ();
+    pp_field "query" pp_query ppf r.query; pp_cut ppf ();
+    Http.H.pp ppf r.headers; pp_cut ppf ();
+    pp_field "body-length" pp_body_length ppf r.body_length;
+    pf ppf "@]"
+
+  (* Echo *)
 
   let echo ?(status = Http.s404_not_found) r =
-    let body = Req.body_to_string (Req.body r) in
-    let body = Format.asprintf "@[<v>%a@,%s@]" Req.pp r body in
-    text status body
+    let body = body_to_string (body r) in
+    let body = Format.asprintf "@[<v>%a@,%s@]" pp r body in
+    Resp.text status body
+
+  (* Request deconstruction *)
+
+  let allow allowed r =
+    if List.mem (meth r) allowed then Ok r else
+    Error (Resp.method_not_allowed ~allowed ())
+
+  let decode_header h dec req = match Http.H.find h (headers req) with
+  | None -> Ok None
+  | Some v ->
+      match dec v with
+      | Ok v -> Ok (Some v)
+      | Error e ->
+          let reason = strf "%s: %s" (h :> string) e in
+          Error (Resp.v Http.s400_bad_request ~reason)
+
+  let to_absolute_filepath ?(strip = []) ~root r =
+    match Http.Path.strip_prefix ~prefix:strip (path r) with
+    | None ->
+        Error (Resp.v ~explain:"could not strip path" Http.s400_bad_request)
+    | Some p ->
+        match Http.Path.to_absolute_filepath p with
+        | Error e -> Error (Resp.v ~explain:e Http.s400_bad_request)
+        | Ok filepath -> Ok (Http.Path.prefix_filepath root filepath)
+
+  let to_query r =
+    let get_query r = match query r with
+    | None -> Ok Http.Query.empty | Some q -> Ok (Http.Query.decode q)
+    in
+    let post_query r =
+      match Http.H.(find ~lowervalue:true content_type (headers r)) with
+      | Some t
+        when String.equal t Http.Mime_type.application_x_www_form_urlencoded ->
+          Ok (Http.Query.decode @@ body_to_string (body r))
+      | Some t -> Error (Resp.v Http.s415_unsupported_media_type)
+      | None ->
+          Error (Resp.v ~reason:"missing content type" Http.s400_bad_request)
+    in
+    match meth r with
+    | `GET -> get_query r
+    | `POST -> post_query r
+    |  _ -> Error (Resp.method_not_allowed ~allowed:[`GET;`POST] ())
+
 end
+
 
 type service = Req.t -> Resp.t
 

@@ -18,7 +18,7 @@ let listener_conv ~default_port =
 
 let listener
     ?(opts = ["l"; "listen"]) ?docs ?(default_port = 8000)
-    ?(default_listener = Webs_unix.listener_localhost) ()
+    ?(default_listener = `Host ("localhost", default_port)) ()
   =
   let doc = strf "Listen for connections on given address and port \
                   (default to %d) or Unix domain socket." default_port

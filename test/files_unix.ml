@@ -7,16 +7,14 @@ open Webs
 open Webs_kit
 let ( let* ) = Result.bind
 
-let service docroot req =
-  Resp.result @@ (* match Req.path req with
-  | "assets" :: _ -> (* TODO  do something about chopping prefix *)
-      let* req = Res.allow [`GET] req in
-      Webs_unix.send_file ~docroot req
+let service root r =
+  Resp.result @@ match Req.path r with
+  | "assets" :: _ ->
+      let* r = Req.allow [`GET] r in
+      let* file = Req.to_absolute_filepath ~strip:["assets"] ~root r in
+      Webs_unix.send_file r file
   | _ ->
-                    Ok (Resp.v Http.s404_not_found) *)
-  let* req = Res.allow [`GET] req in
-  Webs_unix.send_file ~docroot req
-
+      Ok (Resp.v Http.s404_not_found)
 
 let main () =
   let conf = Webs_cli.conf_docroot () in

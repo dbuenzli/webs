@@ -17,7 +17,7 @@ val listener :
     {- [default_port] is the default port when unspecified (defaults to
        [8000]).}
     {- [default_listen] is the default listener when unspecified
-       (defaults to {!Webs_unix.listen_localhost}).}
+       (defaults to [`Host ("localhost", default_port)]).}
     {- [docs] is the section where the option is documented.}
     {- [opts] are the options to use (defaults to [["l";"listen"]]).}} *)
 

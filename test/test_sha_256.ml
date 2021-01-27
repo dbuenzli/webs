@@ -153,8 +153,8 @@ let test_hmac () =
 
 let test_pbkdf2_hmac () =
   print_endline "Testing pbkdf2-hmac vectors.";
-  let assert_vec (pass, salt, count, key_len, key) =
-    let key' = Sha_256.pbkdf2_hmac ~key_len ~count ~pass ~salt () in
+  let assert_vec (pass, salt, iterations, key_len, key) =
+    let key' = Sha_256.pbkdf2_hmac ~key_len ~iterations ~pass ~salt () in
     assert (key = key')
   in
   List.iter assert_vec pbkdf2_hmac_vecs

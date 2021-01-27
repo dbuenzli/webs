@@ -1,6 +1,3 @@
-# Next
-
-* Unbreak the file stuff.
 
 # A laundry list
 
@@ -26,10 +23,7 @@
   mecanism and/or logging (which may turn out to be the same).
   Also clarify the explain mecanism, and should we keep it ? 
 * In response body enumeration we might mislabel unexpected service 
-  exceptions as connector execption, fix that.
-* Paths are tricky. Should we maybe avoid exposing them as string 
-  list at all and only provide combinators to match on them ? Decide
-  something about [""] vs []. 
+  exceptions as connector exception, fix that.
 * Abstraction mismatch for specifying response bodies, you usually want 
   to specify the content type aswell. Maybe it would be better 
   to that have packed together.
@@ -41,7 +35,7 @@
 * Do not trip too much on Resp.t -> Req.t and middlware model. In particular 
   it makes erroring paths obscure. Rather look into composing function 
   that construct ('a, Resp.t) result which end with (Resp.t, Resp.t) result.
-  However that beaks once we meld sessions in review that.
+  However that beaks once we meld sessions in, review that.
 * We make as if `Resp/Req` are pure, their bodies are not. Resources...
 * Localisation, we do want that early on, e.g. error handling needs it.
   Something should be provided in request.
@@ -66,8 +60,10 @@
 * Buffering/Flushing ? For now we send each chunk directly. This 
   works well e.g. for sse. Should we rather buffer and have explicitly 
   flushing ?
-  
-# Webs tool
+* Support multiple byte ranges in `Webs_unix.send_file`.
+* Support for directory indexes. 
+
+# `webs` tool
 
 Things that could be done. 
 

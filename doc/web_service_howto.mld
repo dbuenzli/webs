@@ -5,7 +5,7 @@ gateway.
 
 {1:service Define your service}
 
-In this example we use the pre-canned {!val:Webs.Resp.echo} service
+In this example we use the pre-canned {!val:Webs.Req.echo} service
 which writes back requests and their bodies as 404. We use
 {!Webs_cli.quick_serve} function, it kills a bit of boilerplate and
 setups a basic command line interface. The function uses the
@@ -16,7 +16,7 @@ local testing.
 cat - > min.ml <<EOF
 open Webs
 
-let service = Resp.echo
+let service = Req.echo
 let main () = Webs_cli.quick_serve ~name:"min" service
 let () = if !Sys.interactive then () else main ()
 EOF
@@ -30,11 +30,14 @@ v}
 
 Now run the service and check it works correctly. By default
 {!Webs_cli.quick_serve} bind [localhost] on the port [8000] so try:
+
 {v
 ./min &
 curl -i http://localhost:8000
 v}
+
 You should get a response like:
+
 {v
 HTTP/1.1 404 Not Found
 content-type: text/plain;charset=utf-8
@@ -55,11 +58,11 @@ v}
 {1:gateway Connect the gateway}
 
 If you can't find instructions for your web server
-below you should be able to apply those of [nginx] {e mutatis mutandis}.
+below you should be able to apply those of Nginx {e mutatis mutandis}.
 
 {2:nginx Nginx}
 
-We assume you are running [nginx] to serve the [https://example.org]
+We assume you are running Nginx to serve the [https://example.org]
 web site and that you want to bind your service using
 [https://example.org/myservice/] as the root for requests.
 
@@ -105,7 +108,7 @@ File serving over HTTP should correctly handle:
 {- {{:https://en.wikipedia.org/wiki/Directory_traversal_attack}
    Directory traversals} exploits. That is make sure only files from
    a given dedicated directory are being served. For this use
-   {!Webs.Http.Path.to_undotted_filepath} to transform request
+   {!Webs.Http.Path.to_absolute_filepath} to transform request
    targets into file paths.}
 {- Etags and range requests for efficient and restartable transfers.}}
 
@@ -119,8 +122,8 @@ Alternatively most gateways let backend services handoff requests back
 to the gateway by writing special headers in the response. Use the
 function {!Webs_kit.Gateway.send_file} for this. How to use it exactly
 depends on your gateway. The advantage of this approach is that your
-service doesn't depend on {!Unix} (you may care) and allows to take
-advantage of your gateway's load balancing capabilities.
+service doesn't depend on the {!Unix} module (you may care) and it allows
+to take advantage of your gateway's load balancing capabilities.
 
 These two alternatives are detailed on a simple example below.
 
@@ -135,12 +138,13 @@ open Webs
 open Webs_kit
 let ( let* ) = Result.bind
 
-let docroot = "/my/files"
+let root = "/my/files"
 let service r =
   Resp.result @@ match Req.path r with
   | "assets" :: _ ->
       let* r = Res.allow [`GET] r in
-      Webs_unix.send_file ~docroot r
+      let* file = Req_to.absolute_filepath ~strip:["assets"] ~root r in
+      Webs_unix.send_file r file
   | _ ->
       Ok (Resp.v Http.s404_not_found)
 
@@ -150,11 +154,11 @@ let () = if !Sys.interactive then () else main ()
 
 {2:gateway_files Via the gateway}
 
-In this example the service runs with [nginx] on [/myservice] and
-any [GET] request on the service of the form [/assets/*]
-is served by the gateway as the [/my/files/*] file.
+In this example the service runs with Nginx on [/myservice] and any
+[GET] request on the service of the form [/assets/*] is served by the
+gateway as the [/my/files/*] file.
 
-We start by configuring [nginx] as follows:
+We start by configuring Nginx as follows:
 
 {v
 location /myservice/ {
@@ -174,7 +178,7 @@ With this configuration internal redirects of the form
 
 Now our Webs service just captures [/assets/*] requests and internally
 redirects them to [/myservice-files/assets/*] by using
-{!Webs_kit.Gateway.send_file} with the [nginx] specific
+{!Webs_kit.Gateway.send_file} with the Nginx specific
 {!Webs_kit.Gateway.x_accel_redirect} header.
 
 {[
@@ -182,12 +186,13 @@ open Webs
 open Webs_kit
 let ( let* ) = Result.bind
 
-let prefix = "/myservice-files"
+let root = "/myservice-files"
 let service r =
   Resp.result @@ match Req.path r with
   | "assets" :: _ ->
       let* r = Res.allow [`GET] r in
-      Gateway.send_file ~prefix ~header:Gateway.x_accel_redirect r
+      let* file = Req_to.absolute_filepath ~strip:["assets"] ~root r in
+      Gateway.send_file ~header:Gateway.x_accel_redirect r file
   | _ ->
       Ok (Resp.v Http.s404_not_found)
 
@@ -195,5 +200,5 @@ let main () = Webs_cli.quick_serve ~name:"files_gateway" service
 let () = if !Sys.interactive then () else main ()
 ]}
 
-Note that if your [nginx] gateway is configured to do so this properly
+Note that if your Nginx gateway is configured to do so this properly
 handles [etags] and range requests.

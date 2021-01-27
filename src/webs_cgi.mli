@@ -96,7 +96,7 @@ val serve : t -> Webs.service -> (unit, string) result
           [SERVER_SOFTWARE] becomes [x-cgi-server-software].}}}
     {- {!Webs.Req.body_length} is determined from the headers according to
        {!Webs.Http.H.request_body_length}.}
-    {- {!Webs.Req.body}, is the result of reading {!Unix.stdin}}}
+    {- {!val:Webs.Req.body}, is the result of reading {!Unix.stdin}}}
 
     If the request derivation fails in some way an 500 is returned and
     an error should be printed on standard error. *)

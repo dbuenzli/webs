@@ -3,103 +3,46 @@
    Distributed under the ISC license, see terms at the end of the file.
   ---------------------------------------------------------------------------*)
 
-(** [Webs] tools. *)
+(** Webs service tools. *)
 
 open Webs
-
-(** Request deconstruction. *)
-module Req_to : sig
-
-  val query : Req.t -> (Http.Query.t, Resp.t) result
-  (** [query req] extracts a query from [req]. This is
-      {ul
-      {- [Ok q] with [q] parsed from [Req.query req] if [req]'s
-         method is [`GET].}
-      {- [Ok q] with [q] parsed from the request body if [req] is
-         [`POST] with a content type of
-         {!Webs.Http.Mime_type.application_x_www_form_urlencoded} or
-         TODO multipart.}
-      {- [Error _] with a
-      {!Webs.Http.s405_not_allowed} on other methods,
-      {!Webs.Http.s415_unsupported_media_type} if the content-type
-      is unsupported or
-      {!Webs.Http.s400_bad_request} on decoding errors.}}
-
-      {b TODO.} In POST should we merge with [Req.query] ?
-      E.g. for a login form redirect param in url login creds in POST.
-      Or maybe alternate combinators
-      [(Http.Query.t * Http.Query.t, Resp.t) result]. *)
-
-  (** {1:file Files} *)
-
-  type file_req =
-    { path : string;
-      if_none_match : string list;
-      if_match : string list;
-      byte_ranges : (int * int) list; }
-  (** The type for file requests. *)
-
-  val file_req : Req.t -> strip:Http.path -> (file_req, Resp.t) result
-  (** [file_req r ~strip] *)
-end
 
 (** Gateway interaction. *)
 module Gateway : sig
 
-  (** {1:sending_file File serving handoff} *)
+  (** {1:sending_file File serving handoff}
 
-  val send_file :
-    ?prefix:string -> header:Http.name -> Req.t -> (Resp.t, Resp.t) result
-  (** [send_file ~prefix ~header r] is:
+      See {{!page-web_service_howto.serving_files}this section} of the
+      web service howto. *)
+
+  val send_file : header:Http.name -> Req.t -> Http.fpath -> (Resp.t, 'e) result
+  (** [send_file ~header r file] lets {e the gateway} respond to [r]
+      with file [file], use {!Req_to.absolute_filepath} to determine one
+      from [r] safely. More precisely this a {!Webs.Http.s200_ok} empty
+      response with:
+
       {ul
-      {- [Ok resp]. An empty {!Webs.Http.s200_ok} response with
-         [header] set to [r]'s request target as transformed by
-         {!Webs.Http.Path.to_undotted_filepath} and prefixed by [prefix]
-         (defaults to ["/"]).}
-      {- [Error resp] is a {!Webs.Http.s400_bad_request} if the
-         the {!Webs.Http.Path.to_undotted_filepath} conversion fails.}}
-      Used with the appropriate [header] this allows to
-      handoff the request back to the gateway for it to serve the
-      file.  See {{!page-web_service_howto.gateway_files}this section}
-      of the web service howto manual. *)
+      {- Header [header] set to [file]. The actual [header] to use
+         depends on your gateway.}}
+
+      {b Note.} The gateway docs of this mecanism are unclear whether we
+      should also transfer some of [r]'s headers in the response
+      e.g. the etag and conditional headers but at least with Nginx
+      that doesn't seem to be the case. *)
 
   val x_accel_redirect : Http.name
   (** [x_accel_redirect] is the header name
       {{:https://www.nginx.com/resources/wiki/start/topics/examples/x-accel/}
       ["x-accel-redirect"]} used
-      by nginx for internal redirection. *)
+      by Nginx for internal redirection. *)
 
   val x_sendfile : Http.name
   (** [x_sendfile] is the header name ["x-sendfile"]. Used by Apache and
-      Lightppd for file serving. *)
-
-  (** {1:nginx Nginx specific} *)
+      Lighttpd for file serving. *)
 end
 
 (** Resource oriented combinators. *)
 module Res : sig
-  val allow : Http.meth list -> Req.t -> (Req.t, Resp.t) result
-  (** [allow ms req] is:
-      {ul
-      {- [Ok req] if [List.mem (Req.meth r) ms]}
-      {- An empty {{:Http.s405_not_allowed}405} [Error _] not allowed
-         response, otherwise.}} *)
-end
-
-(** MIME type tools. *)
-module Mime_type : sig
-
-  val default_of_ext : Http.mime_type Map.Make(String).t Lazy.t
-  (** [default_of_ext] is a default file extension (including the [.])
-      to MIME type map.
-
-      It is documented by its implementation. Non self-describing
-      [text/*] MIME types have a parameter [charset=utf-8] added. *)
-
-  val of_ext :
-    ?map:Http.mime_type Map.Make(String).t -> string -> Http.mime_type
-  (** [of_ext ~map ext] finds [ext] in [map] (defaults to
-      {!default_ext_to_mime}) or defaults to ["application/octet-stream"] *)
 end
 
 (** {1:auth Being authentic} *)
@@ -128,14 +71,22 @@ module Sha_256 : sig
   (** {1:pbkdf2 PBKDF2-HMAC-SHA-256} *)
 
   val pbkdf2_hmac :
-    key_len:int -> count:int -> pass:string -> salt:string -> unit -> string
-  (** [pbkdf2_hmac ~key_len ~count ~pass ~salt ()] derives a key for
-      password [pass] with a salt [salt] and count [count]
-      iterations (use at least [100_000]) to generate a key of length
-      [key_len] using {{:https://tools.ietf.org/html/rfc8018}RFC
-      8018}'s PBKFD2-HMAC-SHA-256.
+    key_len:int -> iterations:int -> pass:string -> salt:string -> unit ->
+    string
+  (** [pbkdf2_hmac ~key_len ~iterations ~pass ~salt ()] derives a key
+      for password [pass] with a salt [salt] and
+      iterations [iterations] iterations (use at least [100_000]) wto
+      generate a key of length [key_len] using
+      {{:https://tools.ietf.org/html/rfc8018}RFC 8018}'s
+      PBKFD2-HMAC-SHA-256.
 
-      Raises [Invalid_argument] if [key_len] or [count] are smaller or
+      In 2021, here is a good baseline of parameters:
+      {ul
+      {- A [key_len] of [32] bytes.}
+      {- A number of [iterations] of [400_000].}
+      {- A [salt] length of [8] bytes.}}
+
+      Raises [Invalid_argument] if [key_len] or [iterations] are smaller or
       equal to [0] or if [key_len] is greater than 2{^32} - 1 * 32
       or [max_int]. *)
 
@@ -182,11 +133,6 @@ end
 
     {b TODOs.}
     {ul
-    {- {!ptime}, maybe use positive ints in the API and be more stringent about
-      data checking. Note that fundamentally we don't need that to be
-      POSIX time, a client could use it's own definition of a
-      clock. We could also leave the expiration mechanism out but it feels
-      convenient.}
     {- {!decode}, are we happy about the erroring structure ?}
     {- {!encode}/{!decode}, provide primed version which compose
        with [{to,of}_string] funs ?}} *)
@@ -194,14 +140,15 @@ module Authenticatable : sig
 
   (** {1:time Time} *)
 
-  type ptime = float
-  (** The type for POSIX time as a number of seconds since the epoch
-      1970-01-01 00:00:00 UTC. *)
+  type time = int
+  (** The type for some notion of time to expire data. For example you
+      can use a logical notion of time or the number of seconds since
+      the epoch. *)
 
   (** {1:keys Keys} *)
 
   type key = string
-  (** The type for keys. This is used with {{!Sha_256.hmac}[HMAC-SHA-256]},
+  (** The type for keys. This is used with {{!val:Sha_256.hmac}[HMAC-SHA-256]},
       so it should be at least 32 bytes long. *)
 
   val random_key : unit -> key
@@ -220,15 +167,15 @@ authenticatable = (base64|base64url)(hmac-sha-256(key, msg) + msg)
 ]}
   *)
 
-  val encode : ?base64url:bool -> key:key -> expire:ptime option -> string -> t
+  val encode : ?base64url:bool -> key:key -> expire:time option -> string -> t
   (** [encode ~key ~expire data] makes data [data] expire at [expire]
-      (if any and truncated to seconds) and authenticatable via the
-      private key [key]. If [base64url] is [true] (defaults to [false])
-      the [base64url] encoding scheme is used instead of [base64]. *)
+      (if any) and authenticatable via the private key [key]. If
+      [base64url] is [true] (defaults to [false]) the [base64url]
+      encoding scheme is used instead of [base64]. *)
 
   val decode :
-    ?base64url:bool -> key:key -> now:ptime -> t ->
-    (ptime option * string, [`Expired | `Decode | `Authentication]) result
+    ?base64url:bool -> key:key -> now:time -> t ->
+    (time option * string, [`Expired | `Decode | `Authentication]) result
   (** [decode ~key ~now s] authenticates data [s] with the private
       key [key] and makes it expire (if applicable) according to [now].
       The result is:
@@ -248,7 +195,7 @@ authenticatable = (base64|base64url)(hmac-sha-256(key, msg) + msg)
 
   val untrusted_decode :
     ?base64url:bool -> t ->
-    ([`Untrusted of Sha_256.t * ptime option * string], [`Decode]) result
+    ([`Untrusted of Sha_256.t * time option * string], [`Decode]) result
     (** [untrusted_decode s] decodes the encoding structure of [s] but
         neither authenticates nor expires the data. *)
 end
@@ -262,14 +209,14 @@ end
 
     In order to use this you need a private key in your service. An
     easy way to handle this is to generate one randomly with
-    {!Authenticatable.random_key} when you start your service. Note however
-    that this invalidates any data currently stored on your clients whenever you
-    restart your service – depending on your use case that may be okay,
-    or not. *)
+    {!Authenticatable.random_key} when you start your service. Note
+    however that this invalidates any data currently stored on your
+    clients whenever you restart your service – that may be okay, or
+    not. *)
 module Authenticated_cookie : sig
 
   val get :
-    key:Authenticatable.key -> now:Authenticatable.ptime ->
+    key:Authenticatable.key -> now:Authenticatable.time ->
     name:string -> Req.t -> string option
   (** [get ~key ~now ~name req] is the cookie of [req] named [name]
       authenticated and expired by [key] and [now] (see
@@ -278,10 +225,9 @@ module Authenticated_cookie : sig
       {b TODO.} Any kind of error leads to [None]. *)
 
   val set :
-    ?atts:Http.Cookie.atts -> key:Authenticatable.key ->
-    expire:Authenticatable.ptime option -> name:string -> string ->
-    Resp.t -> Resp.t
-  (** [set ~atts ~key ~expire ~name data resp] sets in [resp] the
+    key:Authenticatable.key -> expire:Authenticatable.time option ->
+    ?atts:Http.Cookie.atts -> name:string -> string -> Resp.t -> Resp.t
+  (** [set ~key ~expire ~atts ~name data resp] sets in [resp] the
       cookie [name] to [data] authenticated
       by [key] and expiring at [expire] (see
       {!Authenticatable.encode}). [atts] are the cookie's attribute
@@ -294,7 +240,7 @@ end
     provides a basic infrastructure to abstract the mecanism handling
     sessions.
 
-    One built-in mecanism is ofered for client-side sessions via
+    One built-in mecanism is offered for client-side sessions via
     {!Authenticated_cookie}s.
 
     {b TODO.}
@@ -358,19 +304,19 @@ module Session : sig
 
   val setup' :
     'a state -> 'a handler ->
-    (Req.t -> 'a option -> ('a option * (Resp.t, Resp.t) result)) ->
+    (Req.t -> 'a option -> ('a option * Resp.t, 'a option * Resp.t) result) ->
     (Req.t -> (Resp.t, Resp.t) result)
   (** {b TODO.} Add that for now until we settle on something. *)
 
   (** {1:built-in Built-in session handlers} *)
 
   val with_authenticated_cookie :
-    ?atts:Http.Cookie.atts -> ?name:string -> ?key:Authenticatable.key ->
+    key:Authenticatable.key -> ?atts:Http.Cookie.atts -> name:string ->
     unit -> 'a handler
-  (** [with_authenticated_cookie ~key] stores state on the client with
-      an {!Authenticated_cookie} that can be authenticated with the
+  (** [with_authenticated_cookie ~key ~atts ~name] stores state on the
+      client with an {!Authenticated_cookie} that can be authenticated with the
       private key [key] (defaults to {!Authenticatable.random_key}).
-      [name] is the name of the cookie, it defaults to ["webss"].
+      [name] is the name of the cookie.
       [atts] are the attributes of the cookie, they default to
       {!Webs.Http.Cookie.atts_default}. *)
 end

@@ -5,7 +5,7 @@
 
 open Webs
 
-let service = Resp.echo
+let service = Req.echo
 let main () =
   let c = Webs_cgi.create ~extra_vars:["SERVER_SOFTWARE"] () in
   match Webs_cgi.serve c service with

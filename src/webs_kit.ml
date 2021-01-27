@@ -8,47 +8,10 @@ open Webs
 let strf = Printf.sprintf
 let ( let* ) = Result.bind
 
-module Req_to = struct
-  let query r = match Req.meth r with
-  | `GET ->
-      begin match Req.query r with
-      | None -> Ok Http.Query.empty | Some q -> Ok (Http.Query.decode q)
-      end
-  | `POST ->
-      (* TODO treat content-type with body. *)
-      begin match
-        Http.H.(find ~lowervalue:true content_type (Req.headers r))
-      with
-      | Some t
-        when String.equal t Http.Mime_type.application_x_www_form_urlencoded ->
-          Ok (Http.Query.decode @@ Req.body_to_string (Req.body r))
-      | Some t -> Error (Resp.v Http.s415_unsupported_media_type)
-      | None ->
-          Error (Resp.v ~reason:"missing content type" Http.s400_bad_request)
-      end
-  |  _ ->
-      Error (Resp.not_allowed ~allow:[`GET;`POST] ())
-
-  (* TODO use this in Webs_unix *)
-
-  type file_req =
-    { path : string;
-      if_none_match : string list;
-      if_match : string list;
-      byte_ranges : (int * int) list; }
-
-  let file_req r ~strip = failwith "TODO"
-end
-
 module Gateway = struct
-  let send_file ?prefix ~header r =
-    match Http.Path.to_undotted_filepath (Req.path r) with
-    | Error e -> Error (Resp.v Http.s400_bad_request ~explain:e)
-    | Ok file ->
-        let prefix = Option.value ~default:"/" prefix in
-        let file = Http.Path.prefix_filepath prefix file in
-        let headers = Http.H.(def header file empty) in
-        Ok (Resp.v Http.s200_ok ~headers ~explain:(header :> string))
+  let send_file ~header _ file =
+    let headers = Http.H.(def header file empty) in
+    Ok (Resp.v Http.s200_ok ~headers ~explain:(header :> string))
 
   let x_accel_redirect = Http.Name.v "x-accel-redirect"
   let x_sendfile = Http.Name.v "x-sendfile"
@@ -57,72 +20,12 @@ end
 (* Res *)
 
 module Res = struct
-  let allow allow r =
-    if List.mem (Req.meth r) allow then Ok r else
-    Error (Resp.not_allowed ~allow ())
 end
 
 (* File extension to MIME type *)
 
 module Mime_type = struct
   module Smap = Map.Make (String)
-  let default_of_ext =
-    lazy begin
-      Smap.empty
-      |> Smap.add ".aac"  "audio/aac"
-      |> Smap.add ".avi"  "video/x-msvideo"
-      |> Smap.add ".bin"  "application/octet-stream"
-      |> Smap.add ".bmp"  "image/bmp"
-      |> Smap.add ".bz"   "application/x-bzip"
-      |> Smap.add ".bz2"  "application/x-bzip2"
-      |> Smap.add ".css"	"text/css"
-      |> Smap.add ".gz"	  "application/gzip"
-      |> Smap.add ".gif"  "image/gif"
-      |> Smap.add ".htm"  "text/html"
-      |> Smap.add ".html" "text/html"
-      |> Smap.add ".ics"	"text/calendar"
-      |> Smap.add ".jpeg" "image/jpeg"
-      |> Smap.add ".jpg"  "image/jpeg"
-      |> Smap.add ".js"	  "text/javascript"
-      |> Smap.add ".json"	"text/javascript"
-      |> Smap.add ".jsonldx" "application/ld+json"
-      |> Smap.add ".md"   "text/markdown;charset=utf-8"
-      |> Smap.add ".midi"	"audio/midi audio/x-midi"
-      |> Smap.add ".mjs"  "text/javascript"
-      |> Smap.add ".mp3"  "audio/mpeg"
-      |> Smap.add ".mpeg" "video/mpeg"
-      |> Smap.add ".oga"  "audio/ogg"
-      |> Smap.add ".ogv"  "video/ogg"
-      |> Smap.add ".ogx"  "application/ogg"
-      |> Smap.add ".opus"	"audio/opus"
-      |> Smap.add ".otf"	"font/otf"
-      |> Smap.add ".png"	"image/png"
-      |> Smap.add ".pdf"	"application/pdf"
-      |> Smap.add ".rar"	"application/vnd.rar"
-      |> Smap.add ".rtf"	"application/rtf"
-      |> Smap.add ".svg"	"image/svg+xml"
-      |> Smap.add ".tar"	"application/x-tar"
-      |> Smap.add ".tif"  "image/tiff"
-      |> Smap.add ".tiff"	"image/tiff"
-      |> Smap.add ".ts"	  "video/mp2t"
-      |> Smap.add ".ttf"	"font/ttf"
-      |> Smap.add ".txt"	"text/plain;charset=utf-8"
-      |> Smap.add ".wav"	"audio/wav"
-      |> Smap.add ".weba"	"audio/webm"
-      |> Smap.add ".webm"	"video/webm"
-      |> Smap.add ".webp"	"image/webp"
-      |> Smap.add ".woff"	"font/woff"
-      |> Smap.add ".woff2" "font/woff2"
-      |> Smap.add ".xhtml" "application/xhtml+xml"
-      |> Smap.add ".xml"  "application/xml"
-      |> Smap.add ".zip"  "application/zip"
-      |> Smap.add ".7z"	  "application/x-7z-compressed"
-    end
-
-  let of_ext ?map:m ext =
-    let m = match m with None -> Lazy.force default_of_ext | Some m -> m in
-    let default = Http.Mime_type.application_octet_stream in
-    Option.value (Smap.find_opt ext m) ~default
 end
 
 module Sha_256 = struct
@@ -191,12 +94,12 @@ module Sha_256 = struct
 
   let pp ppf h = Format.pp_print_string ppf (to_hex h)
 
-  let pbkdf2_hmac ~key_len ~count ~pass ~salt () =
+  let pbkdf2_hmac ~key_len ~iterations ~pass ~salt () =
     let check_positive s v =
       if v <= 0 then invalid_arg (strf "%s not positive (%d)" s v)
     in
     check_positive "key_len" key_len;
-    check_positive "count" count;
+    check_positive "iterations" iterations;
     let div_round_up x y = (x + y - 1) / y in
     let max = Int64.(mul (sub (shift_left 1L 32) 1L) 32L) in
     match Int64.unsigned_to_int max with
@@ -219,7 +122,7 @@ module Sha_256 = struct
           let ti_start = (i - 1) * hlen in
           Bytes.blit_string u1 0 t ti_start hlen;
           Bytes.blit_string u1 0 uj 0 hlen;
-          for j = 2 to count do
+          for j = 2 to iterations do
             let unext = hmac ~key:pass (Bytes.unsafe_to_string uj) in
             Bytes.blit_string unext 0 uj 0 hlen;
             for k = 0 to hlen - 1 do
@@ -235,7 +138,7 @@ module Sha_256 = struct
 end
 
 module Authenticatable = struct
-  type ptime = float
+  type time = int
   type key = string
   let random_key () =
     let () = Random.self_init () in
@@ -245,7 +148,7 @@ module Authenticatable = struct
 
   type t = string
   let encode ?(base64url = false) ~key ~expire:e data =
-    let e = match e with None -> "" | Some t -> string_of_int (truncate t) in
+    let e = match e with None -> "" | Some t -> string_of_int t in
     let msg = String.concat ":" [e; data] in
     let hmac = Sha_256.hmac ~key msg in
     Http.Base64.encode  ~url:base64url (hmac ^ msg)
@@ -267,7 +170,7 @@ module Authenticatable = struct
       match expire with
       | "" -> Ok (None, data)
       | e ->
-          match float_of_int (int_of_string expire) with
+          match int_of_string expire with
           | exception Failure _ -> Error `Decode
           | t -> Ok (Some t, data)
 
@@ -302,7 +205,7 @@ module Authenticated_cookie = struct
           | Ok (_, data) -> (Some data)
           | Error _ -> None
 
-  let set ?atts ~key ~expire ~name data resp =
+  let set ~key ~expire ?atts ~name data resp =
     let value = Authenticatable.encode ~key ~expire data in
     let cookie = Http.Cookie.encode ?atts ~name value in
     let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
@@ -359,16 +262,14 @@ module Session = struct
   let setup' st handler service =
     fun req ->
     let s = handler.load st req in
-    let s', resp = service req s in
-    if eq_state st s s' then resp else
-    match resp with
-    | Ok resp -> Ok (handler.save st s' resp)
-    | Error resp -> Error (handler.save st s' resp)
+    match service req s with
+    | Ok (s', resp) ->
+        Ok (if eq_state st s s' then resp else handler.save st s' resp)
+    | Error (s', resp) ->
+        Error (if eq_state st s s' then resp else handler.save st s' resp)
 
-  let with_authenticated_cookie
-      ?atts ?(name = "webss") ?(key = Authenticatable.random_key ()) ()
-    =
-    let now = 0. (* TODO get rid of that *) in
+  let with_authenticated_cookie ~key ?atts ~name () =
+    let now = 0 (* TODO get rid of that *) in
     let load st req = match Authenticated_cookie.get ~key ~now ~name req with
     | None -> None
     | Some "" (* TODO sort that out correctly *) -> None

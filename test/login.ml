@@ -54,7 +54,8 @@ end
    * Generalize to arbirary path and redirect to it after
    * bauth.ml is nicer but it doesn't need to wrap to save the state. *)
 
-let session = Session.with_authenticated_cookie () (* expires on restart *)
+let key = Authenticatable.random_key () (* expires on restart *)
+let session = Session.with_authenticated_cookie ~key ~name:"webs_login" ()
 let user = Session.State.string
 
 let check email pass = match email, pass with
@@ -62,57 +63,57 @@ let check email pass = match email, pass with
 | _, _ -> false
 
 let restricted_serve req user = match user with
-| Some u -> user, Ok (Resp.html Http.s200_ok (Page.restricted u))
+| Some u -> Ok (user, Resp.html Http.s200_ok (Page.restricted u))
 | None ->
-    None, Ok (Resp.redirect ~explain:"not logged" Http.s302_found "/login")
+    Ok (None, Resp.redirect ~explain:"not logged" Http.s302_found "/login")
 
 let login_user req user =
   let goto_restricted user =
     let explain = user ^ " logged" in
-    Ok (Resp.redirect ~explain Http.s303_see_other "/restricted")
+    Resp.redirect ~explain Http.s303_see_other "/restricted"
   in
   match user with
-  | Some u -> user, goto_restricted u
+  | Some u -> Ok (user, goto_restricted u)
   | None ->
       match Req.meth req with
-      | `GET -> None, Ok (Resp.html Http.s200_ok (Page.login ""))
+      | `GET -> Ok (None, Resp.html Http.s200_ok (Page.login ""))
       | `POST ->
-          begin match Req_to.query req with
+          begin match Req.to_query req with
           | Error _ ->
               let err = "Something wrong happened. Try again." in
-              None, Ok (Resp.html Http.s400_bad_request (Page.login err))
+              Ok (None, Resp.html Http.s400_bad_request (Page.login err))
           | Ok q ->
               let email = Http.Query.find "email" q in
               let password = Http.Query.find "password" q in
               match check email password with
               | true ->
                   let u = Option.get email in
-                  Some u, goto_restricted u
+                  Ok (Some u, goto_restricted u)
               | false ->
-                  let explain = "bad credentials: TODO log" in
+                  let explain = "bad credentials" in
                   let err = "Incorrect email or password. Try again." in
-                  None,
-                  Ok (Resp.html ~explain Http.s403_forbidden (Page.login err))
+                  Ok (None,
+                      Resp.html ~explain Http.s403_forbidden (Page.login err))
           end
       | _ -> assert false
 
 let logout_user req user =
   let explain = match user with None -> "" | Some u -> u ^ " logged out" in
-  None,  Ok (Resp.redirect ~explain Http.s303_see_other "/")
+  Ok (None, Resp.redirect ~explain Http.s303_see_other "/")
 
 let service req =
   Resp.result @@ match Req.path req with
   | [ "" ] ->
-      let* req = Res.allow [`GET] req in
+      let* req = Req.allow [`GET] req in
       Ok (Resp.html Http.s200_ok Page.index)
   | ["restricted"] ->
-      let* req = Res.allow [`GET] req in
+      let* req = Req.allow [`GET] req in
       Session.setup' user session restricted_serve req
   | ["login"] ->
-      let* req = Res.allow [`GET; `POST] req in
+      let* req = Req.allow [`GET; `POST] req in
       Session.setup' user session login_user req
   | ["logout"] ->
-      let* req = Res.allow [`GET] req in
+      let* req = Req.allow [`GET] req in
       Session.setup' user session logout_user req
   | _ ->
       Error (Resp.v Http.s404_not_found)

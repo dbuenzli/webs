@@ -27,15 +27,15 @@ let get_expirable_count ~key ~now req =
   Authenticated_cookie.get ~key ~now ~name:cookie_name req
 
 let set_expirable_count ~key ~now ~count r =
-  let expire = Some (now +. 10.) in
+  let expire = Some (now + 10) in
   let data = string_of_int count in
   Authenticated_cookie.set ~key ~expire ~name:cookie_name data r
 
 let service req =
   Resp.result @@ match Req.path req with
   | [""] ->
-      let* req = Res.allow [`GET] req in
-      let now = Unix.gettimeofday () in
+      let* req = Req.allow [`GET] req in
+      let now = truncate (Unix.gettimeofday ()) in
       let c = get_expirable_count ~key ~now req in
       let resp = Resp.html Http.s200_ok (count c) in
       Ok (set_expirable_count ~key ~now ~count:(c + 1) resp)

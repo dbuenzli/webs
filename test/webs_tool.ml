@@ -16,7 +16,6 @@ let no_log fmt = Format.ifprintf Format.err_formatter fmt
 let log fmt = Format.fprintf Format.err_formatter ("@[" ^^ fmt ^^ "@]@.")
 let log_if_error ~use = function Ok c -> c | Error e -> log "Error: %s" e; use
 let log fmt = if !quiet_log then no_log fmt else log fmt
-
 let log_docroot d =
   let d = match d with None -> "<none>" | Some d -> d in
   log "Document root: %s" d
@@ -30,23 +29,28 @@ let absolute_docroot = function
 
 (* Service *)
 
-let service ~docroot req =
+let service ~docroot ~dir_resp req =
   Resp.result @@ match docroot with
   | None -> Error (Resp.v Http.s404_not_found)
   | Some docroot ->
-      let* r = Res.allow [`GET] req in
-      Webs_unix.send_file ~docroot req
+      let* req = Req.allow [`GET] req in
+      let* file = Req.to_absolute_filepath ~root:docroot req in
+      Webs_unix.send_file ~dir_resp req file
 
 (* Server *)
 
-let webs quiet listener docroot =
+let webs quiet listener docroot dir_index =
   quiet_log := quiet;
   log_if_error ~use:1 @@
   let* docroot = absolute_docroot docroot in
+  let* dir_resp = match dir_index with
+  | "/dev/null" -> Ok Webs_unix.dir_404
+  | file -> Webs_unix.dir_index_file file
+  in
   log_docroot docroot;
   let s = Webs_httpc.create ~listener () in
   log "Listening on http://%a" Webs_unix.pp_listener listener;
-  let* () = Webs_httpc.serve s (service ~docroot) in
+  let* () = Webs_httpc.serve s (service ~docroot ~dir_resp) in
   Ok 0
 
 (* Command line interface *)
@@ -56,6 +60,10 @@ open Cmdliner
 let listener = Webs_cli.listener ()
 let docroot = Webs_cli.docroot ()
 let quiet = Arg.(value & flag & info ["q";"quiet"] ~doc:"Be quiet.")
+let dir_index =
+  let doc = "The file to read for directory indexes. Use /dev/null to 404." in
+  Arg.(value & opt string "index.html" & info ["i"; "dir-index"] ~doc)
+
 let cmd =
   let doc = "Webs HTTP/1.1 file server" in
   let man = [
@@ -71,7 +79,7 @@ let cmd =
     Term.exit_info ~doc:"on indiscriminate error reported on stderr." 2 ::
     Term.default_exits
   in
-  Term.(pure webs $ quiet $ listener $ docroot),
+  Term.(pure webs $ quiet $ listener $ docroot $ dir_index),
   Term.info "webs" ~version:"%%VERSION%%" ~doc ~man ~exits
 
 let () = if !Sys.interactive then () else Term.exit_status @@ Term.eval cmd

@@ -28,7 +28,7 @@ val create :
 (** [create ()] is a new connector with following parameters:
     {ul
     {- [listen] specifies the socket to listen to on.
-       Defaults to {!Webs_unix.listen_localhost}}
+       Defaults to {!Webs_unix.listener_localhost}}
     {- [max_connections] is the maximal number of allowed concurrent
        connections.}
     {- [max_req_headers_byte_size] is the maximal allowed size in bytes for

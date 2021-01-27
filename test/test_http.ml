@@ -62,7 +62,7 @@ let test_headers_case () =
   ()
 
 let test_path () =
-  log "Webs.Http.Path.{encode,decode}";
+  log "Webs.Http.Path.{encode,decode,strip_prefix,filpath_ext}";
   assert (Http.Path.decode "/" = Ok [""]);
   assert (Http.Path.decode "//" = Ok ["";""]);
   assert (Http.Path.decode "/a/b/c" = Ok ["a"; "b"; "c";]);
@@ -97,23 +97,82 @@ let test_path () =
   assert (Http.Path.encode ["a"; "/"; "b"] = "/a/%2F/b");
   assert (Http.Path.encode ["a"; "a,b;c=3"; "c"] = "/a/a,b;c=3/c");
   assert (Http.Path.encode [] = "");
+  log "Webs.Http.Path.strip_prefix";
+  assert (Http.Path.strip_prefix [] [] = None);
+  assert (Http.Path.strip_prefix [] (["u"]) = Some ["u"]);
+  assert (Http.Path.strip_prefix [""; "a"] [] = None);
+  assert (Http.Path.strip_prefix [""; "a"] [""; "a"] = None);
+  assert (Http.Path.strip_prefix [""; "a"] [""; "a"; ""] = Some [""]);
+  assert (Http.Path.strip_prefix [""; "a"; ""] [""; "a"] = None);
+  assert (Http.Path.strip_prefix [""; "a"; ""] [""; "a"; ""] = None);
+  assert (Http.Path.strip_prefix [""; "a"; ""] [""; "a"; "b"] = None);
+  log "Webs.Http.Path.filepath_ext";
+  assert (Http.Path.filepath_ext "" = "");
+  assert (Http.Path.filepath_ext "/" = "");
+  assert (Http.Path.filepath_ext "/.bla" = "");
+  assert (Http.Path.filepath_ext "/a.bla" = ".bla");
+  assert (Http.Path.filepath_ext ".bla" = "");
+  assert (Http.Path.filepath_ext "a.bla" = ".bla");
+  assert (Http.Path.filepath_ext "a.bla/" = ".bla");
+  assert (Http.Path.filepath_ext "a.bla/a" = "");
+  assert (Http.Path.filepath_ext "/a.bla/a" = "");
+  assert (Http.Path.filepath_ext "/a.bla/a.ext" = ".ext");
   ()
 
 let test_digits () =
-  log "Webs.Http.H.digits_{of,to}_string";
+  log "Webs.Http.Digit.{decode,encode}";
   let overflow = (Format.asprintf "%d0" max_int) in
-  assert (Http.H.digits_of_string "0" = Ok 0);
-  assert (Http.H.digits_of_string "42" = Ok 42);
-  assert (Http.H.digits_of_string "042" = Ok 42);
-  assert (Http.H.digits_of_string "1024" = Ok 1024);
-  assert (Result.is_error @@ Http.H.digits_of_string overflow);
-  assert (Result.is_error @@ Http.H.digits_of_string "");
-  assert (Result.is_error @@ Http.H.digits_of_string "-1");
-  assert (Http.H.digits_to_string 0 = "0");
-  assert (Http.H.digits_to_string 42 = "42");
-  assert (Http.H.digits_to_string 1024 = "1024");
-  raises_invalid (fun () -> Http.H.digits_to_string (-1));
-  raises_invalid (fun () -> Http.H.digits_to_string min_int);
+  assert (Http.Digits.decode "0" = Ok 0);
+  assert (Http.Digits.decode "42" = Ok 42);
+  assert (Http.Digits.decode "042" = Ok 42);
+  assert (Http.Digits.decode "1024" = Ok 1024);
+  assert (Result.is_error @@ Http.Digits.decode overflow);
+  assert (Result.is_error @@ Http.Digits.decode "");
+  assert (Result.is_error @@ Http.Digits.decode "-1");
+  assert (Http.Digits.encode 0 = "0");
+  assert (Http.Digits.encode 42 = "42");
+  assert (Http.Digits.encode 1024 = "1024");
+  raises_invalid (fun () -> Http.Digits.encode (-1));
+  raises_invalid (fun () -> Http.Digits.encode min_int);
+  ()
+
+let test_ranges () =
+  log "Webs.Http.Range.decode";
+  let r0_499 = `Range (0, 499) in
+  let r500_999 = `Range (500, 999) in
+  let last500 = `Last 500 in
+  let fst9500 = `First 9500 in
+  let ok l = Ok (`Bytes l) in
+  assert (Http.Range.decode "bytes=0-499" = ok [r0_499]);
+  assert (Http.Range.decode "bytes=0-499,500-999" = ok [r0_499;r500_999]);
+  assert (Http.Range.decode "bytes=-500" = ok [last500]);
+  assert (Http.Range.decode "bytes=9500-" = ok [fst9500]);
+  assert (Http.Range.decode "bytes=0-0,-1" = ok [`Range (0, 0); `Last 1]);
+  assert (Result.is_error @@ Http.Range.decode "bytes=2-1");
+  assert (Result.is_error @@ Http.Range.decode "by tes=1-2");
+  assert (Http.Range.decode "unit=1-2" = Ok (`Other ("unit", "1-2")));
+  ()
+
+let test_etags () =
+  let etags t = Http.Etag.v ~weak:false t, Http.Etag.v ~weak:true t in
+  let empty, w_empty = etags "" in
+  let xyzzy, w_xyzzy = etags "xyzzy" in
+  let r2d2xxxx, w_r2d2xxxx = etags "r2d2xxxx" in
+  let c3piozzzz, w_c3piozzzz = etags "c3piozzzz" in
+  log "Webs.Http.Etag.decode";
+  assert (Http.Etag.decode {|"xyzzy"|} = Ok xyzzy);
+  assert (Http.Etag.decode {|W/"xyzzy"|} = Ok w_xyzzy);
+  assert (Http.Etag.decode {|""|} = Ok empty);
+  log "Webs.Http.Etag.decode_cond";
+  assert (Http.Etag.decode_cond {|"xyzzy"|} = Ok (`Etags [xyzzy]));
+  assert (Http.Etag.decode_cond {|"xyzzy", "r2d2xxxx", "c3piozzzz"|}
+          = Ok (`Etags [xyzzy; r2d2xxxx; c3piozzzz]));
+  assert (Http.Etag.decode_cond {|W/"xyzzy", W/"r2d2xxxx", W/"c3piozzzz"|}
+          = Ok (`Etags [w_xyzzy; w_r2d2xxxx; w_c3piozzzz]));
+  assert (Http.Etag.decode_cond "*" = Ok `Any);
+  assert (Result.is_error @@ Http.Etag.decode_cond " * ");
+  assert (Result.is_error @@ Http.Etag.decode_cond " *.");
+  assert (Result.is_error @@ Http.Etag.decode_cond "");
   ()
 
 let main () =
@@ -122,6 +181,8 @@ let main () =
   test_headers_case ();
   test_path ();
   test_digits ();
+  test_etags ();
+  test_ranges ();
   print_endline "All tests succeeded."
 
 let () = main ()

@@ -25,7 +25,7 @@ let var_to_header_name ?(start = 0) ?(prefix = "") s =
     Bytes.set b i (Char.lowercase_ascii c)
   done;
   let name = Bytes.unsafe_to_string b in
-  Http.Name.of_string (if prefix <> "" then prefix ^ name else name)
+  Http.Name.decode (if prefix <> "" then prefix ^ name else name)
 
 let http_var_to_header_name var = var_to_header_name ~start:5 var
 let extra_var_to_header_name var =
@@ -134,9 +134,7 @@ let read_req c env fd_in =
 let encode_resp_header_section st reason hs =
   let crlf = "\r\n" in
   let enc_header n v acc =
-    let encode n acc v =
-      Http.Name.to_string n :: ": " :: v :: crlf :: acc
-    in
+    let encode n acc v = Http.Name.encode n :: ": " :: v :: crlf :: acc in
     if not (Http.Name.equal n Http.H.set_cookie) then encode n acc v else
     let cookies = Http.H.values_of_set_cookie_value v in
     List.fold_left (encode Http.H.set_cookie) acc cookies

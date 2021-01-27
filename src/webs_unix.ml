@@ -4,12 +4,9 @@
   ---------------------------------------------------------------------------*)
 
 open Webs
+
 let ( let* ) = Result.bind
 let strf = Printf.sprintf
-
-(* Connection *)
-
-type Resp.connection += Fd of Unix.file_descr
 
 (* Unixies *)
 
@@ -23,12 +20,14 @@ let rec lseek src off cmd = try Unix.lseek src off cmd with
 let rec openfile fn mode perm = try Unix.openfile fn mode perm with
 | Unix.Unix_error (Unix.EINTR, _, _) -> openfile fn mode perm
 
+let rec fstat fd = try Unix.fstat fd with
+| Unix.Unix_error (Unix.EINTR, _, _) -> fstat fd
+
 external realpath : string -> string = "ocaml_webs_realpath"
+
 external sendfile :
   src:Unix.file_descr -> off:int -> len:int -> Unix.file_descr -> int =
   "ocaml_webs_sendfile"
-
-(* Sending files *)
 
 let rec really_sendfile ~src ~off ~len dst =
   match sendfile ~src ~off ~len dst with
@@ -37,7 +36,7 @@ let rec really_sendfile ~src ~off ~len dst =
   | exception Unix.Unix_error (Unix.EINTR, _, _) ->
       really_sendfile ~src ~off ~len dst
 
-let copy ?buf:b ~src ~off ~len dst = (* sendfile fallback *)
+let copy_fd ?buf:b ~src ~off ~len dst = (* sendfile fallback *)
   let rec unix_read fd b len =
     try Unix.read fd b 0 (min len (Bytes.length b)) with
     | Unix.Unix_error (Unix.EINTR, _, _) -> unix_read fd b len
@@ -59,112 +58,13 @@ let copy ?buf:b ~src ~off ~len dst = (* sendfile fallback *)
   let () = ignore (lseek src off Unix.SEEK_SET) in
   loop b src dst len
 
-let rec etag_of_file file fd =
-  try
-    let stat = Unix.fstat fd in
-    let mtime = truncate stat.Unix.st_mtime in
-    let size = stat.Unix.st_size in
-    Ok (Some (Printf.sprintf {|"%x-%x"|} mtime size))
-  with
-  | Unix.Unix_error (Unix.EINTR, _, _) -> etag_of_file file fd
-  | Unix.Unix_error (e, _, _) -> Error (uerror e)
-
-let rec prepare_send_file ?(etag = etag_of_file) ?range file =
-  let err e = `Error e in
-  try
-    let fd = Unix.openfile file Unix.[O_RDONLY] 0 in
-    try
-      let* etag = Result.map_error err (etag file fd) in
-      (* TODO that dance looks ridiculus now that etag uses stat. *)
-      let file_size = lseek fd 0 Unix.SEEK_END in
-      let () = ignore (lseek fd 0 Unix.SEEK_SET) in
-      let first, last = match range with
-      | None -> 0, file_size - 1 | Some (f, l) -> f, l
-      in
-      if first < 0 || last < 0 || first > last || last >= file_size
-      then Error `Invalid_range
-      else Ok (fd, first, last - first + 1, file_size, etag)
-    with
-    | Unix.Unix_error (e, _, _) -> close_noerr fd; Error (err (uerror e))
-  with
-  | Unix.Unix_error (Unix.EINTR, _, _) -> prepare_send_file ~etag ?range file
-  | Unix.Unix_error (Unix.EACCES, _, _) -> Error `Access
-  | Unix.Unix_error (Unix.ENOENT, _, _) -> Error `Not_found
-  | Unix.Unix_error (e, _, _) -> Error (err (uerror e))
-
-let raw_send_file ~src ~off ~len dst =
+let really_really_send_file ~src ~off ~len dst =
   try really_sendfile ~src ~off ~len dst with
-  | Sys_error _ (* sendfile unsupported *) -> copy ~src ~off ~len dst
+  | Sys_error _ (* sendfile unsupported *) -> copy_fd ~src ~off ~len dst
 
-(* TODO replace the following by Webs_kit.Req_to.file_req *)
+(* Connection *)
 
-let bytes_range_of_string s = match String.index_opt s '=' with
-| None -> None
-| Some i ->
-    if Http.string_subrange ~last:(i - 1) s <> "bytes" then None else
-    let right = Http.string_subrange ~first:(i + 1) s in
-    let _vs = Http.H.values_of_string right in
-    failwith "TODO"
-
-let file_spec_of_req ~docroot r = match Req.meth r with
-| `GET | `HEAD ->
-    begin match Req.path r with
-    | [] -> Error (Resp.v Http.s400_bad_request ~reason:"empty path")
-    | ps ->
-        match Http.Path.to_undotted_filepath ps with
-        | Error e -> Error (Resp.v Http.s400_bad_request ~reason:e)
-        | Ok ps ->
-            let file = Http.Path.prefix_filepath docroot ps in
-            let range = match Http.H.(find range (Req.headers r)) with
-            | None -> Ok None
-            | Some v ->
-                match bytes_range_of_string v with
-                | None -> Ok None
-                | Some v -> Ok (List.hd v)
-            in
-            match range with
-            | Error e -> Error (Resp.v Http.s400_bad_request ~reason:e)
-            | Ok range ->
-                let st = match range with
-                | None -> Http.s200_ok
-                | Some _ -> Http.s206_partial_content
-                in
-                Ok (st, file, range)
-    end
-| _ -> Error (Resp.not_allowed ~allow:[`GET; `HEAD] ())
-
-let send_file ?etag ~docroot r =
-  let explain file e = strf "%s: %s" file e in
-  let* st, file, range = file_spec_of_req ~docroot r in
-  match prepare_send_file ?etag ?range file with
-  | Error `Access ->
-      let explain = explain file "permission denied" in
-      Error (Resp.v ~explain Http.s404_not_found)
-  | Error `Not_found ->
-      let explain = explain file "no such file" in
-      Error (Resp.v ~explain Http.s404_not_found)
-  | Error `Invalid_range ->
-      failwith "sendfile invalid-range err TODO"
-  | Error (`Error err) ->
-      let explain = explain file err in
-      Error (Resp.v ~explain Http.s500_server_error)
-  | Ok (src, off, len, file_len, etag_value) ->
-      let file_type = Webs_kit.Mime_type.of_ext (Filename.extension file) in
-      (* TODO handle range addition and content-length *)
-      let headers = Http.H.(def content_type file_type empty) in
-      let headers = Http.H.(def_if_some etag etag_value headers) in
-      let send_file = function
-      | Fd fd ->
-          (* TODO can leak if we never get to consume the stream,
-             see connector implems *)
-          let finally () = close_noerr src in
-          Fun.protect ~finally @@ fun () ->
-          raw_send_file ~src ~off ~len fd
-      | _ ->
-          invalid_arg "Webs_unix.send_file needs a Webs_unix.Fd connection"
-      in
-      let body = Resp.direct_body send_file in
-      Ok (Resp.v Http.s200_ok ~headers ~body)
+type Resp.connection += Fd of Unix.file_descr
 
 (* Connection listeners *)
 
@@ -271,6 +171,148 @@ module Connector = struct
   | Resp.Stream f -> resp, fun fd -> f (write_stream_chunk fd)
   | Resp.Direct f -> resp, fun fd -> f (Fd fd)
 end
+
+(* Sending files *)
+
+type etagger =
+  Http.fpath -> Unix.file_descr -> Unix.stats -> (Http.Etag.t, string) result
+
+let default_etagger file fd stats =
+  let mtime = truncate stats.Unix.st_mtime in
+  let size = stats.Unix.st_size in
+  let tag = strf "%x-%x" mtime size in
+  Ok (Http.Etag.v ~weak:false tag)
+
+type dir_resp =
+  etagger:etagger -> mime_types:Http.Mime_type.file_ext_map option ->
+  Req.t -> Http.fpath -> (Resp.t, Resp.t) result
+
+let dir_404 ~etagger ~mime_types _ fpath =
+  let explain = strf "%s: is a directory" fpath in
+  Ok (Resp.v Http.s404_not_found ~explain)
+
+let range_full ~file_size hs =
+  let hs = Http.H.(hs |> def content_length (Http.Digits.encode file_size)) in
+  0, file_size - 1, hs, Http.s200_ok
+
+let range_partial ~file_size ~first ~last hs =
+  let range_len = Http.Digits.encode (last - first + 1) in
+  let crange =
+    let file_size = Http.Digits.encode file_size in
+    let first, last = Http.Digits.encode first, Http.Digits.encode last in
+    String.concat "" ["bytes "; first; "-"; last; "/"; file_size]
+  in
+  let hs = Http.H.(hs |> def content_range crange) in
+  let hs = Http.H.(hs |> def content_length range_len) in
+  first, last, hs , Http.s206_partial_content
+
+let find_range req file etag ~file_size hs =
+  let* r = Req.decode_header Http.H.range Http.Range.decode req in
+  match r with
+  | None -> Ok (range_full ~file_size hs)
+  | Some (`Other _) (* ignore *) -> Ok (range_full ~file_size hs)
+  | Some (`Bytes rs as r) ->
+      let* iftag = Req.decode_header Http.H.if_range Http.Etag.decode req in
+      let full = match iftag with
+      | None -> false
+      | Some t -> not (Http.Etag.eval_if_range t (Some etag))
+      in
+      if full then Ok (range_full ~file_size hs) else
+      let rec loop = function
+      | [] ->
+          let reason = Http.Range.encode r and explain = file in
+          Error (Resp.v Http.s416_range_not_satisfiable ~reason ~explain)
+      | r :: rs ->
+          match Http.Range.eval_bytes ~len:file_size r with
+          | None -> loop rs
+          | Some (first, last) -> Ok (range_partial ~file_size ~first ~last hs)
+      in
+      loop rs
+
+let eval_etag_cond ~eval h req etag =
+  let* c = Req.decode_header h Http.Etag.decode_cond req in
+  match c with
+  | None -> Ok true
+  | Some c -> Ok (eval c (Some etag))
+
+let check_if_match_cond r file etag =
+  let eval = Http.Etag.eval_if_match in
+  let* test = eval_etag_cond ~eval Http.H.if_match r etag in
+  if test then Ok () else
+  let explain =
+    strf "%s: etag: %s, if-match failed" file (Http.Etag.encode etag)
+  in
+  Error (Resp.v Http.s412_precondition_failed ~explain)
+
+let eval_if_none_match r file etag =
+  let eval = Http.Etag.eval_if_none_match in
+  eval_etag_cond ~eval Http.H.if_none_match r etag
+
+let send_file
+    ?(dir_resp = dir_404) ?(etagger = default_etagger) ?mime_types req file
+  =
+  let* is_head = match Req.meth req with
+  | `GET -> Ok false | `HEAD -> Ok true
+  | _ -> Error (Resp.method_not_allowed ~allowed:[`GET; `HEAD] ())
+  in
+  let error e = Resp.v Http.s404_not_found ~explain:(strf "%s: %s" file e) in
+  try
+    let file_fd = openfile file Unix.[O_RDONLY] 0 in
+    try
+      let stat = fstat file_fd in
+      match stat.Unix.st_kind with
+      | Unix.S_DIR ->
+          close_noerr file_fd; dir_resp ~etagger ~mime_types req file
+      | _ ->
+          let explain = file in
+          let* tag = Result.map_error error (etagger file file_fd stat) in
+          let* () = check_if_match_cond req file tag in
+          let* cond = eval_if_none_match req file tag in
+          if not cond then Ok (Resp.v Http.s304_not_modified ~explain) else
+          let file_size = stat.Unix.st_size in
+          let file_type = Http.Mime_type.of_filepath ?map:mime_types file in
+          let hs =
+            Http.H.(empty
+                    |> def content_type file_type
+                    |> def etag (Http.Etag.encode tag)
+                    |> def accept_ranges "bytes")
+          in
+          if is_head then
+            let len = Http.Digits.encode file_size in
+            let headers = Http.H.(hs |> def content_length len) in
+            let body = Resp.empty_body in
+            Ok (Resp.v Http.s200_ok ~headers ~body ~explain)
+          else
+          let* first, last, headers, status =
+            find_range req file tag ~file_size hs
+          in
+          let body =
+            let len = last - first + 1 in
+            let send_file = function
+            | Fd fd ->
+                (* TODO can leak if we never get to consume the stream,
+                   see connector implems *)
+                let finally () = close_noerr file_fd in
+                Fun.protect ~finally @@ fun () ->
+                really_really_send_file ~src:file_fd ~off:first ~len fd
+            | _ ->
+                invalid_arg
+                  "Webs_unix.send_file needs a Webs_unix.Fd connection"
+            in
+            Resp.direct_body send_file
+          in
+          Ok (Resp.v status ~headers ~body ~explain)
+    with
+    | Unix.Unix_error (e, _, _) -> close_noerr file_fd; Error (error (uerror e))
+  with
+  | Unix.Unix_error (e, _, _) -> Error (error (uerror e))
+
+let dir_index_file file = match Http.Path.has_dir_seps file || file = ".." with
+| true -> Error (strf "%s: invalid filename" file)
+| false ->
+    Ok (fun ~etagger ~mime_types r dir ->
+        let file = Http.Path.prefix_filepath ~prefix:dir file in
+        send_file ~dir_resp:dir_404 ~etagger ?mime_types r file)
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2015 The webs programmers

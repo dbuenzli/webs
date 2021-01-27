@@ -46,10 +46,10 @@ let resp_events () =
 let service req =
   Resp.result @@ match Req.path req with
   | [""] ->
-      let* r = Res.allow [`GET] req in
+      let* r = Req.allow [`GET] req in
       Ok (Resp.html Http.s200_ok index_page)
   | ["events"] ->
-      let* r = Res.allow [`GET] req in
+      let* r = Req.allow [`GET] req in
       Ok (resp_events ())
   | _ ->
       Error (Resp.v Http.s404_not_found)
