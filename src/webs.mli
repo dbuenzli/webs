@@ -1103,53 +1103,6 @@ module Http : sig
   end
 end
 
-(** Service environments {b TODO} try to do without.
-
-    Environments are heterogenous key-value maps attached to requests and
-    responses. They can be used by services and layers to store and share
-    data. *)
-module Env : sig
-
-  (** {1:keys Keys} *)
-
-  type 'a key
-  (** The type for keys for whose lookup value is of type ['a]. *)
-
-  val key : unit -> 'a key
-  (** [key ()] is a new key. *)
-
-  (** {1:env Environments} *)
-
-  type t
-  (** The type for environments. *)
-
-  val empty : t
-  (** [empty] is the empty environent. *)
-
-  val is_empty : t -> bool
-  (** [is_empty e] is [true] iff [e] is empty. *)
-
-  val mem : 'a key -> t -> bool
-  (** [mem k e] is [true] iff [k] is bound in [e]. *)
-
-  val add : 'a key -> 'a -> t -> t
-  (** [add k v e] is [e] with [k] bound to [v]. *)
-
-  val remove : 'a key -> t -> t
-  (** [remove k e] is [e] with [k] unbound. *)
-
-  val find : 'a key -> t -> 'a option
-  (** [find k e] is the value of [k]'s binding in [e], if any. *)
-
-  val get : 'a key -> t -> 'a
-  (** [get k m] is the value of [k]'s binding in [m].
-      @raise Invalid_argument if [k] is not bound in [m]. *)
-
-  val override : t -> by:t -> t
-  (** [override m ~by] are the definitions of both [m] and [m'] with
-      those of [~by] taking over. *)
-end
-
 (** HTTP responses. *)
 module Resp : sig
 
@@ -1206,8 +1159,8 @@ module Resp : sig
   (** The type for responses. *)
 
   val v :
-    ?env:Env.t -> ?version:Http.version -> ?explain:string -> ?reason:string ->
-    ?body:body -> ?headers:Http.headers -> Http.status -> t
+    ?version:Http.version -> ?explain:string -> ?reason:string -> ?body:body ->
+    ?headers:Http.headers -> Http.status -> t
   (** [v status headers body] is a response with given
       [status], [headers] (defaults to {!Http.H.empty}), [body] (defaults
       to {!empty_body}, [reason] (defaults to {!Http.status_reason_phrase})
@@ -1249,12 +1202,6 @@ module Resp : sig
 
   val with_body : body -> t -> t
   (** [with_body b r] is [r] with body [b]. *)
-
-  val env : t -> Env.t
-  (** [env r] is [r]'s environment. {b TODO.} Remove. *)
-
-  val with_env : Env.t -> t -> t
-  (** [with_env e r] is [r] with environment [e]. {b TODO.} Remove. *)
 
   val pp : Format.formatter -> t -> unit
   (** [pp ppf t] prints an unspecified representation of [r] on [ppf] but
@@ -1335,8 +1282,8 @@ module Req : sig
   (** The type for HTTP requests. *)
 
   val v :
-    ?env:Env.t -> ?version:Http.version -> ?body_length:int option ->
-    ?body:body -> ?headers:Http.headers -> Http.meth -> string -> t
+    ?version:Http.version -> ?body_length:int option -> ?body:body ->
+    ?headers:Http.headers -> Http.meth -> string -> t
   (** [v meth request_target] is an HTTP request with method [meth],
       request target [request_target], [headers] (defaults to
       {!Http.H.empty}), [body] (defaults to {!empty_body}),
@@ -1387,13 +1334,6 @@ module Req : sig
 
   val with_path : Http.path -> t -> t
   (** [with_path p r] is [r] with path [p]. *)
-
-  val env : t -> Env.t
-  (** [env r] is [r]'s environment. {b TODO} consider removing. *)
-
-  val with_env : Env.t -> t -> t
-  (** [with_env e r] is [r] with environment [e]. {b TODO} consider
-      removing. *)
 
   val pp : Format.formatter -> t -> unit
   (** [pp ppf req] prints and unspecified representation of [req]

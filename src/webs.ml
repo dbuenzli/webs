@@ -1198,64 +1198,6 @@ module Http = struct
   end
 end
 
-module Env = struct
-
-  (* Type identifiers see http://alan.petitepomme.net/cwn/2015.03.24.html#1 *)
-  module Tid : sig
-    type 'a t
-    type ('a, 'b) eq = Eq : ('a, 'a) eq
-    val create : unit -> 'a t
-    val equal : 'a t -> 'b t -> ('a, 'b) eq option
-  end = struct
-    module Id = struct type _ t = .. end
-    module type ID = sig type t type _ Id.t += Id : t Id.t end
-
-    type 'a t = (module ID with type t = 'a)
-    let create () (type s) =
-      let module Id = struct type t = s type _ Id.t += Id : t Id.t end in
-      (module Id : ID with type t = s)
-
-    type ('a, 'b) eq = Eq : ('a, 'a) eq
-    let equal (type i0) (type i1) (i0 : i0 t) (i1 : i1 t) : (i0, i1) eq option
-      =
-      let module I0 = (val i0 : ID with type t = i0) in
-      let module I1 = (val i1 : ID with type t = i1) in
-      match I0.Id with I1.Id -> Some Eq | _ -> None
-  end
-
-  module Key = struct
-    type t = V : 'a typed -> t
-    and 'a typed = { uid : int; tid : 'a Tid.t; untyped : t }
-    let compare (V k0) (V k1) = (compare : int -> int -> int) k0.uid k1.uid
-    let uid = let id = ref (-1) in fun () -> incr id; !id
-    let create () =
-      let rec k = { uid = uid (); tid = Tid.create (); untyped = V k } in k
-  end
-
-  module M = Map.Make (Key)
-  type 'a key = 'a Key.typed
-  type binding = B : 'a key * 'a -> binding
-  type t = binding M.t
-
-  let key = Key.create
-  let is_empty = M.is_empty
-  let empty = M.empty
-  let mem k m = M.mem k.Key.untyped m
-  let add k v m = M.add k.Key.untyped (B (k, v)) m
-  let remove k m = M.remove k.Key.untyped m
-  let find : type a. a key -> t -> a option =
-  fun k m -> match M.find_opt k.untyped m with
-  | None -> None
-  | Some (B (k', v)) ->
-      match Tid.equal k.Key.tid k'.Key.tid with
-      | None -> None | Some Tid.Eq -> Some v
-
-  let get k m = match find k m with
-  | Some v -> v | None -> invalid_arg "key not found in environment"
-
-  let override m ~by = let right _ _ v = Some v in M.union right m by
-end
-
 module Resp = struct
 
   (* Response bodies *)
@@ -1291,22 +1233,21 @@ module Resp = struct
       headers : Http.headers;
       body : body;
       (* For the server *)
-      explain : string;
-      env : Env.t; }
+      explain : string; }
 
   let get_reason st = function
   | Some s -> s | None -> Http.Status.reason_phrase st
 
   let v
-      ?(env = Env.empty) ?(version = (1,1)) ?(explain = "") ?reason
-      ?(body = empty_body) ?headers:(hs = Http.H.empty) status
+      ?(version = (1,1)) ?(explain = "") ?reason ?(body = empty_body)
+      ?headers:(hs = Http.H.empty) status
     =
     let reason = get_reason status reason in
     let headers = match body with
     | Empty -> Http.H.(def content_length "0" hs)
     | _ -> hs
     in
-    { version; status; reason; headers; body; explain; env }
+    { version; status; reason; headers; body; explain }
 
   let version r = r.version
   let status r = r.status
@@ -1314,7 +1255,6 @@ module Resp = struct
   let headers r = r.headers
   let body r = r.body
   let explain r = r.explain
-  let env r = r.env
   let with_status ?(explain = "") ?reason status r =
     let explain = if r.explain = "" then explain else r.explain in
     let reason = get_reason status reason in
@@ -1325,7 +1265,6 @@ module Resp = struct
     { r with headers = Http.H.override r.headers ~by:headers }
 
   let with_body body r = { r with body }
-  let with_env env r = { r with env }
   let pp ppf r =
     let sep = Format.pp_print_cut in
     Format.pp_open_vbox ppf 1;
@@ -1400,11 +1339,10 @@ module Req = struct
       query : string option;
       headers : Http.headers;
       body_length : int option;
-      body : unit -> (bytes * int * int) option;
-      env : Env.t; }
+      body : unit -> (bytes * int * int) option; }
 
   let v
-      ?(env = Env.empty) ?(version = (1,1)) ?body_length ?(body = empty_body)
+      ?(version = (1,1)) ?body_length ?(body = empty_body)
       ?(headers = Http.H.empty) meth request_target
     =
     let path, query =
@@ -1414,7 +1352,7 @@ module Req = struct
     | None -> if body == empty_body then Some 0 else None
     | Some l -> l
     in
-    { env; meth; request_target; path; query; version; headers;
+    { meth; request_target; path; query; version; headers;
       body_length; body; }
 
   let version r = r.version
@@ -1425,11 +1363,9 @@ module Req = struct
   let headers r = r.headers
   let body_length r = r.body_length
   let body r = r.body
-  let env r = r.env
   let with_headers headers r = { r with headers }
   let with_body ~body_length body r = { r with body_length; body }
   let with_path path r = { r with path }
-  let with_env env r = { r with env }
   let pp_query ppf = function None -> pf ppf "" | Some q -> pf ppf "%S" q
   let pp_body_length ppf = function
   | None -> pf ppf "unknown" | Some l -> pf ppf "%d" l
