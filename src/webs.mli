@@ -463,19 +463,7 @@ module Http : sig
     (** The type for file paths. *)
 
   type path = string list
-  (** The type for absolute URI paths represented as {e non-empty}
-      lists of {e percent-decoded} path segments. The empty list denotes
-      the absence of a path.
-
-      Path segments can be empty [""]. The root path [/] is
-      represented by the list [[""]] and [/a] by [["a"]], see more
-      examples {{!Path.decode}here}.
-
-      {b WARNING.} You should never concatenate these segments with a
-      separator to get a file path because they may contain stray
-      percent-decoded directory separators. Use the function
-      {!Path.to_absolute_filepath} to interpret paths as file
-      paths. *)
+  (** See {!Path.t}. *)
 
   (** Paths. *)
   module Path : sig
@@ -483,7 +471,19 @@ module Http : sig
     (** {1:paths Paths} *)
 
     type t = path
-    (** The type for absolute URI paths. See {!path}. *)
+    (** The type for absolute URI paths represented as {e non-empty}
+        lists of {e percent-decoded} path segments. The empty list denotes
+        the absence of a path.
+
+        Path segments can be empty [""]. The root path [/] is
+        represented by the list [[""]] and [/a] by [["a"]], see more
+        examples {{!Path.decode}here}.
+
+        {b WARNING.} You should never concatenate these segments with a
+        separator to get a file path because they may contain stray
+        percent-decoded directory separators. Use the function
+        {!Path.to_absolute_filepath} to interpret paths as file
+        paths. *)
 
     val undot_and_compress : path -> path
     (** [undot_and_compress p] removes ["."] and [".."]  according to

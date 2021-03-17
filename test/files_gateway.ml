@@ -10,9 +10,9 @@ let ( let* ) = Result.bind
 let root = "/myservice-files"
 let service r =
   Resp.result @@ match Req.path r with
-  | "assets" :: _ ->
+  | "assets" as pre :: _ ->
       let* r = Req.allow [`GET] r in
-      let* file = Req.to_absolute_filepath ~strip:["assets"] ~root r in
+      let* file = Req.to_absolute_filepath ~strip:[pre] ~root r in
       Gateway.send_file ~header:Gateway.x_accel_redirect r file
   | _ ->
       Ok (Resp.v Http.s404_not_found)

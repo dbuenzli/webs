@@ -9,9 +9,9 @@ let ( let* ) = Result.bind
 
 let service root r =
   Resp.result @@ match Req.path r with
-  | "assets" :: _ ->
+  | "assets" as pre :: _ ->
       let* r = Req.allow [`GET] r in
-      let* file = Req.to_absolute_filepath ~strip:["assets"] ~root r in
+      let* file = Req.to_absolute_filepath ~strip:[pre] ~root r in
       Webs_unix.send_file r file
   | _ ->
       Ok (Resp.v Http.s404_not_found)

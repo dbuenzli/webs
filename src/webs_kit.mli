@@ -41,13 +41,9 @@ module Gateway : sig
       Lighttpd for file serving. *)
 end
 
-(** Resource oriented combinators. *)
-module Res : sig
-end
-
 (** {1:auth Being authentic} *)
 
-(** SHA-256 hashes, HMAC-SHA-256 and PBKDF2-HMAC-SHA-256 *)
+(** SHA-256 hashes, HMAC-SHA-256 and PBKDF2-HMAC-SHA-256. *)
 module Sha_256 : sig
 
   (** {1:values Hash values} *)
@@ -56,7 +52,7 @@ module Sha_256 : sig
   (** The type for SHA-256 hashes. *)
 
   val length : t -> int
-  (** [length h] is the length of [h] in bytes (i.e. 32) *)
+  (** [length h] is the length of [h] in bytes (i.e. 32). *)
 
   val hash : string -> t
   (** [hash s] is the SHA-256 hash of [s]. *)
@@ -171,7 +167,7 @@ authenticatable = (base64|base64url)(hmac-sha-256(key, msg) + msg)
   (** [encode ~key ~expire data] makes data [data] expire at [expire]
       (if any) and authenticatable via the private key [key]. If
       [base64url] is [true] (defaults to [false]) the [base64url]
-      encoding scheme is used instead of [base64]. *)
+      encoding scheme is used instead of [base64] (see {!Webs.Http.Base64}). *)
 
   val decode :
     ?base64url:bool -> key:key -> now:time -> t ->
@@ -240,8 +236,8 @@ end
     provides a basic infrastructure to abstract the mecanism handling
     sessions.
 
-    One built-in mecanism is offered for client-side sessions via
-    {!Authenticated_cookie}s.
+    One built-in mecanism is offered for {b unencrypted} but authenticated
+    client-side sessions via {!Authenticated_cookie}s.
 
     {b TODO.}
     {ul
@@ -308,6 +304,18 @@ module Session : sig
     (Req.t -> (Resp.t, Resp.t) result)
   (** {b TODO.} Add that for now until we settle on something. *)
 
+  (** {1:result Injecting session state in [result]} *)
+
+  val for_result :
+    's option -> ('a, 'b) result -> ('s option * 'a, 's option * 'b) result
+  (** [for_result st r] injects [st] in either case of [r]. *)
+
+  val for_ok : 's option -> ('a, 'b) result -> ('s option * 'a, 'b) result
+  (** [for_ok st r] injects [st] into the error case of [r]. *)
+
+  val for_error : 's option -> ('a, 'b) result -> ('a, 's option * 'b) result
+  (** [for_error st r] injects [st] into the error case of [r]. *)
+
   (** {1:built-in Built-in session handlers} *)
 
   val with_authenticated_cookie :
@@ -356,12 +364,12 @@ module Basic_auth : sig
         {ul
         {- [Ok (user, req)] if the basic {{!Webs.Http.H.authorization}
            authorization header} in [req] passes [check].}
-        {- A {{:Webs.Http.s401_unauthorized}401} response
+        {- A {{!Webs.Http.s401_unauthorized}401} response
            [Error (cancel req)] with a challenge for [realm] if there
            is no authorization header or if [check] failed. The page is only
            shown if the user cancels, defaults to an english HTML page
            that entices the  user to try again via a link to self.}
-        {- A {{:Webs.Http.s400_bad_request}400} bad request [Error resp]
+        {- A {{!Webs.Http.s400_bad_request}400} bad request [Error resp]
            if the basic authentication failed to parse.}} *)
 end
 
