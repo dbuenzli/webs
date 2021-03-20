@@ -2,9 +2,6 @@
 # A laundry list
 
 * Make the login example bearable
-* Need a solution for the root service path, e.g. when performing 
-  redirections. We could have a slot for that in requests and let
-  connectors fill it in.
 * Session and the error scheme don't compose well. Add a session
   or response monad that ties everything together in a neat way ?
 * Body request/response need to correctly handle failures/resources.

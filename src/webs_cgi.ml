@@ -89,14 +89,18 @@ let headers_of_env ~extra_vars env =
   let hs = List.fold_left (add_var ~add_empty:false env) hs content_vars in
   hs, env
 
-let get_var var decode env = match Smap.find_opt var env with
-| None -> failwith (err_var_miss var)
+let find_var var decode env = match Smap.find_opt var env with
+| None -> None
 | Some value ->
     match decode value with
-    | Ok value -> value | Error e -> failwith (err_var_decode e var)
+    | Ok value -> Some value | Error e -> failwith (err_var_decode e var)
+
+let get_var var decode env = match find_var var decode env with
+| None -> failwith (err_var_miss var) | Some v -> v
 
 let header_section_of_env ~extra_vars env =
   let hs, env = headers_of_env ~extra_vars env in
+  let service_root = find_var "HTTP_X_SERVICE_ROOT" Http.Path.decode env in
   let version = get_var "SERVER_PROTOCOL" Http.Version.decode env in
   let meth = get_var "REQUEST_METHOD" Http.Meth.decode env in
   let request_target = get_var "REQUEST_URI" Result.ok env in
@@ -104,7 +108,7 @@ let header_section_of_env ~extra_vars env =
   | None -> request_target
   | Some prefix -> chop_prefix ~prefix request_target
   in
-  version, meth, request_target, hs
+  service_root, version, meth, request_target, hs
 
 let body_length hs = match Http.H.request_body_length hs with
 | Error e -> Error (`Malformed e)
@@ -114,7 +118,9 @@ let body_length hs = match Http.H.request_body_length hs with
 let read_req c env fd_in =
   try
     let extra_vars = c.extra_vars in
-    let version, meth, target, hs = header_section_of_env ~extra_vars env in
+    let service_root, version, meth, target, hs =
+      header_section_of_env ~extra_vars env
+    in
     let buf = Bytes.create io_buffer_size in
     let max_req_body_byte_size = c.max_req_body_byte_size in
     let first_start = 0 and first_len = 0 in
@@ -123,7 +129,7 @@ let read_req c env fd_in =
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd_in buf ~first_start ~first_len
     in
-    Ok (Req.v ~version meth target ~headers:hs ~body_length ~body)
+    Ok (Req.v ?service_root ~version meth target ~headers:hs ~body_length ~body)
   with
   | Failure e -> Error (`Malformed e)
   (* FIXME maybe for error from header_section we should rather throw

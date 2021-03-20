@@ -50,7 +50,6 @@ end
 
 (* TODO
    * State and error don't compose well.
-   * Need to solve the root of service problem see TODO.md
    * Generalize to arbirary path and redirect to it after
    * bauth.ml is nicer but it doesn't need to wrap to save the state. *)
 
@@ -67,10 +66,10 @@ let restricted_serve req user = match user with
 | None ->
     Ok (None, Resp.redirect ~explain:"not logged" Http.s302_found "/login")
 
-let login_user req user =
+let login_user ~and_goto req user =
   let goto_restricted user =
     let explain = user ^ " logged" in
-    Resp.redirect ~explain Http.s303_see_other "/restricted"
+    Req.service_redirect ~explain Http.s303_see_other and_goto req
   in
   match user with
   | Some u -> Ok (user, goto_restricted u)
@@ -111,7 +110,7 @@ let service req =
       Session.setup' user session restricted_serve req
   | ["login"] ->
       let* req = Req.allow [`GET; `POST] req in
-      Session.setup' user session login_user req
+      Session.setup' user session (login_user ~and_goto:["restricted"]) req
   | ["logout"] ->
       let* req = Req.allow [`GET] req in
       Session.setup' user session logout_user req

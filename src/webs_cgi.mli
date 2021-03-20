@@ -63,7 +63,9 @@ val serve : t -> Webs.service -> (unit, string) result
 
 	  The  {!Webs.Req.t} value is constructed from the environment and
     {!Unix.stdin} as follows:
-	  {ul
+    {ul
+    {- {!Webs.Req.service_root} is extracted from the (non standard)
+       [HTTP_X_SERVICE_ROOT] variable (HTTP header).}
 	  {- {!Webs.Req.version} is the value of the
        {{:http://tools.ietf.org/html/rfc3875#section-4.1.16}[SERVER_PROTOCOL]}
        variable.}

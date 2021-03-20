@@ -507,6 +507,10 @@ module Http : sig
         {- [strip_prefix [""; "a"; ""] [""; "a"; ""] = None]}
         {- [strip_prefix [""; "a"; ""] [""; "a"; "b"] = None]}} *)
 
+    val concat : path -> path -> path
+    (** [concat p0 p1] concatenates [p0] and [p1]. This drops
+        a potential last empty segment from [p0]. *)
+
     (** {1:filepath File paths} *)
 
     val has_dir_seps : string -> bool
@@ -1244,7 +1248,8 @@ module Resp : sig
 
   val redirect : ?explain:string -> ?set:Http.headers -> int -> string -> t
   (** [redirect status loc] redirects to {{!Http.H.location}location} [loc]
-      with status [status] (defaults to {!Http.s302_found}). *)
+      with status [status] (defaults to {!Http.s302_found}). See also
+      {!val:Req.service_redirect}. *)
 
   (** {2:pre_canned_errors Errors responses} *)
 
@@ -1282,13 +1287,19 @@ module Req : sig
   (** The type for HTTP requests. *)
 
   val v :
-    ?version:Http.version -> ?body_length:int option -> ?body:body ->
+    ?service_root:Http.path -> ?version:Http.version ->
+    ?body_length:int option -> ?body:body ->
     ?headers:Http.headers -> Http.meth -> string -> t
   (** [v meth request_target] is an HTTP request with method [meth],
       request target [request_target], [headers] (defaults to
       {!Http.H.empty}), [body] (defaults to {!empty_body}),
       [body_length] (defaults to [None] or [Some 0] if body is
       {!empty_body}) and version (defaults to (1,1)). *)
+
+  val service_root : t -> Http.path
+  (** [service_root r] is the root path on which the service is served.
+      Consult the documentation of connectors to understand how this
+      is derived (usually from the gateway via a [x-service-root] header). *)
 
   val version : t -> Http.version
   (** [version r] is [r]'s
@@ -1335,11 +1346,23 @@ module Req : sig
   val with_path : Http.path -> t -> t
   (** [with_path p r] is [r] with path [p]. *)
 
+  val with_service_root : Http.path -> t -> t
+  (** [with_service_root p r] is [r] with service root [r]. *)
+
   val pp : Format.formatter -> t -> unit
   (** [pp ppf req] prints and unspecified representation of [req]
       on [ppf] but guarantees not to consume the {!val:body}. *)
 
-  (** {1:echo Echo} *)
+  (** {1:req_resp Request responses} *)
+
+  (** {2:service_redirect Service redirect} *)
+
+  val service_redirect : ?explain:string -> int -> Http.path -> t -> Resp.t
+  (** [service_redirect status p r] redirects [r] to the service path [p] (this
+      means [r]'s {!service_root} is prefixed to [p]) with status [status].
+      See also {!Resp.redirect}. *)
+
+  (** {2:echo Echo} *)
 
   val echo : ?status:Http.status -> t -> Resp.t
   (** [echo r] returns [r] as a 404 [text/plain] document (and by

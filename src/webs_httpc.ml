@@ -5,6 +5,7 @@
 
 open Webs
 
+let strf = Printf.sprintf
 let ( let* ) = Result.bind
 
 (* Unixies *)
@@ -96,6 +97,14 @@ let decode_headers buf crlfs =
   in
   loop Http.H.empty buf (List.hd crlfs) (List.tl crlfs)
 
+let x_service_root = Http.Name.v "x-service-root"
+let decode_service_root hs = match Http.H.find x_service_root hs with
+| None -> None
+| Some v ->
+    match Http.Path.decode v with
+    | Error e -> failwith (strf "%s: %s" (x_service_root :> string) e)
+    | Ok v -> Some v
+
 let body_length hs = match Http.H.request_body_length hs with
 | Error e -> Error (`Malformed e)
 | Ok (`Length l) -> Ok (Some l)
@@ -108,13 +117,14 @@ let read_req c fd =
     let crlfs, first_start, first_len = read_clrfs c ~max_bytes buf fd in
     let meth, target, version = decode_request_line buf (List.hd crlfs) in
     let hs = decode_headers buf crlfs in
+    let service_root = decode_service_root hs in
     let max_req_body_byte_size = c.max_req_body_byte_size in
     let* body_length = body_length hs in
     let body =
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd buf ~first_start ~first_len
     in
-    Ok (Req.v ~version meth target ~headers:hs ~body_length ~body)
+    Ok (Req.v ?service_root ~version meth target ~headers:hs ~body_length ~body)
   with
   | Failure e -> Error (`Malformed e)
 

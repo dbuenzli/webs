@@ -521,6 +521,10 @@ module Http = struct
       in
       loop prefix p
 
+    let concat p0 p1 = match List.rev p0 with
+    | "" :: r -> List.rev_append r p1
+    | r -> List.rev_append r p1
+
     (* File paths *)
 
     let has_no_dir_seps s = (* String.forall :-( *)
@@ -1332,7 +1336,8 @@ module Req = struct
   (* Requests *)
 
   type t =
-    { version : Http.version;
+    { service_root : Http.path;
+      version : Http.version;
       meth : Http.meth;
       request_target : string;
       path : Http.path;
@@ -1342,8 +1347,8 @@ module Req = struct
       body : unit -> (bytes * int * int) option; }
 
   let v
-      ?(version = (1,1)) ?body_length ?(body = empty_body)
-      ?(headers = Http.H.empty) meth request_target
+      ?(service_root = [""]) ?(version = (1,1)) ?body_length
+      ?(body = empty_body) ?(headers = Http.H.empty) meth request_target
     =
     let path, query =
       Http.Path.and_query_of_request_target request_target
@@ -1352,9 +1357,10 @@ module Req = struct
     | None -> if body == empty_body then Some 0 else None
     | Some l -> l
     in
-    { meth; request_target; path; query; version; headers;
+    { service_root; version; meth; request_target; path; query; headers;
       body_length; body; }
 
+  let service_root r = r.service_root
   let version r = r.version
   let meth r = r.meth
   let request_target r = r.request_target
@@ -1366,12 +1372,14 @@ module Req = struct
   let with_headers headers r = { r with headers }
   let with_body ~body_length body r = { r with body_length; body }
   let with_path path r = { r with path }
+  let with_service_root service_root r = { r with service_root }
   let pp_query ppf = function None -> pf ppf "" | Some q -> pf ppf "%S" q
   let pp_body_length ppf = function
   | None -> pf ppf "unknown" | Some l -> pf ppf "%d" l
 
   let pp ppf r =
     pf ppf "@[<v>";
+    pp_field "service-root" Http.Path.pp ppf r.service_root; pp_cut ppf ();
     pp_field "version" Http.Version.pp ppf r.version; pp_cut ppf ();
     pp_field "method" Http.Meth.pp ppf r.meth; pp_cut ppf ();
     pp_field "request-target" Format.pp_print_string ppf r.request_target;
@@ -1382,7 +1390,12 @@ module Req = struct
     pp_field "body-length" pp_body_length ppf r.body_length;
     pf ppf "@]"
 
-  (* Echo *)
+  (* Request responses *)
+
+  let service_redirect ?explain status p r =
+    let loc = Http.Path.(encode @@ concat (service_root r) p) in
+    Printf.eprintf "LOC: %s\n" loc;
+    Resp.redirect ?explain status loc
 
   let echo ?(status = Http.s404_not_found) r =
     let body = body_to_string (body r) in

@@ -47,10 +47,9 @@ val serve : t -> Webs.service -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks,
     serving requests with [s] until {!stop} is called on [c].
 
-    The server turns responses with {!Webs.Resp.File} bodies into
-    {!Webs.Http.s404_not_found} responses. Your service should handle
-    them, see {{:page-webs_service_howto.send_files}this section} of
-    the howto manual.
+    The {!Webs.Req.service_root} of requests is decoded from the
+    custom HTTP header [x-service-root] this should be set
+    appropriately by your gateway.
 
     Note that the server may respond before the request hits [service], notably:
     {ul
@@ -62,8 +61,8 @@ val serve : t -> Webs.service -> (unit, string) result
        {!Webs.Http.s400_bad_request}}
     {- If a {!Webs.Http.H.expect} header is found TODO}}
 
-    {b Signals.} When [serve] is entered {!Sys.sigpipe} is made to be ignored.
-    The previous value is restored when the function returns. *)
+    {b Signals.} When [serve] is entered {!Stdlib.Sys.sigpipe} is made
+    to be ignored. The previous value is restored when the function returns. *)
 
 val stop : t -> unit
 (** [stop s] stops [s]. If [s] is blocked on [serve] this makes it
