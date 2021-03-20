@@ -10,47 +10,40 @@ let ( let* ) = Result.bind
 let strf = Format.asprintf
 
 module Page = struct
-  let index =
+  let frame ~title ~body = strf
 {|<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Login</title></head>
-<body>
-<h1>Welcome!</h1><p>Go to the <a href="restricted">restricted area</a></p>
-</body>
-</html>|}
+  <head><meta charset="utf-8"><title>%s</title></head>
+  <body>%s</body>
+</html>|} title body
 
-  let restricted user = strf
-{|<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Restricted</title></head>
-<body>
-<h1>Welcome to the restricted area!</h1>
+  let home =
+    frame ~title:"Welcome" ~body:
+{|<h1>Welcome!</h1>
+<p>Go to the <a href="restricted">restricted area</a></p>|}
+
+  let restricted user =
+    frame ~title:"Restricted" ~body:(strf
+{|<h1>Welcome to the restricted area!</h1>
 <p>You are %s. So interesting ! <a href="logout">Click here</a> to logout.</p>
-</body>
-</html>|} user
+|} user)
 
-  let login msg = strf
-{|<!DOCTYPE html>
-<html lang="en">
-  <head><meta charset="utf-8"><title>Formality</title></head>
-  <body>
-  <h1>Login to the restricted area</h1>
-  <p>%s</p>
-  <form method="POST" action="/login" >
-    <label>Email</label>
-    <input name="email" type="email" value="user@example.org" required/>
-    <label>Password</label>
-    <input name="password" type="password" value="hihi" required/>
-    <input type="submit" value="Login" />
-   </form>
-  </body>
-</html>
-|} msg
+  let login msg =
+    frame ~title:"Formality" ~body:(strf
+{|<h1>Login to the restricted area</h1>
+<p>%s</p>
+<form method="POST" action="/login" >
+  <label>Email</label>
+  <input name="email" type="email" value="user@example.org" required/>
+  <label>Password</label>
+  <input name="password" type="password" value="hihi" required/>
+  <input type="submit" value="Login" />
+</form>|} msg)
 end
+
 
 (* TODO
    * State and error don't compose well.
-   * Generalize to arbirary path and redirect to it after
    * bauth.ml is nicer but it doesn't need to wrap to save the state. *)
 
 let key = Authenticatable.random_key () (* expires on restart *)
@@ -61,59 +54,63 @@ let check email pass = match email, pass with
 | Some "user@example.org", Some "hihi" -> true
 | _, _ -> false
 
-let restricted_serve req user = match user with
-| Some u -> Ok (user, Resp.html Http.s200_ok (Page.restricted u))
+let restricted ~login req user = match user with
 | None ->
-    Ok (None, Resp.redirect ~explain:"not logged" Http.s302_found "/login")
+    let explain = "not logged" in
+    Ok (None, Req.service_redirect ~explain Http.s302_found login req)
+| Some u ->
+    let* _m = Session.for_error user (Req.allow [`GET] req) in
+    Ok (user, Resp.html Http.s200_ok (Page.restricted u))
 
 let login_user ~and_goto req user =
   let goto_restricted user =
     let explain = user ^ " logged" in
     Req.service_redirect ~explain Http.s303_see_other and_goto req
   in
-  match user with
-  | Some u -> Ok (user, goto_restricted u)
-  | None ->
-      match Req.meth req with
-      | `GET -> Ok (None, Resp.html Http.s200_ok (Page.login ""))
-      | `POST ->
-          begin match Req.to_query req with
-          | Error _ ->
-              let err = "Something wrong happened. Try again." in
-              Ok (None, Resp.html Http.s400_bad_request (Page.login err))
-          | Ok q ->
-              let email = Http.Query.find "email" q in
-              let password = Http.Query.find "password" q in
-              match check email password with
-              | true ->
-                  let u = Option.get email in
-                  Ok (Some u, goto_restricted u)
-              | false ->
-                  let explain = "bad credentials" in
-                  let err = "Incorrect email or password. Try again." in
-                  Ok (None,
-                      Resp.html ~explain Http.s403_forbidden (Page.login err))
-          end
-      | _ -> assert false
+  let* m = Session.for_error user @@ Req.allow [`GET; `POST] req in
+  match m with
+  | `GET ->
+      begin match user with
+      | Some u -> Ok (user, goto_restricted u)
+      | None -> Ok (None, Resp.html Http.s200_ok (Page.login ""))
+      end
+  | `POST ->
+      begin match Req.to_query req with
+      | Error r ->
+          (* FIXME Resp.with_body on [r] *)
+          let err = "Something wrong happened. Try again." in
+          Ok (None, Resp.html Http.s400_bad_request (Page.login err))
+      | Ok q ->
+          let email = Http.Query.find "email" q in
+          let password = Http.Query.find "password" q in
+          match check email password with
+          | true ->
+              let u = Option.get email in
+              Ok (Some u, goto_restricted u)
+          | false ->
+              let explain = "bad credentials" in
+              let err = "Incorrect email or password. Try again." in
+              Ok (None,
+                  Resp.html ~explain Http.s403_forbidden (Page.login err))
+      end
+  | _ -> assert false (* FIXME Req.allow typing *)
 
-let logout_user req user =
-  let explain = match user with None -> "" | Some u -> u ^ " logged out" in
-  Ok (None, Resp.redirect ~explain Http.s303_see_other "/")
+let logout_user ~and_goto req user =
+  let* _m = Session.for_error None (Req.allow [`GET] req) in
+  let explain = Option.map (fun u -> u ^ "logged out") user in
+  Ok (None, Req.service_redirect ?explain Http.s303_see_other and_goto req)
 
 let service req =
   Resp.result @@ match Req.path req with
   | [ "" ] ->
-      let* req = Req.allow [`GET] req in
-      Ok (Resp.html Http.s200_ok Page.index)
+      let* _m = Req.allow [`GET] req in
+      Ok (Resp.html Http.s200_ok Page.home)
   | ["restricted"] ->
-      let* req = Req.allow [`GET] req in
-      Session.setup' user session restricted_serve req
+      Session.setup' user session (restricted ~login:["login"]) req
   | ["login"] ->
-      let* req = Req.allow [`GET; `POST] req in
       Session.setup' user session (login_user ~and_goto:["restricted"]) req
   | ["logout"] ->
-      let* req = Req.allow [`GET] req in
-      Session.setup' user session logout_user req
+      Session.setup' user session (logout_user ~and_goto:[""]) req
   | _ ->
       Error (Resp.v Http.s404_not_found)
 

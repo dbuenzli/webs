@@ -7,12 +7,12 @@ open Webs
 open Webs_kit
 let ( let* ) = Result.bind
 
-let service root r =
-  Resp.result @@ match Req.path r with
+let service root req =
+  Resp.result @@ match Req.path req with
   | "assets" as pre :: _ ->
-      let* r = Req.allow [`GET] r in
-      let* file = Req.to_absolute_filepath ~strip:[pre] ~root r in
-      Webs_unix.send_file r file
+      let* _m = Req.allow [`GET] req in
+      let* file = Req.to_absolute_filepath ~strip:[pre] ~root req in
+      Webs_unix.send_file req file
   | _ ->
       Ok (Resp.v Http.s404_not_found)
 

@@ -123,7 +123,7 @@ val send_file :
   ?mime_types:Http.Mime_type.file_ext_map -> Req.t -> Http.fpath ->
   (Resp.t, Resp.t) result
 (** [send_file ~dir_resp ~etagger ~mime_types r file] responds to [r] by
-    sending file [file], use {!Webs_kit.Req_to.absolute_filepath} to
+    sending file [file], use {!Webs.Req.to_absolute_filepath} to
     determine one from [r] safely.
 
     More precisely it proceeds as follows:
@@ -159,6 +159,10 @@ val send_file :
 
     The content type of the response is determined using
     {!Webs_kit.Mime_type.of_filepath} with [mime_types] and [file].
+
+    Responses include an {!Http.H.last_modified} header derived from
+    the file modification time. Apparently without this you do not hit
+    the browser memory cache in blink based browsers.
 
     In addition to the errors mentioned above, the function also errors
     with a:

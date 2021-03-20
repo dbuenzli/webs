@@ -33,8 +33,7 @@ let service req =
       let meth = match m with "" -> "post" | m -> m in
       Ok (Resp.html Http.s200_ok (form meth))
   | ["submit"] ->
-      let* req = Req.allow [`GET; `POST] req in
-      let meth = Req.meth req in
+      let* meth = Req.allow [`GET; `POST] req in
       let* q = Req.to_query req in
       let q = strf "@[<v>%a@,%a@]" Http.Meth.pp meth Http.Query.pp q in
       Ok (Resp.text Http.s200_ok q)

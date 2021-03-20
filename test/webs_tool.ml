@@ -33,7 +33,7 @@ let service ~docroot ~dir_resp req =
   Resp.result @@ match docroot with
   | None -> Error (Resp.v Http.s404_not_found)
   | Some docroot ->
-      let* req = Req.allow [`GET] req in
+      let* _m = Req.allow [`GET] req in
       let* file = Req.to_absolute_filepath ~root:docroot req in
       Webs_unix.send_file ~dir_resp req file
 

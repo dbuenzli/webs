@@ -174,6 +174,19 @@ end
 
 (* Sending files *)
 
+let http_date_of_ptime =
+  let wday = [|"Sun"; "Mon"; "Tue"; "Wed"; "Thu"; "Fri"; "Sat"|] in
+  let month =
+    [|"Jan"; "Feb"; "Mar"; "Apr"; "May"; "Jun"; "Jul"; "Aug"; "Sep"; "Oct";
+      "Nov"; "Dec"|]
+  in
+  fun ptime ->
+  let t = Unix.gmtime ptime in
+  let wday = wday.(t.tm_wday) in
+  let month = month.(t.tm_mon) in
+  strf "%s, %02d %s %04d %02d:%02d:%02d GMT"
+    wday t.tm_mday month (t.tm_year + 1900) t.tm_hour t.tm_min t.tm_sec
+
 type etagger =
   Http.fpath -> Unix.file_descr -> Unix.stats -> (Http.Etag.t, string) result
 
@@ -271,9 +284,13 @@ let send_file
           if not cond then Ok (Resp.v Http.s304_not_modified ~explain) else
           let file_size = stat.Unix.st_size in
           let file_type = Http.Mime_type.of_filepath ?map:mime_types file in
+          let mtime = http_date_of_ptime stat.Unix.st_mtime in
           let hs =
             Http.H.(empty
                     |> def content_type file_type
+                    (* The following header affects memory cache in blink
+                       based browsers, without it, it doesn't get hit. *)
+                    |> def last_modified mtime
                     |> def etag (Http.Etag.encode tag)
                     |> def accept_ranges "bytes")
           in

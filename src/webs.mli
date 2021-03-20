@@ -1385,12 +1385,24 @@ module Req : sig
 
   (** {2:method_contraints Method constraints} *)
 
-  val allow : Http.meth list -> t -> (t, Resp.t) result
+  val allow : [< Http.meth as 'a] list -> t -> ('a, Resp.t) result
   (** [allow ms r] is:
       {ul
-      {- [Ok r] if [List.mem (Req.meth r) ms]}
+      {- [Ok (Req.meth r)] if [List.mem (Req.meth r) ms]}
       {- [Error _] with a {!Http.s405_method_not_allowed} response otherwise.}}
-  *)
+
+      {b FIXME.} The restriction doesn't work. *)
+
+  (** {2:service_forwarding Service forwarding} *)
+
+  val forward_service : strip:Http.path -> t -> (t, Resp.t) result
+  (** [forward_service ~strip r] is:
+      {ul
+      {- [Ok r'] with [r'] the request [r] with a {!path} made
+         of [r]'s path stripped by [strip] and a {!service_root}
+         made of [r]'s service root concatenated with [strip].}
+      {- [Error _] with a {!Http.s404_not_found} if
+         {{!Http.Path.strip_prefix}stripping} results in [None].}} *)
 
   (** {2:file_path Absolute file paths} *)
 
@@ -1430,11 +1442,19 @@ module Req : sig
       E.g. for a login form redirect param in url login creds in POST.
       Or maybe alternate combinators [(Http.Query.t * Http.Query.t, Resp.t)
       result] ? *)
+
+  (** {2:route Service routing} *)
+
+  val to_service : strip:Http.path -> t -> (t, Resp.t) result
+  (** [to_service ~strip r] strips [strip] from [r]'s path and
+      appends it to the service root. Errors with {!Http.s404_not_found}
+      if stripping [strip] results in [None]. *)
 end
 
 type service = Req.t -> Resp.t
 (** The type for services. Maps requests to responses. Note that
-    services should not raise exceptions. *)
+    services should not raise exceptions (but connectors should be
+    prepared to handle spurious ones). *)
 
 (** {1:connector Connector} *)
 

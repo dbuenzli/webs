@@ -38,11 +38,11 @@ let index = {|
 let service req =
   Resp.result @@ match Req.path req with
   | [""] ->
-      let* r = Req.allow [`GET] req in
+      let* _m = Req.allow [`GET] req in
       Ok (Resp.html Http.s200_ok index)
   | ["websocket"] ->
-      let* r = Req.allow [`GET] req in
-      Ok (Webs_websocket.upgrade r)
+      let* _m = Req.allow [`GET] req in
+      Ok (Webs_websocket.upgrade req)
   | _ ->
       Ok (Resp.v Http.s404_not_found)
 

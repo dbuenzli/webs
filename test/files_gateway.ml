@@ -8,12 +8,12 @@ open Webs_kit
 let ( let* ) = Result.bind
 
 let root = "/myservice-files"
-let service r =
-  Resp.result @@ match Req.path r with
+let service req =
+  Resp.result @@ match Req.path req with
   | "assets" as pre :: _ ->
-      let* r = Req.allow [`GET] r in
-      let* file = Req.to_absolute_filepath ~strip:[pre] ~root r in
-      Gateway.send_file ~header:Gateway.x_accel_redirect r file
+      let* _m = Req.allow [`GET] req in
+      let* file = Req.to_absolute_filepath ~strip:[pre] ~root req in
+      Gateway.send_file ~header:Gateway.x_accel_redirect req file
   | _ ->
       Ok (Resp.v Http.s404_not_found)
 

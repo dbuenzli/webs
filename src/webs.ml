@@ -1394,7 +1394,6 @@ module Req = struct
 
   let service_redirect ?explain status p r =
     let loc = Http.Path.(encode @@ concat (service_root r) p) in
-    Printf.eprintf "LOC: %s\n" loc;
     Resp.redirect ?explain status loc
 
   let echo ?(status = Http.s404_not_found) r =
@@ -1405,8 +1404,11 @@ module Req = struct
   (* Request deconstruction *)
 
   let allow allowed r =
-    if List.mem (meth r) allowed then Ok r else
-    Error (Resp.method_not_allowed ~allowed ())
+    let rec loop mr = function
+    | m :: ms -> if (m :> Http.meth) = mr then Ok mr else loop mr ms
+    | [] -> Error (Resp.method_not_allowed ~allowed ())
+    in
+    loop (meth r) allowed
 
   let decode_header h dec req = match Http.H.find h (headers req) with
   | None -> Ok None
@@ -1417,10 +1419,19 @@ module Req = struct
           let reason = strf "%s: %s" (h :> string) e in
           Error (Resp.v Http.s400_bad_request ~reason)
 
+  let bad_strip_404 =
+    Resp.v ~explain:"could not strip prefix" Http.s404_not_found
+
+  let forward_service ~strip r =
+    match Http.Path.strip_prefix ~prefix:strip (path r) with
+    | None -> Error bad_strip_404
+    | Some path ->
+        let service_root = Http.Path.concat (service_root r) strip in
+        Ok { r with path; service_root }
+
   let to_absolute_filepath ?(strip = []) ~root r =
     match Http.Path.strip_prefix ~prefix:strip (path r) with
-    | None ->
-        Error (Resp.v ~explain:"could not strip path" Http.s400_bad_request)
+    | None -> Error bad_strip_404
     | Some p ->
         match Http.Path.to_absolute_filepath p with
         | Error e -> Error (Resp.v ~explain:e Http.s400_bad_request)
@@ -1444,6 +1455,13 @@ module Req = struct
     | `POST -> post_query r
     |  _ -> Error (Resp.method_not_allowed ~allowed:[`GET;`POST] ())
 
+  let to_service ~strip r =
+    match Http.Path.strip_prefix ~prefix:strip (path r) with
+    | None ->
+        Error (Resp.v ~explain:"could not strip path" Http.s400_bad_request)
+    | Some path ->
+        let service_root = Http.Path.concat (service_root r) strip in
+        Ok { r with service_root; path }
 end
 
 

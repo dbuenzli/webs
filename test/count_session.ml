@@ -34,7 +34,7 @@ let count req c =
 let service req =
   Resp.result @@ match Req.path req with
   | [""] ->
-      let* req = Req.allow [`GET] req in
+      let* _m = Req.allow [`GET] req in
       Ok (Session.setup state session count req)
   | _ ->
       Error (Resp.v Http.s404_not_found)
