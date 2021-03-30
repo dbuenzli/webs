@@ -14,6 +14,7 @@ let webs_unix = B0_ocaml.libname "webs.unix"
 let webs_cgi = B0_ocaml.libname "webs.cgi"
 let webs_httpc = B0_ocaml.libname "webs.httpc"
 let webs_cli = B0_ocaml.libname "webs.cli"
+let webs_html = B0_ocaml.libname "webs.html"
 
 (* Libraries *)
 
@@ -61,6 +62,10 @@ let webs_cli_lib =
   let srcs = mod_srcs "webs_cli" in
   let requires = [cmdliner; webs; webs_unix; webs_httpc] in
   B0_ocaml.lib webs_cli ~doc:"Webs command line library" ~srcs ~requires
+
+let webs_html_lib =
+  let srcs = mod_srcs "webs_html" in
+  B0_ocaml.lib webs_html ~doc:"Webs HTML generation" ~srcs
 
 (* Tools *)
 

@@ -79,3 +79,15 @@ package "cli" (
   plugin(native) = "webs_cli.cmxs"
   exists_if = "webs_cli.cma"
 )
+
+package "html" (
+  description = "Webs HTML generation"
+  version = "%%VERSION_NUM%%"
+  directory = "html"
+  requires = ""
+  archive(byte) = "webs_html.cma"
+  archive(native) = "webs_html.cmxa"
+  plugin(byte) = "webs_html.cma"
+  plugin(native) = "webs_html.cmxs"
+  exists_if = "webs_html.cma"
+)

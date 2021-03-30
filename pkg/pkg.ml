@@ -16,6 +16,7 @@ let () =
     Pkg.clib "src/libwebs_unix_stubs.clib" ~lib_dst_dir:"unix";
     Pkg.mllib "src/webs_cgi.mllib" ~dst_dir:"cgi";
     Pkg.mllib "src/webs_httpc.mllib" ~dst_dir:"httpc";
+    Pkg.mllib "src/webs_html.mllib" ~dst_dir:"html";
     Pkg.mllib ~cond:cmdliner "src/webs_cli.mllib" ~dst_dir:"cli";
     Pkg.bin ~cond:cmdliner "test/webs_tool" ~dst:"webs";
     Pkg.test ~run:false "test/httpc";

@@ -40,6 +40,7 @@
   https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
   https://en.wikipedia.org/wiki/Cross-site_request_forgery
   Distinguish actions from users.
+* Etag logic for in-memory serves. Integrate it in content responses. 
 
 # Request bodies 
 
