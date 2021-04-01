@@ -24,10 +24,12 @@ let key = Authenticatable.random_key () (* sessions expires on restart *)
 let session = Session.with_authenticated_cookie ~key ~name:"webs_count" ()
 let state = Session.State.int
 
-let count req c =
+let count c req =
   let c = Option.value ~default:0 c in
   let c' = match (Req.query req) with
-  | Some "next" -> c + 1 | Some "prev" -> c - 1 | Some _ | None -> c
+  | Some "next" -> c + 1
+  | Some "prev" -> c - 1
+  | Some _ | None -> c
   in
   Some c', Resp.html Http.s200_ok (count c')
 

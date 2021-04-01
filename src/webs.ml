@@ -1281,7 +1281,7 @@ module Resp = struct
 
   (* Pre-canned answers *)
 
-  let result = function Ok r | Error r -> r
+  let result = function Ok v | Error v -> v
 
   let content ?explain ?(set = Http.H.empty) ~mime_type:t st s =
     let l = string_of_int (String.length s) in

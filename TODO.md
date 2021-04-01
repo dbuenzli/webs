@@ -1,9 +1,6 @@
-
 # A laundry list
 
 * Make the login example bearable
-* Session and the error scheme don't compose well. Add a session
-  or response monad that ties everything together in a neat way ?
 * Body request/response need to correctly handle failures/resources.
 * Websocket upgrading works. The question is how to fit it in the model 
   once we upgraded. Maybe via a new body response case. Read

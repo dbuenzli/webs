@@ -291,18 +291,15 @@ module Session : sig
       {b TODO} do we want to give the original [Req.t] to save
       aswell ? *)
 
-  val setup :
-    'a state -> 'a handler ->
-    (Req.t -> 'a option -> ('a option * Resp.t)) -> Webs.service
-   (** [setup st handler service] handles loading and saving state [st]
-       with handler [handler] for service [service] which gets current
-       state as argument and should tuple the new state with the request. *)
+  type 'a resp = 'a option * Resp.t
+  (** The type for session responses. *)
 
-  val setup' :
-    'a state -> 'a handler ->
-    (Req.t -> 'a option -> ('a option * Resp.t, 'a option * Resp.t) result) ->
-    (Req.t -> (Resp.t, Resp.t) result)
-  (** {b TODO.} Add that for now until we settle on something. *)
+  val setup :
+    'a state -> 'a handler -> ('a option -> Req.t -> 'a resp) -> Webs.service
+  (** [setup st handler service] handles loading and saving state [st]
+      with handler [handler] for service [service] which gets current
+      session state as argument and should tuple the new state with
+      the resulting request. *)
 
   (** {1:result Injecting session state in [result]} *)
 
@@ -315,6 +312,8 @@ module Session : sig
 
   val for_error : 's option -> ('a, 'b) result -> ('a, 's option * 'b) result
   (** [for_error st r] injects [st] into the error case of [r]. *)
+
+  type nonrec 'a result = ('a resp, 'a resp) result
 
   (** {1:built-in Built-in session handlers} *)
 

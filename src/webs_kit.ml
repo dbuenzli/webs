@@ -242,26 +242,18 @@ module Session = struct
   | None, None -> true
   | _ -> false
 
+  type 'a resp = 'a option * Resp.t
+  type nonrec 'a result = ('a resp, 'a resp) result
+
   let setup st handler service =
     fun req ->
     let s = handler.load st req in
-    let s', resp = service req s in
+    let s', resp = service s req in
     if eq_state st s s' then resp else handler.save st s' resp
-
-  let setup' st handler service =
-    fun req ->
-    let s = handler.load st req in
-    match service req s with
-    | Ok (s', resp) ->
-        Ok (if eq_state st s s' then resp else handler.save st s' resp)
-    | Error (s', resp) ->
-        Error (if eq_state st s s' then resp else handler.save st s' resp)
 
   let for_result st = function Ok v -> Ok (st, v) | Error e -> Error (st, e)
   let for_ok st = function Ok v -> Ok (st, v) | Error _ as e -> e
   let for_error st = function Ok _ as v -> v | Error e -> Error (st, e)
-
-
 
   let with_authenticated_cookie ~key ?atts ~name () =
     let now = 0 (* TODO get rid of that *) in

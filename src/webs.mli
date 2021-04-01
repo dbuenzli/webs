@@ -1216,8 +1216,8 @@ module Resp : sig
       The optional [set] argument of the functions below always
       {!Http.H.override} those the function computed. *)
 
-  val result : (t, t) result -> t
-  (** [result r] is either response. *)
+  val result : ('a, 'a) result -> 'a
+  (** [result r] is [Result.fold ~ok:Fun.id ~error:Fun.id]. *)
 
   (** {2:pre_canned_content Content responses} *)
 
@@ -1420,7 +1420,10 @@ module Req : sig
       results in [None] and {!Http.s400_bad_request} if the
       absolute path conversion fails. *)
 
-  (** {2:queries Queries} *)
+  (** {2:queries Queries}
+
+      {b Warning.} {!Http.Query.t} values are untrusted,
+      you need to properly validate their data. *)
 
   val to_query : t -> (Http.Query.t, Resp.t) result
   (** [to_query r] extracts a query from [r]. This is
@@ -1430,18 +1433,13 @@ module Req : sig
       {- [Ok q] with [q] parsed from the request body if [r] is
          [`POST] with a content type of
          {!Http.Mime_type.application_x_www_form_urlencoded} or
-         TODO multipart.}
+         TODO multipart. The {!Req.query} is ignored.}
       {- [Error _] with a:
       {ul
       {- {!Http.s405_method_not_allowed} reponse on other methods}
       {- {!Http.s415_unsupported_media_type} response if the content-type
          is unsupported}
-      {- {!Http.s400_bad_request} reponse on decoding errors.}}}}
-
-      {b TODO.} In POST should we merge with [Req.query] ?
-      E.g. for a login form redirect param in url login creds in POST.
-      Or maybe alternate combinators [(Http.Query.t * Http.Query.t, Resp.t)
-      result] ? *)
+      {- {!Http.s400_bad_request} reponse on decoding errors.}}}} *)
 
   (** {2:route Service routing} *)
 

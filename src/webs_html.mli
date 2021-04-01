@@ -57,6 +57,7 @@ module At : sig
   module Name : sig
     val accesskey : name
     val action : name
+    val autocomplete : name
     val autofocus : name
     val charset : name
     val checked : name
@@ -92,6 +93,9 @@ module At : sig
 
   val action : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-action}action} *)
+
+  val autocomplete : string cons
+(** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/autocomplete}autocomplete} *)
 
   val autofocus : t
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/autofocus}
