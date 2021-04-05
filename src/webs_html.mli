@@ -5,55 +5,27 @@
 
 (** HTML generation.
 
+    [Ht] provides combinators to generate (possibly partial) HTML
+    documents.
+
     Open this module to use it.
 
-    {b Warning.} The module assumes strings are UTF-8 encoded. *)
+    {b Warning.} The module takes care of escaping the data you
+    provide but it assumes strings are UTF-8 encoded, this is not
+    checked by the module . Also be careful with {{!Ht.style}[style]}
+    elements. *)
 
-(** {1:attsels HTML attributes and elements} *)
-
-(** Element attributes. *)
+(** HTML element attributes. *)
 module At : sig
 
-  (** {1:atts Attributes} *)
+  (** {1:names Names} *)
 
   type name = string
   (** The type for attribute names. *)
 
-  type t
-  (** The type for attributes. *)
+  (** Attribute names.
 
-  val v : name -> string -> t
-  (** [v n value] is an attribute named [n] with value [value]. *)
-
-  val true' : name -> t
-  (** [true' n] is [v n ""]. This sets the
-      {{:https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#boolean-attributes}boolean attribute}
-      [n] to true. The attribute must be omitted to be false. *)
-
-  val int : name -> int -> t
-  (** [int n i] is [v n (string_of_int i)]. *)
-
-  val add_if : bool -> t -> t list -> t list
-  (** [add_if c att atts] is [att :: atts] if [c] is [true] and [atts]
-        otherwise. *)
-
-  val add_if_some : name -> string option -> t list -> t list
-  (** [add_if_some n o atts] is [(v n value) :: atts] if [o] is [Some
-      value] and [atts] otherwise. *)
-
-  val to_pair : t -> string * string
-  (** [to_pair at] is [(n,v)] the name and value of the attribute. *)
-
-  (** {1:names_cons Attribute names and constructors}
-
-      See the
-      {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}MDN
-      HTML attribute reference}.
-
-      {b Convention.} Whenever an attribute name conflicts with
-      an OCaml keyword we prime it, see for example {!class'}. *)
-
-  (** Attribute names. *)
+      See the {{!At.section-cons}attribute constructors} for documentation. *)
   module Name : sig
     val accesskey : name
     val action : name
@@ -84,6 +56,44 @@ module At : sig
     val wrap : name
     val width : name
   end
+
+  (** {1:atts Attributes} *)
+
+  type t
+  (** The type for attributes. *)
+
+  val v : name -> string -> t
+  (** [v n value] is an attribute named [n] with value [value].
+
+      See also (and favor) {{!section-cons}attribute constructors}. *)
+
+  val true' : name -> t
+  (** [true' n] is [v n ""]. This sets the
+      {{:https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#boolean-attributes}boolean attribute}
+      [n] to true. The attribute must be omitted to be false. *)
+
+  val int : name -> int -> t
+  (** [int n i] is [v n (string_of_int i)]. *)
+
+  val add_if : bool -> t -> t list -> t list
+  (** [add_if c att atts] is [att :: atts] if [c] is [true] and [atts]
+        otherwise. *)
+
+  val add_if_some : name -> string option -> t list -> t list
+  (** [add_if_some n o atts] is [(v n value) :: atts] if [o] is [Some
+      value] and [atts] otherwise. *)
+
+  val to_pair : t -> string * string
+  (** [to_pair at] is [(n,v)] the name and value of the attribute. *)
+
+  (** {1:cons Constructors}
+
+      See the
+      {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}MDN
+      HTML attribute reference}.
+
+      {b Convention.} Whenever an attribute name conflicts with
+      an OCaml keyword we prime it, see for example {!class'}. *)
 
   type 'a cons = 'a -> t
   (** The type for attribute constructors with value of type ['a]. *)
@@ -217,115 +227,130 @@ module At : sig
       width} *)
 end
 
-(** Elements and HTML fragments. *)
-module El : sig
+(** HTML parts and elements. *)
+module Ht : sig
 
-  (** {1:els Elements} *)
+  (** {1:part HTML parts} *)
+
+  type part
+  (** The type for HTML parts. A part is either a single element or
+      character data or a list of parts. *)
+
+  (** {2:els Elements} *)
 
   type name = string
   (** The type for element names. *)
 
-  type frag
-  (** The type for HTML fragments. A fragment is either character data or
-      a single element or a list of fragments. *)
-
-  val v : ?at:At.t list -> name -> frag list -> frag
-  (** [v ?at n cs] is an element with name [n], attributes [at]
+  val el : ?at:At.t list -> name -> part list -> part
+  (** [el ?at n cs] is an element with name [n], attributes [at]
       (defaults to [[]]) and children [cs].
 
       Except for {!At.class'} the list [at] must not define an
       attribute more than once; this is not checked by the module.
       The {!At.class'} is treated specially: multiple specifications
       are gathered to form a single, space separated, attribute value
-      for the [class] HTML attribute. *)
+      for the [class] HTML attribute.
 
-  val txt : string -> frag
+      See also (and favor) {{!Ht.section-cons}element constructors}. *)
+
+  (** {2:text Text} *)
+
+  val txt : string -> part
   (** [txt d] is character data [d]. *)
 
-  val sp : frag
-  (** [sp] is [El.txt " "]. *)
+  val sp : part
+  (** [sp] is [Ht.txt " "]. *)
 
-  val nbsp : frag
-  (** [nbsp] is [El.txt "\u{00A0}"]. *)
+  val nbsp : part
+  (** [nbsp] is [Ht.txt "\u{00A0}"]. *)
 
-  val splice : ?sep:frag -> frag list -> frag
-  (** [splice ?sep fs] when added to a list of children in {!v} splices
-      fragments [fs] into the list, separating each fragment by
+  (** {2:splice Splices} *)
+
+  val splice : ?sep:part -> part list -> part
+  (** [splice ?sep ps] when added to a list of children in {!v} splices
+      parts [ps] into the list, separating each part by
       [sep] (if any). *)
 
-  val void : frag
+  val void : part
   (** [void] is [splice []]. *)
 
-  val raw : string -> frag
+  (** {2:raw_data Raw data} *)
+
+  val raw : string -> part
   (** [raw s] is the raw string [s] without escaping markup delimiters.
-      This can be used to include foreign markup. [s] must be well-formed
-      HTML otherwise invalid markup will be generated. *)
+      [s] must be well-formed HTML otherwise invalid markup will be generated.
+      This can be used to
+      {ul
+      {- Include foreign markup.}
+      {- With the {!style} element, to avoid unpleasant surprises.}} *)
+
+  (** {2:page Page}
+
+      There's more than one way to generate a basic HTML page. The following
+      provides good defaults for a minimal document. *)
+
+  val page :
+    ?lang:string -> ?generator:string -> ?styles:string list ->
+    ?scripts:string list -> ?more_head:part -> title:string -> part -> part
+  (** [page ~lang ~generator ~styles ~scripts ~more_head ~title body]
+      is an {!Ht.html} element with an {!At.lang} attribute of [lang] (if
+      specified and non-empty) containing a {!Ht.head} element (see below)
+      followed by [body] which must be a {!Ht.body} element.
+
+      The other arguments are used to define the children of the page's
+      {!Ht.head} which are in order:
+      {ol
+      {- A charset {!Ht.meta} of UTF-8 (unconditional).}
+      {- A generator {!Ht.meta} of [generator], if specified an non-empty.}
+      {- A viewport {!Ht.meta} with [width=device-width, initial-scale=1]
+         (unconditional).}
+      {- A stylesheet {!Ht.link} of type [text/css] for each element
+         of [styles], in order (defaults to [[]]).}
+      {- A {!Ht.script} with {!At.defer} and of {!At.type'}
+         [text/javascript] for each element of [scripts],
+         in order (defaults to [[]]).}
+      {- [more_head] (defaults to {!Ht.void}). Be {{!style}careful}
+         with [style] tags.}
+      {- The page has a title [title] which is {!String.trim}ed.
+         If the result is empty falls back to ["Untitled"].
+         See also {!title_of_filepath}.}} *)
+
+  val title_of_filepath : string -> string
+  (** [title_of_filepath f] is a {e non-empty} page title for filepath
+      [f]. Either the basename of [f] without extension or if that
+      results in ["index"] or [""] the basename of the parent
+      directory without extension or if that results in [""],
+      ["Untitled"]. Directory separators can be ['/'] or ['\\']
+      regardless of the platform. *)
 
   (** {1:output Output} *)
 
-  val buffer_add : doc_type:bool -> Buffer.t -> frag -> unit
-  (** [buffer_add ~doc_type b frag] adds fragment [frag]. If
+  val buffer_add : doc_type:bool -> Buffer.t -> part -> unit
+  (** [buffer_add ~doc_type b part] adds part [part]. If
       [doc_type] is [true] an HTML doctype declaration is
       prepended. *)
 
-  val to_string : doc_type:bool -> frag -> string
+  val to_string : doc_type:bool -> part -> string
   (** [to_string] is like {!buffer_add} but returns directly a string. *)
 
-
-  (** Low level representation (unstable) *)
+  (** Low level representation (unstable). *)
   module Low : sig
     type t =
-    | El of name * At.t list * frag list
+    | El of name * At.t list * t list
     (** Element, name attributes and children. *)
     | Txt of string
     (** Character data. *)
-    | Splice of frag option * frag list
-    (** List of fragments, separated by an optional separator. *)
+    | Splice of t option * t list
+    (** List of parts, separated by an optional separator. *)
     | Raw of string
     (** Raw output string. *)
-    (** The type for low-level HTML fragment representations. *)
+    (** The low-level HTML part representation. *)
 
-    val of_frag : frag -> t
-    (** [of_frag f] is a low-level representation for [f]. *)
+    val of_part : part -> t
+    (** [of_part p] is a low-level representation for [p]. *)
   end
 
-  (** {1:convenience Convenience} *)
-
-  (*
-  val title_of_fpath : Fpath.t -> string
-  (** [title_of_fpath p] is a page title for [p] guaranteed to be non
-      empty. Either the basename of [file] without extension or if
-      that results in ["index"] or [""] the basename of the parent
-      directory without extension or if that results in [""],
-      ["Untitled"]. *)
-*)
-
-  val basic_page :
-    ?lang:string -> ?generator:string -> ?styles:string list ->
-    ?scripts:string list -> ?more_head:frag -> title:string -> frag -> frag
-  (** [basic_page ~lang ~generator ~styles ~scripts ~more_head ~title body]
-      is an {!El.html} element with a {!At.lang} attribute of [lang] (if
-      specified and non-empty) containing a {!El.head} element (see below)
-      followed by [body] which must be a {!El.body} element.
-
-      The other arguments are used to define the children of the page's
-      {!El.head} which are in order:
-      {ol
-      {- A charset {!El.meta} of UTF-8 (unconditional).}
-      {- A generator {!El.meta} of [generator], if specified an non-empty.}
-      {- A viewport {!El.meta} with [width=device-width, initial-scale=1]
-         (unconditional).}
-      {- A stylesheet {!El.link} of type [text/css] for each element
-         of [styles], in order (defaults to [[]]).}
-      {- A {!El.script} with {!At.defer} and of {!At.type'}
-         [text/javascript] for each element of [scripts],
-         in order (defaults to [[]]).}
-      {- [more_head] (defaults to {!El.void}).}
-      {- The page has a title [title], which must be non-white and
-         and non-empty (falls back to ["Untitled"] in any of
-         these cases).}} *)
-
-  (** {1:predef Predefined element constructors}
+  (** {1:cons Element constructors}
 
       See the
       {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element}MDN
@@ -334,11 +359,11 @@ module El : sig
       {b Convention.} Whenever an element name conflicts with an OCaml
       keyword we prime it, see for example {!object'}. *)
 
-  type cons = ?at:At.t list -> frag list -> frag
+  type cons = ?at:At.t list -> part list -> part
   (** The type for element constructors. This is simply {!v} with a
       pre-applied element name. *)
 
-  type void_cons = ?at:At.t list -> unit -> frag
+  type void_cons = ?at:At.t list -> unit -> part
   (** The type for void element constructors. This is simply {!el}
       with a pre-applied element name and without children. *)
 
@@ -666,7 +691,10 @@ module El : sig
 
   val style : cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/style}
-      style} *)
+      style}
+
+      {b Warning.} If your style element holds CSS use {!raw} content,
+      otherwise the CSS selector [>] gets escaped. *)
 
   val sub : cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/sub}

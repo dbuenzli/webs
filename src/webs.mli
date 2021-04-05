@@ -1214,7 +1214,9 @@ module Resp : sig
   (** {1:pre_canned Pre-canned responses}
 
       The optional [set] argument of the functions below always
-      {!Http.H.override} those the function computed. *)
+      {!Http.H.override} those the function computed.
+
+      See also {{!Req.deconstruct}request deconstruction} combinators. *)
 
   val result : ('a, 'a) result -> 'a
   (** [result r] is [Result.fold ~ok:Fun.id ~error:Fun.id]. *)
@@ -1391,7 +1393,7 @@ module Req : sig
       {- [Ok (Req.meth r)] if [List.mem (Req.meth r) ms]}
       {- [Error _] with a {!Http.s405_method_not_allowed} response otherwise.}}
 
-      {b FIXME.} The restriction doesn't work. *)
+      {b FIXME.} The type restriction doesn't work. *)
 
   (** {2:service_forwarding Service forwarding} *)
 

@@ -5,13 +5,6 @@
 
 module At = struct
   type name = string
-  type t = name * string
-  let v n v = (n, v)
-  let true' n = (n, "")
-  let int n i = (n, string_of_int i)
-  let add_if b at l = if b then at :: l else l
-  let add_if_some name o l = match o with None -> l | Some a -> (name, a) :: l
-  let to_pair = Fun.id
   module Name = struct
     let accesskey = "accesskey"
     let action = "action"
@@ -49,6 +42,13 @@ module At = struct
     let width = "width"
     let wrap = "wrap"
   end
+  type t = name * string
+  let v n v = (n, v)
+  let true' n = (n, "")
+  let int n i = (n, string_of_int i)
+  let add_if b at l = if b then at :: l else l
+  let add_if_some name o l = match o with None -> l | Some a -> (name, a) :: l
+  let to_pair = Fun.id
   type 'a cons = 'a -> t
   let accesskey s = v Name.accesskey s
   let action s = v Name.action s
@@ -87,17 +87,16 @@ module At = struct
   let wrap s = v Name.value s
 end
 
-module El = struct
+module Ht = struct
   module Sset = Set.Make (String)
-
   type name = string
-  type frag =
-  | El of name * At.t list * frag list
+  type part =
+  | El of name * At.t list * part list
   | Txt of string
-  | Splice of frag option * frag list
+  | Splice of part option * part list
   | Raw of string
 
-  let v ?(at = []) n cs = El (n, at, cs)
+  let el ?(at = []) n cs = El (n, at, cs)
   let txt v = Txt v
   let sp = Txt " "
   let nbsp = Txt "\u{00A0}"
@@ -108,13 +107,13 @@ module El = struct
   (* Output *)
 
   module Low = struct
-    type t = frag =
-    | El of name * At.t list * frag list
+    type t = part =
+    | El of name * At.t list * part list
     | Txt of string
-    | Splice of frag option * frag list
+    | Splice of part option * part list
     | Raw of string
 
-    let of_frag f = f
+    let of_part f = f
   end
 
   let addc = Buffer.add_char
@@ -181,10 +180,10 @@ module El = struct
 
   (* Predefined element constructors *)
 
-  type cons = ?at:At.t list -> frag list -> frag
-  type void_cons = ?at:At.t list -> unit -> frag
-  let[@inline] cons e ?at els = v ?at e els
-  let[@inline] void_cons e ?at () = v e ?at []
+  type cons = ?at:At.t list -> part list -> part
+  type void_cons = ?at:At.t list -> unit -> part
+  let[@inline] cons e ?at els = el ?at e els
+  let[@inline] void_cons e ?at () = el e ?at []
   let a = cons "a"
   let abbr = cons "abbr"
   let address = cons "address"
@@ -294,17 +293,29 @@ module El = struct
   let video = cons "video"
   let wbr = void_cons "wbr"
 
-  (* Convenience *)
+  (* Page *)
 
-  (*
-  let title_of_fpath file = match B00_std.Fpath.basename ~no_ext:true file with
-  | "index" | "" ->
-      let title = B00_std.Fpath.(basename ~no_ext:true (parent file)) in
-      if title = "" then "Untitled" else title
-  | title -> title
-*)
+  let title_of_filepath f =
+    let rec base ~snd init f =
+      let start = ref init in
+      let last = ref (init + 1) in
+      while not (!start < 0  || f.[!start] = '/' || f.[!start] = '\\')
+      do if f.[!start] = '.' then last := !start; decr start done;
+      let first = !start + 1 in
+      let last = !last - 1 in
+      if first <= last && last <= init then
+        begin
+          let s = String.sub f first (last - first + 1) in
+          if not (s = "index" || s = "") then s else
+          if snd = true then "Untitled" else base ~snd:true (!start - 1) f
+        end
+      else
+      if !start < 0 || snd = true then "Untitled" else
+      base ~snd:true (!start - 1) f
+    in
+    base ~snd:false (String.length f - 1) f
 
-  let basic_page
+  let page
       ?(lang = "") ?(generator = "") ?(styles = []) ?(scripts = [])
       ?(more_head = void) ~title:t body
     =
