@@ -1431,14 +1431,13 @@ module Req : sig
   (** [to_query r] extracts a query from [r]. This is
       {ul
       {- [Ok q] with [q] parsed from [Req.query r] if [r]'s
-         method is [`GET].}
-      {- [Ok q] with [q] parsed from the request body if [r] is
-         [`POST] with a content type of
+         method is [`GET] or [`HEAD].}
+      {- [Ok q] with [q] parsed from the request body on
+         other methods and the content type is
          {!Http.Mime_type.application_x_www_form_urlencoded} or
-         TODO multipart. The {!Req.query} is ignored.}
+         TODO multipart. In this case the {!Req.query} is ignored.}
       {- [Error _] with a:
       {ul
-      {- {!Http.s405_method_not_allowed} reponse on other methods}
       {- {!Http.s415_unsupported_media_type} response if the content-type
          is unsupported}
       {- {!Http.s400_bad_request} reponse on decoding errors.}}}} *)

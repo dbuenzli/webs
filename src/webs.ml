@@ -1438,22 +1438,25 @@ module Req = struct
         | Ok filepath -> Ok (Http.Path.prefix_filepath root filepath)
 
   let to_query r =
-    let get_query r = match query r with
+    let url_query r = match query r with
     | None -> Ok Http.Query.empty | Some q -> Ok (Http.Query.decode q)
     in
-    let post_query r =
+    let body_query r =
       match Http.H.(find ~lowervalue:true content_type (headers r)) with
-      | Some t
-        when String.equal t Http.Mime_type.application_x_www_form_urlencoded ->
-          Ok (Http.Query.decode @@ body_to_string (body r))
-      | Some t -> Error (Resp.v Http.s415_unsupported_media_type)
       | None ->
           Error (Resp.v ~reason:"missing content type" Http.s400_bad_request)
+      | Some t ->
+          (* TODO proper Mimetype decoding *)
+          match String.split_on_char ';' t with
+          | (t :: _) when
+              String.equal (String.trim t)
+                Http.Mime_type.application_x_www_form_urlencoded ->
+              Ok (Http.Query.decode @@ body_to_string (body r))
+          | _ -> Error (Resp.v Http.s415_unsupported_media_type)
     in
     match meth r with
-    | `GET -> get_query r
-    | `POST -> post_query r
-    |  _ -> Error (Resp.method_not_allowed ~allowed:[`GET;`POST] ())
+    | `GET | `HEAD -> url_query r
+    | _ -> body_query r
 
   let to_service ~strip r =
     match Http.Path.strip_prefix ~prefix:strip (path r) with
