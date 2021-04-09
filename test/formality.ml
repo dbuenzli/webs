@@ -29,13 +29,13 @@ let form meth = strf
 let service req =
   Resp.result @@ match Req.path req with
   | [ "" | "post" | "get" as m] ->
-      let* r = Req.allow [`GET] req in
+      let* _m = Req.Allow.(meths [get] req) in
       let meth = match m with "" -> "post" | m -> m in
       Ok (Resp.html Http.s200_ok (form meth))
   | ["submit"] ->
-      let* meth = Req.allow [`GET; `POST] req in
+      let* m = Req.Allow.(meths [get; post] req) in
       let* q = Req.to_query req in
-      let q = strf "@[<v>%a@,%a@]" Http.Meth.pp meth Http.Query.pp q in
+      let q = strf "@[<v>%a@,%a@]" Http.Meth.pp m Http.Query.pp q in
       Ok (Resp.text Http.s200_ok q)
   | _ ->
       Error (Resp.v Http.s404_not_found)

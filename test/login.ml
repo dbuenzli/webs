@@ -53,7 +53,7 @@ let session = Session.with_authenticated_cookie ~key ~name:"webs_login" ()
 let user_state = Session.State.string
 
 let home req =
-  let* _m = Req.allow [`GET] req in
+  let* _m = Req.Allow.(meths [get] req) in
   Ok (Resp.html Http.s200_ok Page.home)
 
 let restricted ~login user req = match user with
@@ -61,7 +61,7 @@ let restricted ~login user req = match user with
     let explain = "not logged" in
     Ok (None, Req.service_redirect ~explain Http.s302_found login req)
 | Some u ->
-    let* _m = Session.for_error user (Req.allow [`GET] req) in
+    let* _m = Session.for_error user Req.Allow.(meths [get] req) in
     Ok (user, Resp.html Http.s200_ok (Page.restricted u))
 
 let login_user ~and_goto:goto user req =
@@ -69,7 +69,7 @@ let login_user ~and_goto:goto user req =
     let explain = user ^ " logged" in
     Req.service_redirect ~explain Http.s303_see_other path req
   in
-  let* m = Session.for_error user @@ Req.allow [`GET; `POST] req in
+  let* m = Session.for_error user @@ Req.Allow.(meths [get; post] req) in
   match m with
   | `GET ->
       begin match user with
@@ -95,10 +95,10 @@ let login_user ~and_goto:goto user req =
               Ok (None,
                   Resp.html ~explain Http.s403_forbidden (Page.login err))
       end
-  | _ -> assert false (* FIXME Req.allow typing *)
+
 
 let logout_user ~and_goto user req =
-  let* _m = Session.for_error None (Req.allow [`POST] req) in
+  let* _m = Session.for_error None (Req.Allow.(meths [post] req)) in
   let explain = Option.map (fun u -> u ^ "logged out") user in
   Ok (None, Req.service_redirect ?explain Http.s303_see_other and_goto req)
 

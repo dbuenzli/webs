@@ -1403,12 +1403,30 @@ module Req = struct
 
   (* Request deconstruction *)
 
-  let allow allowed r =
-    let rec loop mr = function
-    | m :: ms -> if (m :> Http.meth) = mr then Ok mr else loop mr ms
-    | [] -> Error (Resp.method_not_allowed ~allowed ())
-    in
-    loop (meth r) allowed
+  module Allow = struct
+    type req = t
+    type 'a t = Http.meth * 'a
+
+    let meths allowed r =
+      let rec loop mr = function
+      | m :: ms -> if (fst m) = mr then Ok (snd m) else loop mr ms
+      | [] ->
+          let allowed = List.map fst allowed in
+          Error (Resp.method_not_allowed ~allowed ())
+      in
+      loop (meth r) allowed
+
+    let connect = `CONNECT, `CONNECT
+    let delete = `DELETE, `DELETE
+    let get = `GET, `GET
+    let head = `HEAD, `HEAD
+    let options = `OPTIONS, `OPTIONS
+    let other s o = `Other s, o
+    let patch = `PATCH, `PATCH
+    let post = `POST, `POST
+    let put = `PUT, `PUT
+    let trace = `TRACE, `TRACE
+  end
 
   let decode_header h dec req = match Http.H.find h (headers req) with
   | None -> Ok None

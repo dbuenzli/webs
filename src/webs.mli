@@ -1385,15 +1385,38 @@ module Req : sig
   (** [decode_header h dec r] decodes header [h] (if any) in [r].
       Errors with {!Http.s400_bad_request} in case of decoding errors. *)
 
-  (** {2:method_contraints Method constraints} *)
+  (** {2:method_constraints Method constraints} *)
 
-  val allow : [< Http.meth as 'a] list -> t -> ('a, Resp.t) result
-  (** [allow ms r] is:
-      {ul
-      {- [Ok (Req.meth r)] if [List.mem (Req.meth r) ms]}
-      {- [Error _] with a {!Http.s405_method_not_allowed} response otherwise.}}
+  (** Method constraints. *)
+  module Allow : sig
 
-      {b FIXME.} The type restriction doesn't work. *)
+    type req = t
+    (** See {!t}. *)
+
+    type 'a t = Http.meth * 'a
+    (** The type for method constraints. *)
+
+    val meths : 'a t list -> req -> ('a, Resp.t) result
+    (** [allow ms r] is:
+        {ul
+        {- [Ok (Req.meth r)] if [List.mem (Req.meth r, Req.meth r) ms]}
+        {- [Error _] with a {!Http.s405_method_not_allowed}
+           response otherwise.}} *)
+
+    (** {1:constraint Constraints} *)
+
+    val connect : [> `CONNECT] t
+    val delete : [> `DELETE] t
+    val get : [> `GET] t
+    val head : [> `HEAD] t
+    val options : [> `OPTIONS] t
+    val other : string -> 'a ->  'a t
+    val patch : [> `PATCH] t
+    val post : [> `POST] t
+    val put : [> `PUT] t
+    val trace : [> `TRACE] t
+  end
+
 
   (** {2:service_forwarding Service forwarding} *)
 

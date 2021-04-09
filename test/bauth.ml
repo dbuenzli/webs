@@ -41,11 +41,11 @@ let admin p req user = match p with
 let service req =
   Resp.result @@ match Req.path req with
   | [""] ->
-      let* req = Req.allow [`GET] req in
+      let* _m = Req.Allow.(meths [get] req) in
       Ok (Resp.html Http.s200_ok Page.home)
   | "admin" :: p ->
       let* user, req = Basic_auth.enticate ~check ~realm:"Service admin" req in
-      let* req = Req.allow [`GET] req in
+      let* _m = Req.Allow.(meths [get] req) in
       admin p req user
   | _ -> Error (Resp.v Http.s404_not_found)
 
