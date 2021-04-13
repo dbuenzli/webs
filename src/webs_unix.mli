@@ -23,10 +23,10 @@ val listener_localhost : listener
 (** [listener_localhost] is [`Host ("localhost", 8000)]. *)
 
 val fd_of_listener : listener -> (Unix.file_descr * bool, string) result
-(** [fd_of_listener l] is [fd, close] a file descriptor for the specification
-    [l], [close] is [true] if the client is in charge of closing it. Unless
-    [l] was [`Fd], [fd] has {{:Unix.set_close_on_exec}close on exec}
-    set to [true]. *)
+(** [fd_of_listener l] is [Ok (fd, close)] a file descriptor [fd] for
+    the specification [l] and [close] is [true] if the client is in
+    charge of closing it. Unless [l] was [`Fd], [fd] has
+    {{:Unix.set_close_on_exec}close on exec} set to [true]. *)
 
 val listener_of_string :
   ?default_port:int -> string -> (listener, string) result

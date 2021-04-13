@@ -7,6 +7,8 @@
 
 open Webs
 
+(** {1:gateway Gateway interaction} *)
+
 (** Gateway interaction. *)
 module Gateway : sig
 

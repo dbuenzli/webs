@@ -4,7 +4,7 @@ open B00_std
 (* OCaml library names *)
 
 let unix = B0_ocaml.libname "unix"
-let threads = B0_ocaml.libname "threads"
+let threads = B0_ocaml.libname "threads.posix"
 let cmdliner = B0_ocaml.libname "cmdliner"
 
 let webs = B0_ocaml.libname "webs"

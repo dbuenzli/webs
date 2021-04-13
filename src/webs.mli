@@ -1391,7 +1391,7 @@ module Req : sig
   module Allow : sig
 
     type req = t
-    (** See {!t}. *)
+    (** See {!Req.t}. *)
 
     type 'a t = Http.meth * 'a
     (** The type for method constraints. *)

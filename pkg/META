@@ -60,7 +60,7 @@ package "httpc" (
   description = "Webs HTTP/1.1 connector"
   version = "%%VERSION_NUM%%"
   directory = "httpc"
-  requires = "threads unix webs webs.unix"
+  requires = "threads.posix unix webs webs.unix"
   archive(byte) = "webs_httpc.cma"
   archive(native) = "webs_httpc.cmxa"
   plugin(byte) = "webs_httpc.cma"
