@@ -1493,6 +1493,7 @@ module Connector = struct
   type log_msg =
   [ `Service_exn of exn * Stdlib.Printexc.raw_backtrace
   | `Connector_exn of exn * Stdlib.Printexc.raw_backtrace
+  | `Connection_reset
   | `Trace of Req.t option * Resp.t option ]
 
   let no_log _ = ()
@@ -1532,16 +1533,22 @@ module Connector = struct
       Format.pp_print_string ppf data
   | _, _ ->  Format.pp_print_string ppf "trace TODO"
 
+  let pp_connection_reset ppf () =
+    Format.fprintf ppf "Connection reset by peer."
+
   let pp_log_msg ppf = function
   | `Trace (req, resp) -> pp_trace ppf req resp
   | `Service_exn e -> pp_service_exn ppf e
   | `Connector_exn e -> pp_connector_exn ppf e
+  | `Connection_reset -> pp_connection_reset ppf ()
 
   let default_log ?(ppf = Format.err_formatter) ~trace () = function
   | `Trace _ when not trace -> ()
   | `Trace (req, resp) -> pp_trace ppf req resp; Format.pp_print_newline ppf ()
   | `Service_exn e -> pp_service_exn ppf e; Format.pp_print_newline ppf ()
   | `Connector_exn e -> pp_connector_exn ppf e; Format.pp_print_newline ppf ()
+  | `Connection_reset ->
+      pp_connection_reset ppf (); Format.pp_print_newline ppf ()
 end
 
 (*---------------------------------------------------------------------------

@@ -56,11 +56,23 @@ package "cgi" (
   exists_if = "webs_cgi.cma"
 )
 
+package "tpool" (
+  description = "Webs thread pool"
+  version = "%%VERSION_NUM%%"
+  directory = "tpool"
+  requires = "threads.posix"
+  archive(byte) = "webs_tpool.cma"
+  archive(native) = "webs_tpool.cmxa"
+  plugin(byte) = "webs_tpool.cma"
+  plugin(native) = "webs_tpool.cmxs"
+  exists_if = "webs_tpool.cma"
+)
+
 package "httpc" (
   description = "Webs HTTP/1.1 connector"
   version = "%%VERSION_NUM%%"
   directory = "httpc"
-  requires = "threads.posix unix webs webs.unix"
+  requires = "threads.posix unix webs webs.unix webs.tpool"
   archive(byte) = "webs_httpc.cma"
   archive(native) = "webs_httpc.cmxa"
   plugin(byte) = "webs_httpc.cma"

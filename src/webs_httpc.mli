@@ -5,10 +5,10 @@
 
 (** HTTP/1.1 gateway connector.
 
-    This connector serves an unbounded number of requests by taking
-    connection and HTTP/1.1 requests on a {!Webs_unix.listener}.  If
-    only for [https] support, it should only ever be used behind an
-    HTTP gateway or locally for development.
+    This connector serves a bounded number of concurrent requests by
+    taking connection and HTTP/1.1 requests on a
+    {!Webs_unix.listener}. If only for [https] support, it should only
+    ever be used behind an HTTP gateway or locally for development.
 
     See the {{!page-web_service_howto}Web service howto} manual for
     instructions to connect a minimal example to an HTTP gateway. *)
@@ -17,9 +17,12 @@ open Webs
 
 (** {1:connector Connector} *)
 
+val default_max_connections : int
+(** [default_max_connection] is [100]. *)
+
 type t
-(** The type for HTTP/1.1 connectors. Implemented using one {!Thread}
-    per connection. *)
+(** The type for HTTP/1.1 connectors. Each connection is served using
+    one {!Thread} drawn from a pool. *)
 
 val create :
   ?log:(Connector.log_msg -> unit) -> ?max_connections:int ->
@@ -30,7 +33,7 @@ val create :
     {- [listen] specifies the socket to listen to on.
        Defaults to {!Webs_unix.listener_localhost}}
     {- [max_connections] is the maximal number of allowed concurrent
-       connections.}
+       connections (defaults to {!default_max_connections}).}
     {- [max_req_headers_byte_size] is the maximal allowed size in bytes for
        to the request line and headers. Defaults to [64Ko].}
     {- [max_req_body_byte_size] is the maximal request body size in bytes.
@@ -40,12 +43,17 @@ val create :
     {- [log] logs connector log messages. Defaults to
        {!Webs.Connector.default_log} with trace messages.}} *)
 
+val max_connections : t -> int
+(** [max_connection c] is the maximal number of concurrent connections. *)
+
 val listener : t -> Webs_unix.listener
 (** [listener c] is the connector connection listener. *)
 
-val serve : t -> Webs.service -> (unit, string) result
+val serve : ?stop_on_sigint:bool -> t -> Webs.service -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks,
-    serving requests with [s] until {!stop} is called on [c].
+    serving requests with [s] until {!stop} is called on [c]. If
+    [stop_on_sigint] is [true] (default) a signal handler is installed
+    during the call to gracefully [stop] the serve.
 
     The {!Webs.Req.service_root} of requests is decoded from the
     custom HTTP header [x-service-root] this should be set
@@ -62,14 +70,13 @@ val serve : t -> Webs.service -> (unit, string) result
     {- If a {!Webs.Http.H.expect} header is found TODO}}
 
     {b Signals.} When [serve] is entered {!Stdlib.Sys.sigpipe} is made
-    to be ignored. The previous value is restored when the function returns. *)
+    to be ignored and a handler for {!Stldib.Sys.sigint} is installed
+    if [stop_on_sigint] is [true]. The previous values are restored
+    when the function returns. *)
 
 val stop : t -> unit
 (** [stop s] stops [s]. If [s] is blocked on [serve] this makes it
-    stop accepting new connection.
-
-    {b TODO.} At the moment this does not ensure all connections
-    get terminated cleanly. *)
+    stop accepting new connection. *)
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2020 The webs programmers

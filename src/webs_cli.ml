@@ -32,6 +32,20 @@ let docroot ?(opts = ["d"; "docroot"]) ?docs () =
   let arg_info = Arg.info opts ?docs ~doc ~docv in
   Arg.(value & opt (some ~none:"none" string) None & arg_info)
 
+let positive =
+  let parse s = match int_of_string_opt s with
+  | None -> Error (`Msg "could not parse integer")
+  | Some n when n < 0 -> Error (`Msg "integer not strictly positive")
+  | Some n -> Ok n
+  in
+  Arg.conv ~docv:"INT" (parse, Format.pp_print_int)
+
+let max_connections ?(opts = ["c"; "max-connections"]) ?docs () =
+  let doc = "The maximal number $(docv) of concurrent connections served." in
+  let docv = "INT" in
+  let arg_info = Arg.info opts ?docs ~doc ~docv in
+  Arg.(value & opt positive Webs_httpc.default_max_connections & arg_info)
+
 (* Quick service *)
 
 let log fmt = Format.fprintf Format.err_formatter ("@[" ^^ fmt ^^ "@]@.")
@@ -49,20 +63,22 @@ let conf_docroot () =
   let arg = Arg.(required & opt (some string) None & arg_info) in
   Term.(const setup $ arg)
 
-let quick_service s listener conf =
+let quick_service s listener max_connections conf =
   log_if_error @@
   let* conf = conf in
-  let c = Webs_httpc.create ~listener () in
+  let c = Webs_httpc.create ~listener ~max_connections () in
   log "Listening on http://%a" Webs_unix.pp_listener listener;
   Webs_httpc.serve c (s conf)
 
 let quick_serve' ?version ?man ?(doc = "Undocumented service") ~name ~conf s =
   let listener = listener () in
+  let max_connections = max_connections () in
   let exits =
     Term.exit_info ~doc:"on indiscriminate error reported on stderr." 1 ::
     Term.default_exits
   in
-  let term = Term.(const (quick_service s) $ listener $ conf) in
+  let term = Term.(const (quick_service s) $ listener $ max_connections $ conf)
+  in
   let info = Term.info name ?version ~doc ?man ~exits in
   Term.exit_status @@ Term.eval (term, info)
 

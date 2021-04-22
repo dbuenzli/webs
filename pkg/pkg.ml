@@ -13,6 +13,7 @@ let () =
     Pkg.clib "src/libwebs_kit_stubs.clib" ~lib_dst_dir:"kit";
     Pkg.mllib "src/webs_websocket.mllib" ~dst_dir:"websocket";
     Pkg.mllib "src/webs_unix.mllib" ~dst_dir:"unix";
+    Pkg.mllib "src/webs_tpool.mllib" ~dst_dir:"tpool";
     Pkg.clib "src/libwebs_unix_stubs.clib" ~lib_dst_dir:"unix";
     Pkg.mllib "src/webs_cgi.mllib" ~dst_dir:"cgi";
     Pkg.mllib "src/webs_httpc.mllib" ~dst_dir:"httpc";

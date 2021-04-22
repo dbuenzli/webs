@@ -34,6 +34,7 @@ Webs_kit
 Webs_html
 Webs_websocket
 Webs_unix
+Webs_tpool
 }
 
 {1:connectors Connectors}

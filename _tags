@@ -3,6 +3,7 @@ true : bin_annot, safe_string
 <src> : include
 <src/vendor> : include
 <src/webs_cgi*> : package(unix)
+<src/webs_tpool*> : thread, package(threads.posix)
 <src/webs_httpc*> : thread, package(threads.posix, unix)
 <src/webs_unix*> : package(unix)
 <src/webs_unix.{cma,cmxa}> : record_webs_unix_stubs

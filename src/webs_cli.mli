@@ -27,6 +27,14 @@ val docroot : ?opts:string list -> ?docs:string -> unit -> string option Term.t
     {- [docs] is the section where the option is documented.}
     {- [opts] are the options to use (defaults to [["d";"docroot"]]).}} *)
 
+val max_connections : ?opts:string list -> ?docs:string -> unit -> int Term.t
+(** [max_connections] is an option for specifying the maximal amount of
+    concurrent connections served. Defaults to
+    {!Webs_httpc.default_max_connections}.
+    {ul
+    {- [docs] is the section where the option is documented.}
+    {- [opts] are the options to use (defaults to [["m";"max-connections"]]. *)
+
 (** {1:quick Quick service setup} *)
 
 val conf_docroot : unit -> (string, string) result Term.t

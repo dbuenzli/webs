@@ -17,9 +17,6 @@ let close_noerr fd = try Unix.close fd with Unix.Unix_error (e, _, _) -> ()
 let shutdown_noerr fd how = try Unix.shutdown fd how with
 | Unix.Unix_error (e, _, _) -> ()
 
-let rec accept fd = try Unix.accept ~cloexec:false fd with
-| Unix.Unix_error (Unix.EINTR, _, _) -> accept fd
-
 let rec listen_on_fd fd ~backlog =
   try Unix.clear_nonblock fd; Unix.listen fd backlog; Ok () with
   | Unix.Unix_error (Unix.EINTR, _, _) -> listen_on_fd fd ~backlog
@@ -33,6 +30,8 @@ let set_signal_noerr sg sg_behaviour = try Sys.set_signal sg sg_behaviour with
 
 (* Servers *)
 
+let default_max_connections = 100
+
 type t =
   { mutable serving : bool;
     max_connections : int;
@@ -41,11 +40,13 @@ type t =
     listener : Webs_unix.listener;
     log : Connector.log_msg -> unit; }
 
+let max_connections c = c.max_connections
 let listener c = c.listener
 
 let create
     ?(log = Connector.default_log ~trace:true ())
-    ?(max_connections = 64) ?(max_req_headers_byte_size = 64 * 1024)
+    ?(max_connections = default_max_connections)
+    ?(max_req_headers_byte_size = 64 * 1024)
     ?(max_req_body_byte_size = 10 * 1024 * 1024)
     ?(listener = Webs_unix.listener_localhost) ()
   =
@@ -183,32 +184,44 @@ let serve_req c fd service =
       match e with
       | Out_of_memory as e -> Printexc.raise_with_backtrace e bt
       | Sys.Break as e -> Printexc.raise_with_backtrace e bt
+      | Unix.Unix_error (Unix.ECONNRESET, _, _) -> c.log `Connection_reset
       | Stack_overflow as e | e -> c.log (`Connector_exn (e, bt))
 
-let serve c service =
+let stop c = c.serving <- false
+
+let serve ?(stop_on_sigint = true) c service =
   if c.serving then Ok () else
   let () = c.serving <- true in
+  let sigint _ = stop c in
+  let* sigint_behaviour = set_signal Sys.sigint (Sys.Signal_handle sigint) in
   let* sigpipe_behaviour = set_signal Sys.sigpipe Sys.Signal_ignore in
   let* accept_fd, close = Webs_unix.fd_of_listener c.listener in
+  let tpool = Webs_tpool.create c.max_connections in
+  let sem = Semaphore.Counting.make c.max_connections in
   let finally () =
+    Webs_tpool.finish tpool;
     if close then close_noerr accept_fd;
+    set_signal_noerr Sys.sigint sigint_behaviour;
     set_signal_noerr Sys.sigpipe sigpipe_behaviour
   in
   Fun.protect ~finally @@ fun () ->
   let* () = listen_on_fd accept_fd ~backlog:128 (* SOMAXCONN *) in
-  try
-    while c.serving do
-      (* FIXME that won't respect max_connection, 4.12 semaphores *)
-      let fd, _addr = accept accept_fd in
-      let finally () = close_noerr fd in
-      let work () = Fun.protect ~finally @@ fun () -> serve_req c fd service in
-      ignore (Thread.create work ())
-    done;
-    Ok ()
-  with
-  | Unix.Unix_error (e, _, _) -> uerror e
-
-let stop c = c.serving <- false
+  let rec loop c =
+    if not c.serving then Ok () else
+    begin
+      Semaphore.Counting.acquire sem;
+      if not c.serving then (Semaphore.Counting.release sem; Ok ()) else
+      match Unix.accept ~cloexec:false accept_fd with
+      | exception Unix.Unix_error (e, _, _) ->
+          Semaphore.Counting.release sem;
+          if e = Unix.EINTR then loop c else uerror e
+      | fd, _addr ->
+          let finally () = Semaphore.Counting.release sem; close_noerr fd in
+          let w () = Fun.protect ~finally @@ fun () -> serve_req c fd service in
+          Webs_tpool.exec tpool w; loop c
+    end
+  in
+  loop c
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2020 The webs programmers

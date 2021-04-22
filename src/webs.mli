@@ -31,13 +31,13 @@
     2014}} *)
 module Http : sig
 
+  (** {1:encs Encodings} *)
+
   (**/**)
   val string_subrange : ?first:int -> ?last:int -> string -> string
   val string_starts_with : prefix:string -> string -> bool
   val string_lowercase : string -> string
   (**/**)
-
-  (** {1:encs Encodings} *)
 
   (** Base64 codec.
 
@@ -1491,6 +1491,7 @@ module Connector : sig
   type log_msg =
   [ `Service_exn of exn * Stdlib.Printexc.raw_backtrace
   | `Connector_exn of exn * Stdlib.Printexc.raw_backtrace
+  | `Connection_reset
   | `Trace of Req.t option * Resp.t option ]
   (** The type for connector log messages. These *)
 
