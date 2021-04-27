@@ -33,7 +33,8 @@ val max_connections : ?opts:string list -> ?docs:string -> unit -> int Term.t
     {!Webs_httpc.default_max_connections}.
     {ul
     {- [docs] is the section where the option is documented.}
-    {- [opts] are the options to use (defaults to [["m";"max-connections"]]. *)
+    {- [opts] are the options to use (defaults to
+    [["m";"max-connections"]])}} *)
 
 (** {1:quick Quick service setup} *)
 

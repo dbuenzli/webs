@@ -492,20 +492,23 @@ module Http : sig
         and suppresses non-final empty [""] segments. *)
 
     val strip_prefix : prefix:path -> path -> path option
-    (** [strip_prefix ~prefix p] removes prefix [prefix] from [p]. If
-        [prefix] is not a strict prefix of [p] or if the result is the
-        empty list this is [None]. In particular when [prefix = p]
-        this is [None]. A few examples:
+    (** [strip_prefix ~prefix p] removes the prefix path [prefix] from [p].
+        If [prefix] is not a strict prefix of [p] this is [None].
+        If [prefix = p] this is [Some [""]], the root path. If [prefix]
+        ends with an empty segment, it matches any corresponding segment
+        at that point (so that stripping [/a/] from [/a/b] results in [/b]).
 
+        A few examples:
         {ul
-        {- [strip_prefix [] [] = None]}
-        {- [strip_prefix [] (a :: _ as l) = Some l]}
-        {- [strip_prefix [""; "a"] [] = None]}
-        {- [strip_prefix [""; "a"] [""; "a"] = None]}
+        {- [strip_prefix [] _ = None]}
+        {- [strip_prefix _ [] -> None]}
+        {- [strip_prefix [""] (_ :: _ as l) = Some l]}
+        {- [strip_prefix [""; "a"] [""; "a"] = Some [""]]}
         {- [strip_prefix [""; "a"] [""; "a"; ""] = Some [""]]}
+        {- [strip_prefix [""; "a"] [""; "a"; "b"] = Some ["b"]]}
         {- [strip_prefix [""; "a"; ""] [""; "a"] = None]}
-        {- [strip_prefix [""; "a"; ""] [""; "a"; ""] = None]}
-        {- [strip_prefix [""; "a"; ""] [""; "a"; "b"] = None]}} *)
+        {- [strip_prefix [""; "a"; ""] [""; "a"; ""] = Some [""]]}
+        {- [strip_prefix [""; "a"; ""] [""; "a"; "b"] = Some ["b"]]}} *)
 
     val concat : path -> path -> path
     (** [concat p0 p1] concatenates [p0] and [p1]. This drops
@@ -1216,7 +1219,10 @@ module Resp : sig
       The optional [set] argument of the functions below always
       {!Http.H.override} those the function computed.
 
-      See also {{!Req.deconstruct}request deconstruction} combinators. *)
+      See also {{!Req.deconstruct}request deconstruction} combinators.
+
+      {b FIXME.} Do a better compositional design, e.g. easily
+      use the error responses with content responses. * *)
 
   val result : ('a, 'a) result -> 'a
   (** [result r] is [Result.fold ~ok:Fun.id ~error:Fun.id]. *)
@@ -1253,14 +1259,51 @@ module Resp : sig
       with status [status] (defaults to {!Http.s302_found}). See also
       {!val:Req.service_redirect}. *)
 
-  (** {2:pre_canned_errors Errors responses} *)
+  (** {2:pre_client_errors Client error responses} *)
+
+  val bad_request :
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+  (** [bad_request ?explain ?reason ()] is an {!empty} response with
+      status {!Http.s400_bad_request}. *)
+
+  val unauthorized :
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+  (** [unauthorized ?explain ?reason ()] is an {!empty} response with
+      status {!Http.s401_unauthorized}. *)
+
+  val forbidden :
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+  (** [forbidden ?explain ?reason] is an {!empty} response with
+      status {!Http.s403_forbidden}. *)
+
+  val not_found :
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+  (** [not_found ?explain ?reason] is an {!empty} response with
+      status {!Http.s404_not_found}. *)
 
   val method_not_allowed :
     ?explain:string -> ?reason:string -> ?set:Http.headers ->
     allowed:Http.meth list -> unit -> t
-    (** [method_not_allowed ~allowed] is an {!empty} response with status
-        {!Http.s405_method_not_allowed}. It sets {!Http.H.allow} to the
-        [allow]ed methods (which can be empty). *)
+  (** [method_not_allowed ~allowed] is an {!empty} response with status
+      {!Http.s405_method_not_allowed}. It sets the {!Http.H.allow} header
+      to the [allow]ed methods (which can be empty). *)
+
+  val gone :
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+  (** [not_found ?explain ?reason] is an {!empty} response with
+      status {!Http.s410_gone}. *)
+
+  (** {2:pre_server_errors Server error responses} *)
+
+  val server_error :
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+    (** [server_error ?explain ?reason] is an {!empty} response with
+        status {!Http.s500_server_error}. *)
+
+  val not_implemented :
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+    (** [server_error ?explain ?reason] is an {!empty} response with
+        status {!Http.s501_not_implemented}. *)
 end
 
 (** HTTP requests. *)
@@ -1418,7 +1461,13 @@ module Req : sig
   end
 
 
-  (** {2:service_forwarding Service forwarding} *)
+  (** {2:service_forwarding Service forwarding}
+
+      {b FIXME.}
+      {ul
+      {- Not sure this is a good terminology.}
+      {- Introduce a variation where you push [n] segments
+         on the service path.}} *)
 
   val forward_service : strip:Http.path -> t -> (t, Resp.t) result
   (** [forward_service ~strip r] is:
@@ -1427,7 +1476,13 @@ module Req : sig
          of [r]'s path stripped by [strip] and a {!service_root}
          made of [r]'s service root concatenated with [strip].}
       {- [Error _] with a {!Http.s404_not_found} if
-         {{!Http.Path.strip_prefix}stripping} results in [None].}} *)
+         {{!Http.Path.strip_prefix}stripping} results in [None].}}
+
+      {b FIXME.} Because of the new behaviour of
+      {!Http.Path.strip_prefix} on root. This may introduce empty path
+      segments that did not exist originally in the request when one
+      concatenates the service root and the path. Would that be an
+      argument to let [] also represent the root path ? *)
 
   (** {2:file_path Absolute file paths} *)
 
@@ -1436,7 +1491,7 @@ module Req : sig
   (** [absolute_filepath ~strip ~root r] determines an absolute
       file path strictly rooted in [root] by
       {{!Http.Path.strip_prefix}stripping} [strip] (defaults to
-      [[]]) from [r]'s {!path},
+      [[""]]) from [r]'s {!path},
       {{!Http.Path.to_absolute_filepath} converting} the result
       to an absolute filepath and
       {{!Http.Path.prefix_filepath}prefixing} it with [docroot].
@@ -1471,6 +1526,28 @@ module Req : sig
   (** [to_service ~strip r] strips [strip] from [r]'s path and
       appends it to the service root. Errors with {!Http.s404_not_found}
       if stripping [strip] results in [None]. *)
+
+  (** {2:clean Path cleaning}
+
+      There's more than one way to handle empty segments and trailing
+      slashes in request paths. The scheme proposed here simply always
+      redirects to paths in which all empty segments, and thus
+      trailing slashes, are removed; except on the root path. The
+      advantage is that no elaborate file extension logic on the final
+      segment is needed to route file serving. *)
+
+  val clean_path : t -> (t, Resp.t) result
+  (** [clean_path r] is:
+      {ul
+      {- [Ok r] if [r]'s path is [[]], [[""]] or if it has no empty segment.}
+      {- [Error _] with a {!Http.s301_moved_permanently} to [r]'s path without
+         empty segments or the root if that results in the empty path.}}
+
+      {b Warning.} This cleaning does not touch dot segments or
+      percent-encoded directory separators that may be present in the
+      path. You should still use
+      {{!Http.Path.to_absolute_filepath}that function} or
+      {!to_absolute_filepath} for mapping paths to file paths. *)
 end
 
 type service = Req.t -> Resp.t

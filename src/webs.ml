@@ -513,10 +513,11 @@ module Http = struct
     let undot_and_compress p = _undot_and_compress ~check:(Fun.const true) p
 
     let strip_prefix ~prefix p =
+      if prefix = [] || p = [] then None else
       let rec loop pre acc = match pre, acc with
-      | _, [] -> None
-      | [], acc -> Some acc
       | s :: pre, a :: acc when String.equal s a -> loop pre acc
+      | ([] | [""]), (_ :: _ as acc) -> Some acc
+      | [], [] -> Some [""]
       | _ -> None
       in
       loop prefix p
@@ -1303,16 +1304,36 @@ module Resp = struct
     content ?set ~mime_type:Http.Mime_type.application_octet_stream st s
 
   let redirect ?explain ?(set = Http.H.empty) st loc =
-    let hs = Http.H.empty in
-    let hs = Http.H.(hs |> def location loc) in
+    let hs = Http.H.(empty |> def location loc) in
     let hs = Http.H.override hs ~by:set in
     v ?explain st ~headers:hs
 
+  let bad_request ?explain ?reason ?set () =
+    v ?explain ?reason ?headers:set Http.s400_bad_request
+
+  let unauthorized ?explain ?reason ?set () =
+    v ?explain ?reason ?headers:set Http.s401_unauthorized
+
+  let forbidden ?explain ?reason ?set () =
+    v ?explain ?reason ?headers:set Http.s403_forbidden
+
+  let not_found ?explain ?reason ?set () =
+    v ?explain ?reason ?headers:set Http.s404_not_found
+
   let method_not_allowed ?explain ?reason ?(set = Http.H.empty) ~allowed () =
     let ms = String.concat ", " (List.map Http.Meth.encode allowed) in
-    let hs = Http.H.(def allow ms empty) in
+    let hs = Http.H.(empty |> def allow ms) in
     let hs = Http.H.override hs ~by:set in
     v ?explain ?reason ~headers:hs Http.s405_method_not_allowed
+
+  let gone ?explain ?reason ?set () =
+    v ?explain ?reason ?headers:set Http.s410_gone
+
+  let server_error ?explain ?reason ?set () =
+    v ?explain ?reason ?headers:set Http.s500_server_error
+
+  let not_implemented ?explain ?reason ?set () =
+    v ?explain ?reason ?headers:set Http.s501_not_implemented
 end
 
 
@@ -1447,7 +1468,7 @@ module Req = struct
         let service_root = Http.Path.concat (service_root r) strip in
         Ok { r with path; service_root }
 
-  let to_absolute_filepath ?(strip = []) ~root r =
+  let to_absolute_filepath ?(strip = [""]) ~root r =
     match Http.Path.strip_prefix ~prefix:strip (path r) with
     | None -> Error bad_strip_404
     | Some p ->
@@ -1483,6 +1504,17 @@ module Req = struct
     | Some path ->
         let service_root = Http.Path.concat (service_root r) strip in
         Ok { r with service_root; path }
+
+  let clean_path r =
+    let not_empty s = not (String.equal s "") in
+    match path r with
+    | p when List.for_all not_empty p -> Ok r
+    | [] | [""] -> Ok r
+    | p ->
+        let path = match (List.filter not_empty p) with [] -> [""] | p -> p in
+        let path = Http.Path.encode path in
+        let explain = "path cleaning" in
+        Error (Resp.redirect ~explain Http.s301_moved_permanently path)
 end
 
 

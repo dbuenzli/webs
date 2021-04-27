@@ -5,14 +5,14 @@
 
 (** HTML generation.
 
-    [Ht] provides combinators to generate (possibly partial) HTML
-    documents.
+    [Webs_html] provides combinators to generate (possibly partial)
+    HTML documents.
 
     Open this module to use it.
 
     {b Warning.} The module takes care of escaping the data you
     provide but it assumes strings are UTF-8 encoded, this is not
-    checked by the module . Also be careful with {{!Ht.style}[style]}
+    checked by the module. Also be careful with {{!El.style}[style]}
     elements. *)
 
 (** HTML element attributes. *)
@@ -227,12 +227,12 @@ module At : sig
       width} *)
 end
 
-(** HTML parts and elements. *)
-module Ht : sig
+(** HTML elements and parts. *)
+module El : sig
 
   (** {1:part HTML parts} *)
 
-  type part
+  type html
   (** The type for HTML parts. A part is either a single element or
       character data or a list of parts. *)
 
@@ -241,7 +241,7 @@ module Ht : sig
   type name = string
   (** The type for element names. *)
 
-  val el : ?at:At.t list -> name -> part list -> part
+  val el : ?at:At.t list -> name -> html list -> html
   (** [el ?at n cs] is an element with name [n], attributes [at]
       (defaults to [[]]) and children [cs].
 
@@ -251,32 +251,32 @@ module Ht : sig
       are gathered to form a single, space separated, attribute value
       for the [class] HTML attribute.
 
-      See also (and favor) {{!Ht.section-cons}element constructors}. *)
+      See also (and favor) {{!El.section-cons}element constructors}. *)
 
   (** {2:text Text} *)
 
-  val txt : string -> part
+  val txt : string -> html
   (** [txt d] is character data [d]. *)
 
-  val sp : part
-  (** [sp] is [Ht.txt " "]. *)
+  val sp : html
+  (** [sp] is [El.txt " "]. *)
 
-  val nbsp : part
-  (** [nbsp] is [Ht.txt "\u{00A0}"]. *)
+  val nbsp : html
+  (** [nbsp] is [El.txt "\u{00A0}"]. *)
 
   (** {2:splice Splices} *)
 
-  val splice : ?sep:part -> part list -> part
-  (** [splice ?sep ps] when added to a list of children in {!v} splices
-      parts [ps] into the list, separating each part by
+  val splice : ?sep:html -> html list -> html
+  (** [splice ?sep hs] when added to a list of children in {!v} splices
+      HTML parts [hs] into the list, separating each part by
       [sep] (if any). *)
 
-  val void : part
+  val void : html
   (** [void] is [splice []]. *)
 
   (** {2:raw_data Raw data} *)
 
-  val raw : string -> part
+  val raw : string -> html
   (** [raw s] is the raw string [s] without escaping markup delimiters.
       [s] must be well-formed HTML otherwise invalid markup will be generated.
       This can be used to
@@ -291,25 +291,25 @@ module Ht : sig
 
   val page :
     ?lang:string -> ?generator:string -> ?styles:string list ->
-    ?scripts:string list -> ?more_head:part -> title:string -> part -> part
+    ?scripts:string list -> ?more_head:html -> title:string -> html -> html
   (** [page ~lang ~generator ~styles ~scripts ~more_head ~title body]
-      is an {!Ht.html} element with an {!At.lang} attribute of [lang] (if
-      specified and non-empty) containing a {!Ht.head} element (see below)
-      followed by [body] which must be a {!Ht.body} element.
+      is an {!El.val-html} element with an {!At.lang} attribute of [lang] (if
+      specified and non-empty) containing a {!El.head} element (see below)
+      followed by [body] which must be a {!El.body} element.
 
       The other arguments are used to define the children of the page's
-      {!Ht.head} which are in order:
+      {!El.head} which are in order:
       {ol
-      {- A charset {!Ht.meta} of UTF-8 (unconditional).}
-      {- A generator {!Ht.meta} of [generator], if specified an non-empty.}
-      {- A viewport {!Ht.meta} with [width=device-width, initial-scale=1]
+      {- A charset {!El.meta} of UTF-8 (unconditional).}
+      {- A generator {!El.meta} of [generator], if specified an non-empty.}
+      {- A viewport {!El.meta} with [width=device-width, initial-scale=1]
          (unconditional).}
-      {- A stylesheet {!Ht.link} of type [text/css] for each element
+      {- A stylesheet {!El.link} of type [text/css] for each element
          of [styles], in order (defaults to [[]]).}
-      {- A {!Ht.script} with {!At.defer} and of {!At.type'}
+      {- A {!El.script} with {!At.defer} and of {!At.type'}
          [text/javascript] for each element of [scripts],
          in order (defaults to [[]]).}
-      {- [more_head] (defaults to {!Ht.void}). Be {{!style}careful}
+      {- [more_head] (defaults to {!El.void}). Be {{!style}careful}
          with [style] tags.}
       {- The page has a title [title] which is {!String.trim}ed.
          If the result is empty falls back to ["Untitled"].
@@ -325,12 +325,12 @@ module Ht : sig
 
   (** {1:output Output} *)
 
-  val buffer_add : doc_type:bool -> Buffer.t -> part -> unit
-  (** [buffer_add ~doc_type b part] adds part [part]. If
+  val buffer_add : doc_type:bool -> Buffer.t -> html -> unit
+  (** [buffer_add ~doc_type b h] adds HTML part [h]. If
       [doc_type] is [true] an HTML doctype declaration is
       prepended. *)
 
-  val to_string : doc_type:bool -> part -> string
+  val to_string : doc_type:bool -> html -> string
   (** [to_string] is like {!buffer_add} but returns directly a string. *)
 
   (** Low level representation (unstable). *)
@@ -346,8 +346,8 @@ module Ht : sig
     (** Raw output string. *)
     (** The low-level HTML part representation. *)
 
-    val of_part : part -> t
-    (** [of_part p] is a low-level representation for [p]. *)
+    val of_html : html -> t
+    (** [of_html h] is a low-level representation for [h]. *)
   end
 
   (** {1:cons Element constructors}
@@ -359,11 +359,11 @@ module Ht : sig
       {b Convention.} Whenever an element name conflicts with an OCaml
       keyword we prime it, see for example {!object'}. *)
 
-  type cons = ?at:At.t list -> part list -> part
+  type cons = ?at:At.t list -> html list -> html
   (** The type for element constructors. This is simply {!v} with a
       pre-applied element name. *)
 
-  type void_cons = ?at:At.t list -> unit -> part
+  type void_cons = ?at:At.t list -> unit -> html
   (** The type for void element constructors. This is simply {!el}
       with a pre-applied element name and without children. *)
 

@@ -170,6 +170,7 @@ let apply_service c service req =
 
 let serve_req c fd service =
   try
+    let _t = Webs_unix.Time.counter () in (* TODO integrate with trace *)
     let req = read_req c fd in
     let resp = Result.bind req (apply_service c service) in
     let resp = Result.fold ~ok:Fun.id ~error:resp_of_error resp in

@@ -99,13 +99,17 @@ let test_path () =
   assert (Http.Path.encode [] = "");
   log "Webs.Http.Path.strip_prefix";
   assert (Http.Path.strip_prefix [] [] = None);
-  assert (Http.Path.strip_prefix [] (["u"]) = Some ["u"]);
+  assert (Http.Path.strip_prefix [] (["u"]) = None);
+  assert (Http.Path.strip_prefix [""] [] = None);
   assert (Http.Path.strip_prefix [""; "a"] [] = None);
-  assert (Http.Path.strip_prefix [""; "a"] [""; "a"] = None);
+  assert (Http.Path.strip_prefix [""; "a"] [""; "a"] = Some [""]);
   assert (Http.Path.strip_prefix [""; "a"] [""; "a"; ""] = Some [""]);
+  assert (Http.Path.strip_prefix [""; "a"] [""; "a"; "b"] = Some ["b"]);
   assert (Http.Path.strip_prefix [""; "a"; ""] [""; "a"] = None);
-  assert (Http.Path.strip_prefix [""; "a"; ""] [""; "a"; ""] = None);
-  assert (Http.Path.strip_prefix [""; "a"; ""] [""; "a"; "b"] = None);
+  assert (Http.Path.strip_prefix [""; "a"; ""] [""; "a"; ""] = Some [""]);
+  assert (Http.Path.strip_prefix [""; "a"; ""] [""; "a"; "b"] = Some ["b"]);
+  assert (Http.Path.strip_prefix [""; "a"; ""] [""; "a"; "b"; "c"; ""] =
+          Some ["b"; "c"; ""]);
   log "Webs.Http.Path.filepath_ext";
   assert (Http.Path.filepath_ext "" = "");
   assert (Http.Path.filepath_ext "/" = "");

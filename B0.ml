@@ -44,6 +44,7 @@ let webs_unix_lib =
   let srcs =
     `File (Fpath.v "src/webs_stubs_sendfile.c") ::
     `File (Fpath.v "src/webs_stubs_realpath.c") ::
+    `File (Fpath.v "src/webs_stubs_time.c") ::
     mod_srcs "webs_unix"
   in
   let requires = [unix; webs] in

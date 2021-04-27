@@ -331,6 +331,50 @@ let dir_index_file file = match Http.Path.has_dir_seps file || file = ".." with
         let file = Http.Path.prefix_filepath ~prefix:dir file in
         send_file ~dir_resp:dir_404 ~etagger ?mime_types r file)
 
+
+module Time = struct
+  type uint64 = int64
+
+  (* Time spans
+
+     Represented by a nanosecond magnitude stored in an unsigned 64-bit
+     integer. Allows to represent spans for ~584.5 Julian years. *)
+
+  type span = uint64
+  module Span = struct
+
+    (* Time spans *)
+
+    type t = span
+    let zero = 0L
+    let one = 1L
+    let max = -1L
+    let add = Int64.add
+    let abs_diff s0 s1 = match Int64.unsigned_compare s0 s1 < 0 with
+    | true ->  Int64.sub s1 s0
+    | false -> Int64.sub s0 s1
+
+    (* Predicates and comparisons *)
+
+    let equal = Int64.equal
+    let compare = Int64.unsigned_compare
+
+    (* Conversions *)
+
+    let to_uint64_ns s = s
+    let of_uint64_ns ns = ns
+    let pp_ms ppf s = Format.fprintf ppf "%Lu" (Int64.unsigned_div s 1_000_000L)
+    let pp_ns ppf s = Format.fprintf ppf "%Lu" s
+  end
+
+  (* Monotonic time counter *)
+
+  type counter = uint64
+  external now_ns : unit -> uint64 = "ocaml_webs_monotonic_now_ns"
+  let counter = now_ns
+  let count c = Int64.sub (now_ns ()) c
+end
+
 (*---------------------------------------------------------------------------
    Copyright (c) 2015 The webs programmers
 

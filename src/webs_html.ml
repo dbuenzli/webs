@@ -87,13 +87,13 @@ module At = struct
   let wrap s = v Name.value s
 end
 
-module Ht = struct
+module El = struct
   module Sset = Set.Make (String)
   type name = string
-  type part =
-  | El of name * At.t list * part list
+  type html =
+  | El of name * At.t list * html list
   | Txt of string
-  | Splice of part option * part list
+  | Splice of html option * html list
   | Raw of string
 
   let el ?(at = []) n cs = El (n, at, cs)
@@ -107,13 +107,13 @@ module Ht = struct
   (* Output *)
 
   module Low = struct
-    type t = part =
-    | El of name * At.t list * part list
+    type t = html =
+    | El of name * At.t list * html list
     | Txt of string
-    | Splice of part option * part list
+    | Splice of html option * html list
     | Raw of string
 
-    let of_part f = f
+    let of_html f = f
   end
 
   let addc = Buffer.add_char
@@ -180,8 +180,8 @@ module Ht = struct
 
   (* Predefined element constructors *)
 
-  type cons = ?at:At.t list -> part list -> part
-  type void_cons = ?at:At.t list -> unit -> part
+  type cons = ?at:At.t list -> html list -> html
+  type void_cons = ?at:At.t list -> unit -> html
   let[@inline] cons e ?at els = el ?at e els
   let[@inline] void_cons e ?at () = el e ?at []
   let a = cons "a"

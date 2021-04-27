@@ -48,8 +48,10 @@ module User = struct
   | _, _ -> false
 end
 
-let key = Authenticatable.random_key () (* expires on restart *)
-let session = Session.with_authenticated_cookie ~key ~name:"webs_login" ()
+let private_key = Authenticatable.random_private_key () (* expires on restart *)
+let session =
+  Session.with_authenticated_cookie ~private_key ~name:"webs_login" ()
+
 let user_state = Session.State.string
 
 let home req =
@@ -109,7 +111,7 @@ let service req =
     | ["restricted"] -> restricted ~login:["login"] user req
     | ["login"] -> login_user ~and_goto:["restricted"] user req
     | ["logout"] -> logout_user ~and_goto:[""] user req
-    | _ -> Error (user, Resp.v Http.s404_not_found)
+    | _ -> Error (user, Resp.not_found ())
   in
   Session.setup user_state session serve req
 

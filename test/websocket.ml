@@ -44,7 +44,7 @@ let service req =
       let* _m = Req.Allow.(meths [get] req) in
       Ok (Webs_websocket.upgrade req)
   | _ ->
-      Ok (Resp.v Http.s404_not_found)
+      Ok (Resp.not_found ())
 
 let main () = Webs_cli.quick_serve ~name:"websocket" service
 let () = if !Sys.interactive then () else main ()

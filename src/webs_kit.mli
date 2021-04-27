@@ -122,7 +122,8 @@ end
 
 (** Authenticatable data.
 
-    This module defines a simple US-ASCII compatible {{!t}encoding
+    This module defines a simple US-ASCII compatible
+    {{!Authenticatable.t}encoding
     scheme} to publish {b non-secret}, expirable data bytes
     authenticatable via a secret private key. Human readability is a
     non-goal, storing your state in non-trusted environments is.
@@ -145,40 +146,44 @@ module Authenticatable : sig
 
   (** {1:keys Keys} *)
 
-  type key = string
-  (** The type for keys. This is used with {{!val:Sha_256.hmac}[HMAC-SHA-256]},
-      so it should be at least 32 bytes long. *)
+  type private_key = string
+  (** The type for private keys. This is used with
+      {{!val:Sha_256.hmac}[HMAC-SHA-256]}, so it should be at least 32
+      bytes long. *)
 
-  val random_key : unit -> key
-  (** [random_key ()] are 64 bytes random bytes sourced after having
-      called {!Random.self_init}. *)
+  val random_private_key : unit -> private_key
+  (** [random_private_key ()] are 64 bytes random bytes sourced after having
+      called {!Stdlib.Random.self_init}. *)
 
   (** {1:auth Authenticatable} *)
 
   type t = string
   (** The type for authenticatable bytes. The encoding scheme for bytes
-      [data] and an optional expiration timestamp [expire] is:
+      [data] and an optional expiration timestamp [expire] and private key
+      [private_key] is:
 {[
 expire = match expire with None -> "" | Some e -> string_of_int e
 msg = expire + ":" + data
-authenticatable = (base64|base64url)(hmac-sha-256(key, msg) + msg)
+authenticatable = (base64|base64url)(hmac-sha-256(private_key, msg) + msg)
 ]}
   *)
 
-  val encode : ?base64url:bool -> key:key -> expire:time option -> string -> t
-  (** [encode ~key ~expire data] makes data [data] expire at [expire]
-      (if any) and authenticatable via the private key [key]. If
+  val encode :
+    ?base64url:bool -> private_key:private_key -> expire:time option ->
+    string -> t
+  (** [encode ~private_key ~expire data] makes data [data] expire at [expire]
+      (if any) and authenticatable via the private key [private_key]. If
       [base64url] is [true] (defaults to [false]) the [base64url]
       encoding scheme is used instead of [base64] (see {!Webs.Http.Base64}). *)
 
   val decode :
-    ?base64url:bool -> key:key -> now:time -> t ->
+    ?base64url:bool -> private_key:private_key -> now:time -> t ->
     (time option * string, [`Expired | `Decode | `Authentication]) result
   (** [decode ~key ~now s] authenticates data [s] with the private
       key [key] and makes it expire (if applicable) according to [now].
       The result is:
       {ul
-      {- [Ok (expire, data)] with [data] authenticated by [key]
+      {- [Ok (expire, data)] with [data] authenticated by [private_key]
          and [now] stricly smaller than [expire] (if any).}
       {- [Error `Expired] if the data could be authenticated but
          [now] is larger or equal to [expire] (if any).}
@@ -214,20 +219,21 @@ end
 module Authenticated_cookie : sig
 
   val get :
-    key:Authenticatable.key -> now:Authenticatable.time ->
+    private_key:Authenticatable.private_key -> now:Authenticatable.time ->
     name:string -> Req.t -> string option
-  (** [get ~key ~now ~name req] is the cookie of [req] named [name]
-      authenticated and expired by [key] and [now] (see
+  (** [get ~private_key ~now ~name req] is the cookie of [req] named [name]
+      authenticated and expired by [private_key] and [now] (see
       {!Authenticatable.decode}).
 
       {b TODO.} Any kind of error leads to [None]. *)
 
   val set :
-    key:Authenticatable.key -> expire:Authenticatable.time option ->
-    ?atts:Http.Cookie.atts -> name:string -> string -> Resp.t -> Resp.t
-  (** [set ~key ~expire ~atts ~name data resp] sets in [resp] the
+    private_key:Authenticatable.private_key ->
+    expire:Authenticatable.time option -> ?atts:Http.Cookie.atts ->
+    name:string -> string -> Resp.t -> Resp.t
+  (** [set ~private_key ~expire ~atts ~name data resp] sets in [resp] the
       cookie [name] to [data] authenticated
-      by [key] and expiring at [expire] (see
+      by [private_key] and expiring at [expire] (see
       {!Authenticatable.encode}). [atts] are the cookie's attribute
       they default to {!Webs.Http.Cookie.atts_default}. *)
 end
@@ -320,14 +326,13 @@ module Session : sig
   (** {1:built-in Built-in session handlers} *)
 
   val with_authenticated_cookie :
-    key:Authenticatable.key -> ?atts:Http.Cookie.atts -> name:string ->
-    unit -> 'a handler
-  (** [with_authenticated_cookie ~key ~atts ~name] stores state on the
-      client with an {!Authenticated_cookie} that can be authenticated with the
-      private key [key] (defaults to {!Authenticatable.random_key}).
-      [name] is the name of the cookie.
-      [atts] are the attributes of the cookie, they default to
-      {!Webs.Http.Cookie.atts_default}. *)
+    private_key:Authenticatable.private_key -> ?atts:Http.Cookie.atts ->
+    name:string -> unit -> 'a handler
+  (** [with_authenticated_cookie ~private_key ~atts ~name] stores
+      state on the client with an {!Authenticated_cookie} that can be
+      authenticated with the private key [private_key].  [name] is the
+      name of the cookie.  [atts] are the attributes of the cookie,
+      they default to {!Webs.Http.Cookie.atts_default}. *)
 end
 
 (** HTTP basic authentication

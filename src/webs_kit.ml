@@ -128,18 +128,18 @@ end
 
 module Authenticatable = struct
   type time = int
-  type key = string
-  let random_key () =
+  type private_key = string
+  let random_private_key () =
     let () = Random.self_init () in
     let b = Bytes.create 64 in
     for i = 0 to 63 do Bytes.set_uint8 b i (Random.int 256) done;
     Bytes.unsafe_to_string b
 
   type t = string
-  let encode ?(base64url = false) ~key ~expire:e data =
+  let encode ?(base64url = false) ~private_key ~expire:e data =
     let e = match e with None -> "" | Some t -> string_of_int t in
     let msg = String.concat ":" [e; data] in
-    let hmac = Sha_256.hmac ~key msg in
+    let hmac = Sha_256.hmac ~key:private_key msg in
     Http.Base64.encode  ~url:base64url (hmac ^ msg)
 
   let decode_hmac ?(base64url = false) s =
@@ -163,9 +163,9 @@ module Authenticatable = struct
           | exception Failure _ -> Error `Decode
           | t -> Ok (Some t, data)
 
-  let decode ?base64url ~key ~now s =
+  let decode ?base64url ~private_key ~now s =
     let* hmac, msg = decode_hmac ?base64url s in
-    let hmac' = Sha_256.hmac ~key msg in
+    let hmac' = Sha_256.hmac ~key:private_key msg in
     if not (Sha_256.equal hmac hmac') then Error `Authentication else
     match decode_msg msg with
     | Error _ as e -> e
@@ -184,18 +184,18 @@ module Authenticated_cookie = struct
   | None -> Ok []
   | Some s -> Http.Cookie.decode_list  s
 
-  let get ~key ~now ~name req = match cookies (Req.headers req) with
+  let get ~private_key ~now ~name req = match cookies (Req.headers req) with
   | Error _ -> None
   | Ok cookies ->
       match List.assoc_opt name cookies with
       | None -> None
       | Some cookie ->
-          match Authenticatable.decode ~key ~now cookie with
+          match Authenticatable.decode ~private_key ~now cookie with
           | Ok (_, data) -> (Some data)
           | Error _ -> None
 
-  let set ~key ~expire ?atts ~name data resp =
-    let value = Authenticatable.encode ~key ~expire data in
+  let set ~private_key ~expire ?atts ~name data resp =
+    let value = Authenticatable.encode ~private_key ~expire data in
     let cookie = Http.Cookie.encode ?atts ~name value in
     let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
     Resp.with_headers hs resp
@@ -255,19 +255,20 @@ module Session = struct
   let for_ok st = function Ok v -> Ok (st, v) | Error _ as e -> e
   let for_error st = function Ok _ as v -> v | Error e -> Error (st, e)
 
-  let with_authenticated_cookie ~key ?atts ~name () =
+  let with_authenticated_cookie ~private_key ?atts ~name () =
     let now = 0 (* TODO get rid of that *) in
-    let load st req = match Authenticated_cookie.get ~key ~now ~name req with
-    | None -> None
-    | Some "" (* TODO sort that out correctly *) -> None
-    | Some s -> Result.to_option (st.decode s)
+    let load st req =
+      match Authenticated_cookie.get ~private_key ~now ~name req with
+      | None -> None
+      | Some "" (* TODO sort that out correctly *) -> None
+      | Some s -> Result.to_option (st.decode s)
     in
     let save st s resp =
       let data = match s with
       | None -> (* TODO sort that out correctly *) ""
       | Some s -> st.encode s
       in
-      Authenticated_cookie.set ?atts ~key ~expire:None ~name data resp
+      Authenticated_cookie.set ?atts ~private_key ~expire:None ~name data resp
     in
     handler ~load ~save ()
 end

@@ -52,7 +52,7 @@ let service req =
       let* _m = Req.Allow.(meths [get] req) in
       Ok (resp_events ())
   | _ ->
-      Error (Resp.v Http.s404_not_found)
+      Error (Resp.not_found ())
 
 let main () = Webs_cli.quick_serve ~name:"sse" service
 let () = if !Sys.interactive then () else main ()

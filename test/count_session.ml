@@ -20,8 +20,11 @@ let count count = strf
 </html>
 |} count
 
-let key = Authenticatable.random_key () (* sessions expires on restart *)
-let session = Session.with_authenticated_cookie ~key ~name:"webs_count" ()
+(* sessions expires on restart *)
+let private_key = Authenticatable.random_private_key ()
+let session =
+  Session.with_authenticated_cookie ~private_key ~name:"webs_count" ()
+
 let state = Session.State.int
 
 let count c req =
@@ -39,7 +42,7 @@ let service req =
       let* _m = Req.Allow.(meths [get] req) in
       Ok (Session.setup state session count req)
   | _ ->
-      Error (Resp.v Http.s404_not_found)
+      Error (Resp.not_found ())
 
 let main () = Webs_cli.quick_serve ~name:"count_session" service
 let () = if !Sys.interactive then () else main ()
