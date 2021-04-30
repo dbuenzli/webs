@@ -923,138 +923,138 @@ module Http : sig
 
   (** {2:informational Informational 1xx} *)
 
-  val s100_continue : status
+  val continue_100 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.2.1}[100]} *)
 
-  val s101_switching_protocols : status
+  val switching_protocols_101 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.2.2}[101]} *)
 
   (** {2:sucessful Sucessful 2xx} *)
 
-  val s200_ok : status
+  val ok_200 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.3.1}[200]} *)
 
-  val s201_created : status
+  val created_201 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.3.2}[201]} *)
 
-  val s202_accepted : status
+  val accepted_202 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.3.3}[202]} *)
 
-  val s203_non_authoritative_information : status
+  val non_authoritative_information_203 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.3.4}[203]} *)
 
-  val s204_no_content : status
+  val no_content_204 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.3.5}[204]} *)
 
-  val s205_reset_content : status
+  val reset_content_205 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.3.6}[205]} *)
 
-  val s206_partial_content : status
+  val partial_content_206 : status
   (** {{:https://tools.ietf.org/html/rfc7233#section-4.1}[206]} *)
 
   (** {2:redirection Redirection 3xx} *)
 
-  val s300_multiple_choices : status
+  val multiple_choices_300 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.4.1}[300]} *)
 
-  val s301_moved_permanently : status
+  val moved_permanently_301 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.4.2}[301]} *)
 
-  val s302_found : status
+  val found_302 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.4.3}[302]} *)
 
-  val s303_see_other : status
+  val see_other_303 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.4.4}[303]} *)
 
-  val s304_not_modified : status
+  val not_modified_304 : status
   (** {{:https://tools.ietf.org/html/rfc7232#section-4.1}[304]} *)
 
-  val s305_use_proxy : status
+  val use_proxy_305 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.4.5}[305]} *)
 
-  val s307_temporary_redirect : status
+  val temporary_redirect_307 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.4.7}[307]} *)
 
   (** {2:client_error Client Error 4xx} *)
 
-  val s400_bad_request : status
+  val bad_request_400 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.1}[400]} *)
 
-  val s401_unauthorized : status
+  val unauthorized_401 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6}[401]} *)
 
-  val s402_payement_required : status
+  val payement_required_402 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.2}[402]} *)
 
-  val s403_forbidden : status
+  val forbidden_403 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.3}[403]} *)
 
-  val s404_not_found : status
+  val not_found_404 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.4}[404]} *)
 
-  val s405_method_not_allowed : status
+  val method_not_allowed_405 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.5}[405]} *)
 
-  val s406_not_acceptable : status
+  val not_acceptable_406 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.6}[406]} *)
 
-  val s407_proxy_authentication_required : status
+  val proxy_authentication_required_407 : status
   (** {{:https://tools.ietf.org/html/rfc7235#section-3.2}[407]} *)
 
-  val s408_request_time_out : status
+  val request_time_out_408 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.7}[408]} *)
 
-  val s409_conflict : status
+  val conflict_409 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.8}[409]} *)
 
-  val s410_gone : status
+  val gone_410 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.9}[410]} *)
 
-  val s411_length_required : status
+  val length_required_411 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.10}[411]} *)
 
-  val s412_precondition_failed : status
+  val precondition_failed_412 : status
   (** {{:https://tools.ietf.org/html/rfc7232#section-4.2}[412]} *)
 
-  val s413_payload_too_large : status
+  val payload_too_large_413 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.11}[413]} *)
 
-  val s414_uri_too_long : status
+  val uri_too_long_414 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.12}[414]} *)
 
-  val s415_unsupported_media_type : status
+  val unsupported_media_type_415 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.13}[415]} *)
 
-  val s416_range_not_satisfiable : status
+  val range_not_satisfiable_416 : status
   (** {{:https://tools.ietf.org/html/rfc7233#section-4.4}[416]} *)
 
-  val s417_expectation_failed : status
+  val expectation_failed_417 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.14}[417]} *)
 
-  val s418_i'm_a_teapot : status
+  val i'm_a_teapot_418 : status
   (** {{:https://tools.ietf.org/html/rfc2324#section-2.3.2}[418]} *)
 
-  val s426_upgrade_required : status
+  val upgrade_required_426 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.5.15}[436]} *)
 
   (** {2:server_error Server Error 5xx} *)
 
-  val s500_server_error : status
+  val server_error_500 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.6.1}[500]} *)
 
-  val s501_not_implemented : status
+  val not_implemented_501 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.6.2}[501]} *)
 
-  val s502_bad_gateway : status
+  val bad_gateway_502 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.6.3}[502]} *)
 
-  val s503_service_unavailable : status
+  val service_unavailable_503 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.6.4}[503]} *)
 
-  val s504_gateway_time_out : status
+  val gateway_time_out_504 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.6.5}[504]} *)
 
-  val s505_http_version_not_supported : status
+  val http_version_not_supported_505 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.6.6}[505]} *)
 
   (** {1:versions Versions} *)
@@ -1256,62 +1256,62 @@ module Resp : sig
 
   val redirect : ?explain:string -> ?set:Http.headers -> int -> string -> t
   (** [redirect status loc] redirects to {{!Http.H.location}location} [loc]
-      with status [status] (defaults to {!Http.s302_found}). See also
+      with status [status] (defaults to {!Http.found_302}). See also
       {!val:Req.service_redirect}. *)
 
   (** {2:pre_client_errors Client error responses} *)
 
-  val bad_request :
+  val bad_request_400 :
     ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
     ('a, t) result
   (** [bad_request ?explain ?reason ()] is an {!empty} response with
-      status {!Http.s400_bad_request}. *)
+      status {!Http.bad_request_400}. *)
 
-  val unauthorized :
+  val unauthorized_401 :
     ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
     ('a, t) result
   (** [unauthorized ?explain ?reason ()] is an {!empty} response with
-      status {!Http.s401_unauthorized}. *)
+      status {!Http.unauthorized_401}. *)
 
-  val forbidden :
+  val forbidden_403 :
     ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
     ('a, t) result
   (** [forbidden ?explain ?reason] is an {!empty} response with
-      status {!Http.s403_forbidden}. *)
+      status {!Http.forbidden_403}. *)
 
-  val not_found :
+  val not_found_404 :
     ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
     ('a, t) result
   (** [not_found ?explain ?reason] is an {!empty} response with
-      status {!Http.s404_not_found}. *)
+      status {!Http.not_found_404}. *)
 
-  val method_not_allowed :
+  val method_not_allowed_405 :
     ?explain:string -> ?reason:string -> ?set:Http.headers ->
     allowed:Http.meth list -> unit ->
     ('a, t) result
   (** [method_not_allowed ~allowed] is an {!empty} response with status
-      {!Http.s405_method_not_allowed}. It sets the {!Http.H.allow} header
+      {!Http.method_not_allowed_405}. It sets the {!Http.H.allow} header
       to the [allow]ed methods (which can be empty). *)
 
-  val gone :
+  val gone_410 :
     ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
     ('a, t) result
   (** [not_found ?explain ?reason] is an {!empty} response with
-      status {!Http.s410_gone}. *)
+      status {!Http.gone_410}. *)
 
   (** {2:pre_server_errors Server error responses} *)
 
-  val server_error :
+  val server_error_500 :
     ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
     ('a, t) result
     (** [server_error ?explain ?reason] is an {!empty} response with
-        status {!Http.s500_server_error}. *)
+        status {!Http.server_error_500}. *)
 
-  val not_implemented :
+  val not_implemented_501 :
     ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
     ('a, t) result
     (** [server_error ?explain ?reason] is an {!empty} response with
-        status {!Http.s501_not_implemented}. *)
+        status {!Http.not_implemented_501}. *)
 end
 
 (** HTTP requests. *)
@@ -1434,7 +1434,7 @@ module Req : sig
     Http.name -> (string -> ('a, string) result) -> t ->
     ('a option, Resp.t) result
   (** [decode_header h dec r] decodes header [h] (if any) in [r].
-      Errors with {!Http.s400_bad_request} in case of decoding errors. *)
+      Errors with {!Http.bad_request_400} in case of decoding errors. *)
 
   (** {2:method_constraints Method constraints} *)
 
@@ -1451,7 +1451,7 @@ module Req : sig
     (** [allow ms r] is:
         {ul
         {- [Ok (Req.meth r)] if [List.mem (Req.meth r, Req.meth r) ms]}
-        {- [Error _] with a {!Http.s405_method_not_allowed}
+        {- [Error _] with a {!Http.method_not_allowed_405}
            response otherwise.}} *)
 
     (** {1:constraint Constraints} *)
@@ -1483,7 +1483,7 @@ module Req : sig
       {- [Ok r'] with [r'] the request [r] with a {!path} made
          of [r]'s path stripped by [strip] and a {!service_root}
          made of [r]'s service root concatenated with [strip].}
-      {- [Error _] with a {!Http.s404_not_found} if
+      {- [Error _] with a {!Http.not_found_404} if
          {{!Http.Path.strip_prefix}stripping} results in [None].}}
 
       {b FIXME.} Because of the new behaviour of
@@ -1504,8 +1504,8 @@ module Req : sig
       to an absolute filepath and
       {{!Http.Path.prefix_filepath}prefixing} it with [docroot].
 
-      Errors with {!Http.s404_not_found} if stripping [strip]
-      results in [None] and {!Http.s400_bad_request} if the
+      Errors with {!Http.not_found_404} if stripping [strip]
+      results in [None] and {!Http.bad_request_400} if the
       absolute path conversion fails. *)
 
   (** {2:queries Queries}
@@ -1524,15 +1524,15 @@ module Req : sig
          TODO multipart. In this case the {!Req.query} is ignored.}
       {- [Error _] with a:
       {ul
-      {- {!Http.s415_unsupported_media_type} response if the content-type
+      {- {!Http.unsupported_media_type_415} response if the content-type
          is unsupported}
-      {- {!Http.s400_bad_request} reponse on decoding errors.}}}} *)
+      {- {!Http.bad_request_400} reponse on decoding errors.}}}} *)
 
   (** {2:route Service routing} *)
 
   val to_service : strip:Http.path -> t -> (t, Resp.t) result
   (** [to_service ~strip r] strips [strip] from [r]'s path and
-      appends it to the service root. Errors with {!Http.s404_not_found}
+      appends it to the service root. Errors with {!Http.not_found_404}
       if stripping [strip] results in [None]. *)
 
   (** {2:clean Path cleaning}
@@ -1548,7 +1548,7 @@ module Req : sig
   (** [clean_path r] is:
       {ul
       {- [Ok r] if [r]'s path is [[]], [[""]] or if it has no empty segment.}
-      {- [Error _] with a {!Http.s301_moved_permanently} to [r]'s path without
+      {- [Error _] with a {!Http.moved_permanently_301} to [r]'s path without
          empty segments or the root if that results in the empty path.}}
 
       {b Warning.} This cleaning does not touch dot segments or

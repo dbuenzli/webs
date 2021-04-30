@@ -150,10 +150,10 @@ let write_resp c fd resp =
 let resp_of_error e =
   let reason e = if e = "" then None else Some e in
   match e with
-  | `Service -> Resp.v Http.s500_server_error
-  | `Too_large -> Resp.v Http.s413_payload_too_large
-  | `Malformed e -> Resp.v Http.s400_bad_request ?reason:(reason e)
-  | `Not_implemented e -> Resp.v Http.s501_not_implemented ?reason:(reason e)
+  | `Service -> Resp.v Http.server_error_500
+  | `Too_large -> Resp.v Http.payload_too_large_413
+  | `Malformed e -> Resp.v Http.bad_request_400 ?reason:(reason e)
+  | `Not_implemented e -> Resp.v Http.not_implemented_501 ?reason:(reason e)
 
 let apply_service c service req =
   try

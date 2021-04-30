@@ -1066,48 +1066,48 @@ module Http = struct
     let pp ppf s = pf ppf "@[%d %s@]" s (reason_phrase s)
   end
 
-  let s100_continue = 100
-  let s101_switching_protocols = 101
-  let s200_ok = 200
-  let s201_created = 201
-  let s202_accepted = 202
-  let s203_non_authoritative_information = 203
-  let s204_no_content = 204
-  let s205_reset_content = 205
-  let s206_partial_content = 206
-  let s300_multiple_choices = 300
-  let s301_moved_permanently = 301
-  let s302_found = 302
-  let s303_see_other = 303
-  let s304_not_modified = 304
-  let s305_use_proxy = 305
-  let s307_temporary_redirect = 307
-  let s400_bad_request = 400
-  let s401_unauthorized = 401
-  let s402_payement_required = 402
-  let s403_forbidden = 403
-  let s404_not_found = 404
-  let s405_method_not_allowed = 405
-  let s406_not_acceptable = 406
-  let s407_proxy_authentication_required = 407
-  let s408_request_time_out = 408
-  let s409_conflict = 409
-  let s410_gone = 410
-  let s411_length_required = 411
-  let s412_precondition_failed = 412
-  let s413_payload_too_large = 413
-  let s414_uri_too_long = 414
-  let s415_unsupported_media_type = 415
-  let s416_range_not_satisfiable = 416
-  let s417_expectation_failed = 417
-  let s418_i'm_a_teapot = 418
-  let s426_upgrade_required = 426
-  let s500_server_error = 500
-  let s501_not_implemented = 501
-  let s502_bad_gateway = 502
-  let s503_service_unavailable = 503
-  let s504_gateway_time_out = 504
-  let s505_http_version_not_supported = 505
+  let continue_100 = 100
+  let switching_protocols_101 = 101
+  let ok_200 = 200
+  let created_201 = 201
+  let accepted_202 = 202
+  let non_authoritative_information_203 = 203
+  let no_content_204 = 204
+  let reset_content_205 = 205
+  let partial_content_206 = 206
+  let multiple_choices_300 = 300
+  let moved_permanently_301 = 301
+  let found_302 = 302
+  let see_other_303 = 303
+  let not_modified_304 = 304
+  let use_proxy_305 = 305
+  let temporary_redirect_307 = 307
+  let bad_request_400 = 400
+  let unauthorized_401 = 401
+  let payement_required_402 = 402
+  let forbidden_403 = 403
+  let not_found_404 = 404
+  let method_not_allowed_405 = 405
+  let not_acceptable_406 = 406
+  let proxy_authentication_required_407 = 407
+  let request_time_out_408 = 408
+  let conflict_409 = 409
+  let gone_410 = 410
+  let length_required_411 = 411
+  let precondition_failed_412 = 412
+  let payload_too_large_413 = 413
+  let uri_too_long_414 = 414
+  let unsupported_media_type_415 = 415
+  let range_not_satisfiable_416 = 416
+  let expectation_failed_417 = 417
+  let i'm_a_teapot_418 = 418
+  let upgrade_required_426 = 426
+  let server_error_500 = 500
+  let not_implemented_501 = 501
+  let bad_gateway_502 = 502
+  let service_unavailable_503 = 503
+  let gateway_time_out_504 = 504
+  let http_version_not_supported_505 = 505
 
   (* Versions *)
 
@@ -1308,32 +1308,34 @@ module Resp = struct
     let hs = Http.H.override hs ~by:set in
     v ?explain st ~headers:hs
 
-  let bad_request ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.s400_bad_request)
+  let bad_request_400 ?explain ?reason ?set () =
+    Error (v ?explain ?reason ?headers:set Http.bad_request_400)
 
-  let unauthorized ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.s401_unauthorized)
+  let unauthorized_401 ?explain ?reason ?set () =
+    Error (v ?explain ?reason ?headers:set Http.unauthorized_401)
 
-  let forbidden ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.s403_forbidden)
+  let forbidden_403 ?explain ?reason ?set () =
+    Error (v ?explain ?reason ?headers:set Http.forbidden_403)
 
-  let not_found ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.s404_not_found)
+  let not_found_404 ?explain ?reason ?set () =
+    Error (v ?explain ?reason ?headers:set Http.not_found_404)
 
-  let method_not_allowed ?explain ?reason ?(set = Http.H.empty) ~allowed () =
+  let method_not_allowed_405
+      ?explain ?reason ?(set = Http.H.empty) ~allowed ()
+    =
     let ms = String.concat ", " (List.map Http.Meth.encode allowed) in
     let hs = Http.H.(empty |> def allow ms) in
     let hs = Http.H.override hs ~by:set in
-    Error (v ?explain ?reason ~headers:hs Http.s405_method_not_allowed)
+    Error (v ?explain ?reason ~headers:hs Http.method_not_allowed_405)
 
-  let gone ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.s410_gone)
+  let gone_410 ?explain ?reason ?set () =
+    Error (v ?explain ?reason ?headers:set Http.gone_410)
 
-  let server_error ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.s500_server_error)
+  let server_error_500 ?explain ?reason ?set () =
+    Error (v ?explain ?reason ?headers:set Http.server_error_500)
 
-  let not_implemented ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.s501_not_implemented)
+  let not_implemented_501 ?explain ?reason ?set () =
+    Error (v ?explain ?reason ?headers:set Http.not_implemented_501)
 end
 
 
@@ -1417,7 +1419,7 @@ module Req = struct
     let loc = Http.Path.(encode @@ concat (service_root r) p) in
     Resp.redirect ?explain status loc
 
-  let echo ?(status = Http.s404_not_found) r =
+  let echo ?(status = Http.not_found_404) r =
     let body = body_to_string (body r) in
     let body = Format.asprintf "@[<v>%a@,%s@]" pp r body in
     Resp.text status body
@@ -1431,7 +1433,7 @@ module Req = struct
     let meths allowed r =
       let rec loop mr = function
       | m :: ms -> if (fst m) = mr then Ok (snd m) else loop mr ms
-      | [] -> Resp.method_not_allowed ~allowed:(List.map fst allowed) ()
+      | [] -> Resp.method_not_allowed_405 ~allowed:(List.map fst allowed) ()
       in
       loop (meth r) allowed
 
@@ -1454,10 +1456,10 @@ module Req = struct
       | Ok v -> Ok (Some v)
       | Error e ->
           let reason = strf "%s: %s" (h :> string) e in
-          Error (Resp.v Http.s400_bad_request ~reason)
+          Error (Resp.v Http.bad_request_400 ~reason)
 
   let bad_strip_404 =
-    Resp.v ~explain:"could not strip prefix" Http.s404_not_found
+    Resp.v ~explain:"could not strip prefix" Http.not_found_404
 
   let forward_service ~strip r =
     match Http.Path.strip_prefix ~prefix:strip (path r) with
@@ -1471,7 +1473,7 @@ module Req = struct
     | None -> Error bad_strip_404
     | Some p ->
         match Http.Path.to_absolute_filepath p with
-        | Error e -> Error (Resp.v ~explain:e Http.s400_bad_request)
+        | Error e -> Error (Resp.v ~explain:e Http.bad_request_400)
         | Ok filepath -> Ok (Http.Path.prefix_filepath root filepath)
 
   let to_query r =
@@ -1481,7 +1483,7 @@ module Req = struct
     let body_query r =
       match Http.H.(find ~lowervalue:true content_type (headers r)) with
       | None ->
-          Error (Resp.v ~reason:"missing content type" Http.s400_bad_request)
+          Error (Resp.v ~reason:"missing content type" Http.bad_request_400)
       | Some t ->
           (* TODO proper Mimetype decoding *)
           match String.split_on_char ';' t with
@@ -1489,7 +1491,7 @@ module Req = struct
               String.equal (String.trim t)
                 Http.Mime_type.application_x_www_form_urlencoded ->
               Ok (Http.Query.decode @@ body_to_string (body r))
-          | _ -> Error (Resp.v Http.s415_unsupported_media_type)
+          | _ -> Error (Resp.v Http.unsupported_media_type_415)
     in
     match meth r with
     | `GET | `HEAD -> url_query r
@@ -1498,7 +1500,7 @@ module Req = struct
   let to_service ~strip r =
     match Http.Path.strip_prefix ~prefix:strip (path r) with
     | None ->
-        Error (Resp.v ~explain:"could not strip path" Http.s400_bad_request)
+        Error (Resp.v ~explain:"could not strip path" Http.bad_request_400)
     | Some path ->
         let service_root = Http.Path.concat (service_root r) strip in
         Ok { r with service_root; path }
@@ -1512,7 +1514,7 @@ module Req = struct
         let path = match (List.filter not_empty p) with [] -> [""] | p -> p in
         let path = Http.Path.encode path in
         let explain = "path cleaning" in
-        Error (Resp.redirect ~explain Http.s301_moved_permanently path)
+        Error (Resp.redirect ~explain Http.moved_permanently_301 path)
 end
 
 

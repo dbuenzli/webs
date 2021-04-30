@@ -14,7 +14,7 @@ let service root req =
       let* file = Req.to_absolute_filepath ~strip:[pre] ~root req in
       Webs_unix.send_file req file
   | _ ->
-      Resp.not_found ()
+      Resp.not_found_404 ()
 
 let main () =
   let conf = Webs_cli.conf_docroot () in

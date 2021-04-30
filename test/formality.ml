@@ -31,14 +31,14 @@ let service req =
   | [ "" | "post" | "get" as m] ->
       let* _m = Req.Allow.(meths [get] req) in
       let meth = match m with "" -> "post" | m -> m in
-      Ok (Resp.html Http.s200_ok (form meth))
+      Ok (Resp.html Http.ok_200 (form meth))
   | ["submit"] ->
       let* m = Req.Allow.(meths [get; post] req) in
       let* q = Req.to_query req in
       let q = strf "@[<v>%a@,%a@]" Http.Meth.pp m Http.Query.pp q in
-      Ok (Resp.text Http.s200_ok q)
+      Ok (Resp.text Http.ok_200 q)
   | _ ->
-      Resp.not_found ()
+      Resp.not_found_404 ()
 
 let main () = Webs_cli.quick_serve ~name:"formality" service
 let () = if !Sys.interactive then () else main ()

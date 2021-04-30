@@ -136,7 +136,7 @@ let websocket_headers () =
   Http.H.(empty |> def connection "Upgrade" |> def upgrade "websocket")
 
 let err_require_upgrade () =
-  Resp.v Http.s426_upgrade_required ~headers:(websocket_headers ())
+  Resp.v Http.upgrade_required_426 ~headers:(websocket_headers ())
 
 let resp_websocket ?protocol key =
   let a = accept_key key in
@@ -145,7 +145,7 @@ let resp_websocket ?protocol key =
   let hs = match protocol with
   | None -> hs | Some p -> Http.H.def sec_websocket_protocol p hs
   in
-  Resp.v Http.s101_switching_protocols ~headers:hs
+  Resp.v Http.switching_protocols_101 ~headers:hs
 
 let upgrade req =
   let hs = Req.headers req in
@@ -154,20 +154,20 @@ let upgrade req =
   let protocols = Http.H.find ~lowervalue:true sec_websocket_protocol hs in
   let version = Http.H.find sec_websocket_version hs in
   match version with
-  | None -> Resp.v Http.s400_bad_request ~reason:err_no_version
+  | None -> Resp.v Http.bad_request_400 ~reason:err_no_version
   | Some s when s <> "13" ->
       (* RFC 6455 §4.2.2. 4 *)
       let hs = Http.H.(def sec_websocket_version "13" empty) in
       let reason = err_unsupported_version s in
-      Resp.v Http.s426_upgrade_required ~headers:hs ~reason
+      Resp.v Http.upgrade_required_426 ~headers:hs ~reason
   | Some _ ->
       match key with
-      | None -> Resp.v Http.s400_bad_request ~reason:err_no_key
+      | None -> Resp.v Http.bad_request_400 ~reason:err_no_key
       | Some key ->
           match protocols with
           | None -> resp_websocket ?protocol:None key
           | Some e ->
-              Resp.v Http.s400_bad_request ~reason:"unsupported protocol"
+              Resp.v Http.bad_request_400 ~reason:"unsupported protocol"
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2020 The webs programmers

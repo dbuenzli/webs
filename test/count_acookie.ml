@@ -37,10 +37,10 @@ let service req =
       let* _m = Req.Allow.(meths [get] req) in
       let now = truncate (Unix.gettimeofday ()) in
       let c = get_expirable_count ~private_key ~now req in
-      let resp = Resp.html Http.s200_ok (count c) in
+      let resp = Resp.html Http.ok_200 (count c) in
       Ok (set_expirable_count ~private_key ~now ~count:(c + 1) resp)
   | _ ->
-      Resp.not_found ()
+      Resp.not_found_404 ()
 
 let main () = Webs_cli.quick_serve ~name:"count_acookie" service
 let () = if !Sys.interactive then () else main ()

@@ -63,10 +63,10 @@ val serve : ?stop_on_sigint:bool -> t -> Webs.service -> (unit, string) result
     {ul
     {- If [max_req_headers_byte_size] or [max_req_body_byte_size]
        are exceeded the server responds to the client with a
-       {!Webs.Http.s413_payload_too_large}.}
+       {!Webs.Http.payload_too_large_413}.}
     {- If the basics to parse the {!Req} data structure and setup the
        body stream is not there, the server responds with
-       {!Webs.Http.s400_bad_request}}
+       {!Webs.Http.bad_request_400}}
     {- If a {!Webs.Http.H.expect} header is found TODO}}
 
     {b Signals.} When [serve] is entered {!Stdlib.Sys.sigpipe} is made

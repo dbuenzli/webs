@@ -34,7 +34,7 @@ let count c req =
   | Some "prev" -> c - 1
   | Some _ | None -> c
   in
-  Some c', Resp.html Http.s200_ok (count c')
+  Some c', Resp.html Http.ok_200 (count c')
 
 let service req =
   Resp.result @@ match Req.path req with
@@ -42,7 +42,7 @@ let service req =
       let* _m = Req.Allow.(meths [get] req) in
       Ok (Session.setup state session count req)
   | _ ->
-      Resp.not_found ()
+      Resp.not_found_404 ()
 
 let main () = Webs_cli.quick_serve ~name:"count_session" service
 let () = if !Sys.interactive then () else main ()

@@ -202,11 +202,11 @@ type dir_resp =
 
 let dir_404 ~etagger ~mime_types _ fpath =
   let explain = strf "%s: is a directory" fpath in
-  Ok (Resp.v Http.s404_not_found ~explain)
+  Ok (Resp.v Http.not_found_404 ~explain)
 
 let range_full ~file_size hs =
   let hs = Http.H.(hs |> def content_length (Http.Digits.encode file_size)) in
-  0, file_size - 1, hs, Http.s200_ok
+  0, file_size - 1, hs, Http.ok_200
 
 let range_partial ~file_size ~first ~last hs =
   let range_len = Http.Digits.encode (last - first + 1) in
@@ -217,7 +217,7 @@ let range_partial ~file_size ~first ~last hs =
   in
   let hs = Http.H.(hs |> def content_range crange) in
   let hs = Http.H.(hs |> def content_length range_len) in
-  first, last, hs , Http.s206_partial_content
+  first, last, hs , Http.partial_content_206
 
 let find_range req file etag ~file_size hs =
   let* r = Req.decode_header Http.H.range Http.Range.decode req in
@@ -234,7 +234,7 @@ let find_range req file etag ~file_size hs =
       let rec loop = function
       | [] ->
           let reason = Http.Range.encode r and explain = file in
-          Error (Resp.v Http.s416_range_not_satisfiable ~reason ~explain)
+          Error (Resp.v Http.range_not_satisfiable_416 ~reason ~explain)
       | r :: rs ->
           match Http.Range.eval_bytes ~len:file_size r with
           | None -> loop rs
@@ -255,7 +255,7 @@ let check_if_match_cond r file etag =
   let explain =
     strf "%s: etag: %s, if-match failed" file (Http.Etag.encode etag)
   in
-  Error (Resp.v Http.s412_precondition_failed ~explain)
+  Error (Resp.v Http.precondition_failed_412 ~explain)
 
 let eval_if_none_match r file etag =
   let eval = Http.Etag.eval_if_none_match in
@@ -266,9 +266,9 @@ let send_file
   =
   let* is_head = match Req.meth req with
   | `GET -> Ok false | `HEAD -> Ok true
-  | _ -> Resp.method_not_allowed ~allowed:[`GET; `HEAD] ()
+  | _ -> Resp.method_not_allowed_405 ~allowed:[`GET; `HEAD] ()
   in
-  let error e = Resp.v Http.s404_not_found ~explain:(strf "%s: %s" file e) in
+  let error e = Resp.v Http.not_found_404 ~explain:(strf "%s: %s" file e) in
   try
     let file_fd = openfile file Unix.[O_RDONLY] 0 in
     try
@@ -281,7 +281,7 @@ let send_file
           let* tag = Result.map_error error (etagger file file_fd stat) in
           let* () = check_if_match_cond req file tag in
           let* cond = eval_if_none_match req file tag in
-          if not cond then Ok (Resp.v Http.s304_not_modified ~explain) else
+          if not cond then Ok (Resp.v Http.not_modified_304 ~explain) else
           let file_size = stat.Unix.st_size in
           let file_type = Http.Mime_type.of_filepath ?map:mime_types file in
           let mtime = http_date_of_ptime stat.Unix.st_mtime in
@@ -298,7 +298,7 @@ let send_file
             let len = Http.Digits.encode file_size in
             let headers = Http.H.(hs |> def content_length len) in
             let body = Resp.empty_body in
-            Ok (Resp.v Http.s200_ok ~headers ~body ~explain)
+            Ok (Resp.v Http.ok_200 ~headers ~body ~explain)
           else
           let* first, last, headers, status =
             find_range req file tag ~file_size hs

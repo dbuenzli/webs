@@ -20,7 +20,7 @@ module Gateway : sig
   val send_file : header:Http.name -> Req.t -> Http.fpath -> (Resp.t, 'e) result
   (** [send_file ~header r file] lets {e the gateway} respond to [r]
       with file [file], use {!Req_to.absolute_filepath} to determine one
-      from [r] safely. More precisely this a {!Webs.Http.s200_ok} empty
+      from [r] safely. More precisely this a {!Webs.Http.ok_200} empty
       response with:
 
       {ul
@@ -370,12 +370,12 @@ module Basic_auth : sig
         {ul
         {- [Ok (user, req)] if the basic {{!Webs.Http.H.authorization}
            authorization header} in [req] passes [check].}
-        {- A {{!Webs.Http.s401_unauthorized}401} response
+        {- A {{!Webs.Http.unauthorized_401}401} response
            [Error (cancel req)] with a challenge for [realm] if there
            is no authorization header or if [check] failed. The page is only
            shown if the user cancels, defaults to an english HTML page
            that entices the  user to try again via a link to self.}
-        {- A {{!Webs.Http.s400_bad_request}400} bad request [Error resp]
+        {- A {{!Webs.Http.bad_request_400}400} bad request [Error resp]
            if the basic authentication failed to parse.}} *)
 end
 

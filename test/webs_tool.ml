@@ -31,7 +31,7 @@ let absolute_docroot = function
 
 let service ~docroot ~dir_resp req =
   Resp.result @@ match docroot with
-  | None -> Error (Resp.v Http.s404_not_found)
+  | None -> Resp.not_found_404 ()
   | Some docroot ->
       let* _m = Req.Allow.(meths [get] req) in
       let* file = Req.to_absolute_filepath ~root:docroot req in

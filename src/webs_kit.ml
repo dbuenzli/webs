@@ -11,7 +11,7 @@ let ( let* ) = Result.bind
 module Gateway = struct
   let send_file ~header _ file =
     let headers = Http.H.(def header file empty) in
-    Ok (Resp.v Http.s200_ok ~headers ~explain:(header :> string))
+    Ok (Resp.v Http.ok_200 ~headers ~explain:(header :> string))
 
   let x_accel_redirect = Http.Name.v "x-accel-redirect"
   let x_sendfile = Http.Name.v "x-sendfile"
@@ -300,7 +300,7 @@ module Basic_auth = struct
     | _ -> Error ("Not a basic auth-scheme")
 
 
-  let cancel = Resp.html Http.s401_unauthorized @@
+  let cancel = Resp.html Http.unauthorized_401 @@
 {|<!DOCTYPE html>
 <html lang="en">
   <head><meta charset="utf-8"><title>Login cancelled</title></head>
@@ -311,7 +311,7 @@ module Basic_auth = struct
     let error_401 ~explain =
       let auth = Printf.sprintf {|basic realm="%s", charset="utf-8"|} realm in
       let hs = Http.H.(def www_authenticate auth empty) in
-      let resp = Resp.with_status ~explain Http.s401_unauthorized (cancel r) in
+      let resp = Resp.with_status ~explain Http.unauthorized_401 (cancel r) in
       Error (Resp.override_headers hs resp)
     in
     match Http.H.(find authorization (Req.headers r)) with
@@ -319,7 +319,7 @@ module Basic_auth = struct
     | Some creds ->
         let* user, pass = match basic_authentication_of_string creds with
         | Ok _ as v -> v
-        | Error explain -> Error (Resp.v ~explain Http.s400_bad_request)
+        | Error explain -> Error (Resp.v ~explain Http.bad_request_400)
         in
         let* () = match check ~user ~pass with
         | Ok _ as v -> v

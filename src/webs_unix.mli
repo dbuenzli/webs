@@ -109,7 +109,7 @@ type dir_resp =
 
 val dir_404 : dir_resp
 (** [dir_404] is a directory response that errors with
-    {!Webs.Http.s404_not_found}. *)
+    {!Webs.Http.not_found_404}. *)
 
 val dir_index_file : string -> (dir_resp, string) result
 (** [dir_index_file file] serves the file [file] in the directory via
@@ -140,21 +140,21 @@ val send_file :
     {ol
     {- {{!Webs.Http.Etag.eval_if_match}Evaluate} [r]'s [if-match] header
        condition (if any) with tag [t]. If that is [false], errors with
-       a {!Webs.Http.s412_precondition_failed} response.}
+       a {!Webs.Http.precondition_failed_412} response.}
     {- {{!Webs.Http.Etag.eval_if_none_match}Evaluate} [r]'s [if-none-match]
        header condition with tag [t]. If that is [false], responds with
-       {!Webs.Http.s304_not_modified}}
-    {- If [r] is a [HEAD] request, respond with {!Webs.Http.s200_ok} and
+       {!Webs.Http.not_modified_304}}
+    {- If [r] is a [HEAD] request, respond with {!Webs.Http.ok_200} and
        an empty body at that point.}
     {- If [r] has a [range] header,
        {{!Webs.Http.Etag.eval_if_range}evaluate} [r]'s [if-range] header
        (if any) with tag [t]. If that is [false], the range request is
        turned into a full response otherwise the first satisfiable
-       range is served with {!Webs.Http.s206_partial_content}, if
+       range is served with {!Webs.Http.partial_content_206}, if
        there is no satisifiable range, errors with
-       {!Webs.Http.s416_range_not_satisfiable}.}
+       {!Webs.Http.range_not_satisfiable_416}.}
     {- If [r] has no [range] header or the [if-range] condition
-       failed respond with {!Webs.Http.s200_ok} and a body with [file]'s
+       failed respond with {!Webs.Http.ok_200} and a body with [file]'s
        content.}}
 
     The content type of the response is determined using
@@ -168,13 +168,13 @@ val send_file :
     with a:
 
     {ul
-    {- {!Webs.Http.s400_bad_request} on any header decoding
+    {- {!Webs.Http.bad_request_400} on any header decoding
        errors.}
-    {- {!Webs.Http.s405_method_not_allowed} response, if
+    {- {!Webs.Http.method_not_allowed_405} response, if
        [r]'s method is different from [`GET] or [`HEAD].}
-    {- {!Webs.Http.s416_range_not_satisfiable} if there is a byte
+    {- {!Webs.Http.range_not_satisfiable_416} if there is a byte
        range request and none of the ranges can be satisfied.}
-    {- {!Webs.Http.s404_not_found} response, if there's any
+    {- {!Webs.Http.not_found_404} response, if there's any
        on file system call error (e.g. [EPERM]).
        A human readable explanation can be found in the response's
        {{!Webs.Resp.explain}explanation} which stays on the server.}}
