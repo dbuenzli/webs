@@ -40,7 +40,7 @@ let service req =
       let resp = Resp.html Http.s200_ok (count c) in
       Ok (set_expirable_count ~private_key ~now ~count:(c + 1) resp)
   | _ ->
-      Error (Resp.not_found ())
+      Resp.not_found ()
 
 let main () = Webs_cli.quick_serve ~name:"count_acookie" service
 let () = if !Sys.interactive then () else main ()

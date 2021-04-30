@@ -15,7 +15,7 @@ let service req =
       let* file = Req.to_absolute_filepath ~strip:[pre] ~root req in
       Gateway.send_file ~header:Gateway.x_accel_redirect req file
   | _ ->
-      Ok (Resp.not_found ())
+      Resp.not_found ()
 
 let main () = Webs_cli.quick_serve ~name:"files_gateway" service
 let () = if !Sys.interactive then () else main ()

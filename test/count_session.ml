@@ -42,7 +42,7 @@ let service req =
       let* _m = Req.Allow.(meths [get] req) in
       Ok (Session.setup state session count req)
   | _ ->
-      Error (Resp.not_found ())
+      Resp.not_found ()
 
 let main () = Webs_cli.quick_serve ~name:"count_session" service
 let () = if !Sys.interactive then () else main ()

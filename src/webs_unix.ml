@@ -266,7 +266,7 @@ let send_file
   =
   let* is_head = match Req.meth req with
   | `GET -> Ok false | `HEAD -> Ok true
-  | _ -> Error (Resp.method_not_allowed ~allowed:[`GET; `HEAD] ())
+  | _ -> Resp.method_not_allowed ~allowed:[`GET; `HEAD] ()
   in
   let error e = Resp.v Http.s404_not_found ~explain:(strf "%s: %s" file e) in
   try

@@ -1309,31 +1309,31 @@ module Resp = struct
     v ?explain st ~headers:hs
 
   let bad_request ?explain ?reason ?set () =
-    v ?explain ?reason ?headers:set Http.s400_bad_request
+    Error (v ?explain ?reason ?headers:set Http.s400_bad_request)
 
   let unauthorized ?explain ?reason ?set () =
-    v ?explain ?reason ?headers:set Http.s401_unauthorized
+    Error (v ?explain ?reason ?headers:set Http.s401_unauthorized)
 
   let forbidden ?explain ?reason ?set () =
-    v ?explain ?reason ?headers:set Http.s403_forbidden
+    Error (v ?explain ?reason ?headers:set Http.s403_forbidden)
 
   let not_found ?explain ?reason ?set () =
-    v ?explain ?reason ?headers:set Http.s404_not_found
+    Error (v ?explain ?reason ?headers:set Http.s404_not_found)
 
   let method_not_allowed ?explain ?reason ?(set = Http.H.empty) ~allowed () =
     let ms = String.concat ", " (List.map Http.Meth.encode allowed) in
     let hs = Http.H.(empty |> def allow ms) in
     let hs = Http.H.override hs ~by:set in
-    v ?explain ?reason ~headers:hs Http.s405_method_not_allowed
+    Error (v ?explain ?reason ~headers:hs Http.s405_method_not_allowed)
 
   let gone ?explain ?reason ?set () =
-    v ?explain ?reason ?headers:set Http.s410_gone
+    Error (v ?explain ?reason ?headers:set Http.s410_gone)
 
   let server_error ?explain ?reason ?set () =
-    v ?explain ?reason ?headers:set Http.s500_server_error
+    Error (v ?explain ?reason ?headers:set Http.s500_server_error)
 
   let not_implemented ?explain ?reason ?set () =
-    v ?explain ?reason ?headers:set Http.s501_not_implemented
+    Error (v ?explain ?reason ?headers:set Http.s501_not_implemented)
 end
 
 
@@ -1431,9 +1431,7 @@ module Req = struct
     let meths allowed r =
       let rec loop mr = function
       | m :: ms -> if (fst m) = mr then Ok (snd m) else loop mr ms
-      | [] ->
-          let allowed = List.map fst allowed in
-          Error (Resp.method_not_allowed ~allowed ())
+      | [] -> Resp.method_not_allowed ~allowed:(List.map fst allowed) ()
       in
       loop (meth r) allowed
 

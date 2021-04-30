@@ -1262,46 +1262,54 @@ module Resp : sig
   (** {2:pre_client_errors Client error responses} *)
 
   val bad_request :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ('a, t) result
   (** [bad_request ?explain ?reason ()] is an {!empty} response with
       status {!Http.s400_bad_request}. *)
 
   val unauthorized :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ('a, t) result
   (** [unauthorized ?explain ?reason ()] is an {!empty} response with
       status {!Http.s401_unauthorized}. *)
 
   val forbidden :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ('a, t) result
   (** [forbidden ?explain ?reason] is an {!empty} response with
       status {!Http.s403_forbidden}. *)
 
   val not_found :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ('a, t) result
   (** [not_found ?explain ?reason] is an {!empty} response with
       status {!Http.s404_not_found}. *)
 
   val method_not_allowed :
     ?explain:string -> ?reason:string -> ?set:Http.headers ->
-    allowed:Http.meth list -> unit -> t
+    allowed:Http.meth list -> unit ->
+    ('a, t) result
   (** [method_not_allowed ~allowed] is an {!empty} response with status
       {!Http.s405_method_not_allowed}. It sets the {!Http.H.allow} header
       to the [allow]ed methods (which can be empty). *)
 
   val gone :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ('a, t) result
   (** [not_found ?explain ?reason] is an {!empty} response with
       status {!Http.s410_gone}. *)
 
   (** {2:pre_server_errors Server error responses} *)
 
   val server_error :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ('a, t) result
     (** [server_error ?explain ?reason] is an {!empty} response with
         status {!Http.s500_server_error}. *)
 
   val not_implemented :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit -> t
+    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ('a, t) result
     (** [server_error ?explain ?reason] is an {!empty} response with
         status {!Http.s501_not_implemented}. *)
 end

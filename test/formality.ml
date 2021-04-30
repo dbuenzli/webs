@@ -38,7 +38,7 @@ let service req =
       let q = strf "@[<v>%a@,%a@]" Http.Meth.pp m Http.Query.pp q in
       Ok (Resp.text Http.s200_ok q)
   | _ ->
-      Error (Resp.not_found ())
+      Resp.not_found ()
 
 let main () = Webs_cli.quick_serve ~name:"formality" service
 let () = if !Sys.interactive then () else main ()

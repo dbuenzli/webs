@@ -36,7 +36,7 @@ let check ~user ~pass = match List.assoc_opt user users with
 
 let admin p req user = match p with
 | [] | [""] -> Ok (Resp.html Http.s200_ok (Page.admin user))
-| _ -> Error (Resp.not_found ())
+| _ -> Resp.not_found ()
 
 let service req =
   Resp.result @@ match Req.path req with
@@ -47,7 +47,7 @@ let service req =
       let* user, req = Basic_auth.enticate ~check ~realm:"Service admin" req in
       let* _m = Req.Allow.(meths [get] req) in
       admin p req user
-  | _ -> Error (Resp.not_found ())
+  | _ -> Resp.not_found ()
 
 let main () = Webs_cli.quick_serve ~name:"bauth" service
 let () = if !Sys.interactive then () else main ()

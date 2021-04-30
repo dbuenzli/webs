@@ -40,6 +40,8 @@
   https://en.wikipedia.org/wiki/Cross-site_request_forgery
   Distinguish actions from users.
 * Etag logic for in-memory serves. Integrate it in content responses. 
+* cache-control and invalidation schemes (in webs_kit).
+
 
 # Request bodies 
 

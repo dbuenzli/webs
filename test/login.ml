@@ -111,7 +111,7 @@ let service req =
     | ["restricted"] -> restricted ~login:["login"] user req
     | ["login"] -> login_user ~and_goto:["restricted"] user req
     | ["logout"] -> logout_user ~and_goto:[""] user req
-    | _ -> Error (user, Resp.not_found ())
+    | _ -> Session.for_result user (Resp.not_found ())
   in
   Session.setup user_state session serve req
 
