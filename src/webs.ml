@@ -965,7 +965,7 @@ module Http = struct
   module Cookie = struct
     type atts = string
     let atts
-        ?max_age ?domain ?(path = []) ?(secure = false) ?(http_only = true)
+        ?max_age ?domain ?(path = []) ?(secure = true) ?(http_only = true)
         ?(same_site = "strict") ()
       =
       let max_age = match max_age with
@@ -1284,60 +1284,65 @@ module Resp = struct
 
   let result = function Ok v | Error v -> v
 
-  let content ?explain ?(set = Http.H.empty) ~mime_type:t st s =
+  let content ?explain ?(headers = Http.H.empty) ~mime_type:t st s =
     let l = string_of_int (String.length s) in
     let hs = Http.H.empty in
     let hs = Http.H.(hs |> def content_length l |> def content_type t) in
-    let hs = Http.H.override hs ~by:set in
+    let hs = Http.H.override hs ~by:headers in
     v ?explain st ~headers:hs ~body:(body_of_string s)
 
-  let text ?explain ?set st s =
-    content ?explain ?set ~mime_type:Http.Mime_type.text_plain st s
+  let text ?explain ?headers st s =
+    content ?explain ?headers ~mime_type:Http.Mime_type.text_plain st s
 
-  let html ?explain ?set st s =
-    content ?explain ?set ~mime_type:Http.Mime_type.text_html st s
+  let html ?explain ?headers st s =
+    content ?explain ?headers ~mime_type:Http.Mime_type.text_html st s
 
-  let json ?explain ?set st s =
-    content ?explain ?set ~mime_type:Http.Mime_type.application_json st s
+  let json ?explain ?headers st s =
+    content ?explain ?headers ~mime_type:Http.Mime_type.application_json st s
 
-  let octets ?explain ?set st s =
-    content ?set ~mime_type:Http.Mime_type.application_octet_stream st s
+  let octets ?explain ?headers st s =
+    content ?headers ~mime_type:Http.Mime_type.application_octet_stream st s
 
-  let redirect ?explain ?(set = Http.H.empty) st loc =
+  let redirect ?explain ?(headers = Http.H.empty) st loc =
     let hs = Http.H.(empty |> def location loc) in
-    let hs = Http.H.override hs ~by:set in
+    let hs = Http.H.override hs ~by:headers in
     v ?explain st ~headers:hs
 
-  let bad_request_400 ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.bad_request_400)
+  let bad_request_400 ?explain ?reason ?headers () =
+    Error (v ?explain ?reason ?headers Http.bad_request_400)
 
-  let unauthorized_401 ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.unauthorized_401)
+  let unauthorized_401 ?explain ?reason ?headers () =
+    Error (v ?explain ?reason ?headers Http.unauthorized_401)
 
-  let forbidden_403 ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.forbidden_403)
+  let forbidden_403 ?explain ?reason ?headers () =
+    Error (v ?explain ?reason ?headers Http.forbidden_403)
 
-  let not_found_404 ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.not_found_404)
+  let not_found_404 ?explain ?reason ?headers () =
+    Error (v ?explain ?reason ?headers Http.not_found_404)
 
   let method_not_allowed_405
-      ?explain ?reason ?(set = Http.H.empty) ~allowed ()
+      ?explain ?reason ?(headers = Http.H.empty) ~allowed ()
     =
     let ms = String.concat ", " (List.map Http.Meth.encode allowed) in
     let hs = Http.H.(empty |> def allow ms) in
-    let hs = Http.H.override hs ~by:set in
+    let hs = Http.H.override hs ~by:headers in
     Error (v ?explain ?reason ~headers:hs Http.method_not_allowed_405)
 
-  let gone_410 ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.gone_410)
+  let gone_410 ?explain ?reason ?headers () =
+    Error (v ?explain ?reason ?headers Http.gone_410)
 
-  let server_error_500 ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.server_error_500)
+  let server_error_500 ?explain ?reason ?headers () =
+    Error (v ?explain ?reason ?headers Http.server_error_500)
 
-  let not_implemented_501 ?explain ?reason ?set () =
-    Error (v ?explain ?reason ?headers:set Http.not_implemented_501)
+  let not_implemented_501 ?explain ?reason ?headers () =
+    Error (v ?explain ?reason ?headers Http.not_implemented_501)
+
+  let map_errors ?(only_empty = false) f r =
+    let st = status r in
+    if 400 <= st && st <= 599
+    then (if only_empty && body r <> Empty then r else f r)
+    else r
 end
-
 
 module Req = struct
 
@@ -1517,10 +1522,11 @@ module Req = struct
         Error (Resp.redirect ~explain Http.moved_permanently_301 path)
 end
 
-
 type service = Req.t -> Resp.t
 
 module Connector = struct
+
+  type dur_ns = int64
 
   type log_msg =
   [ `Service_exn of exn * Stdlib.Printexc.raw_backtrace

@@ -5,15 +5,15 @@
 
 (** Web service interface.
 
-    Consult the {{!page-web_service_howto}web service howto} for a quick
-    steps to run your first service. A few tools are in are in
-    {!Webs_kit} and gateway connectors to run services can be found
+    Consult the {{!page-web_service_howto}web service howto} for quick
+    steps to run your first service. A few tools are in {!Webs_kit}
+    and gateway connectors to run services can be found
     {{!page-index.connectors}here}.
 
     Open the module to use it. It defines only modules and types in
     your scope. *)
 
-(** {1 Services} *)
+(** {1:services Services} *)
 
 (** HTTP nuts and bolts.
 
@@ -494,7 +494,8 @@ module Http : sig
     val strip_prefix : prefix:path -> path -> path option
     (** [strip_prefix ~prefix p] removes the prefix path [prefix] from [p].
         If [prefix] is not a strict prefix of [p] this is [None].
-        If [prefix = p] this is [Some [""]], the root path. If [prefix]
+        If [prefix = p] this is [Some [""]] (FIXME this feels right
+        and wrong at the same time), the root path. If [prefix]
         ends with an empty segment, it matches any corresponding segment
         at that point (so that stripping [/a/] from [/a/b] results in [/b]).
 
@@ -882,12 +883,9 @@ module Http : sig
       ?max_age:int -> ?domain:string -> ?path:path -> ?secure:bool ->
       ?http_only:bool -> ?same_site:string -> unit -> atts
     (** [atts] are the given cookie attributes. If an attribute is
-        absent it is not mentioned in the cookie sepcification except
-        for [same_site] which are always specified and respectively
-        defaults to ["strict"] and [http_only] with default to [true].
-
-        {b TODO.} Maybe [secure] should default to [true] it's just if we
-        devise a good dev/production configuration story. *)
+        absent it is not mentioned in the cookie specification except
+        for [secure] which defaults to [true], [same_site] which
+        defaults to ["strict"] and [http_only] which defaults to [true].  *)
 
     val atts_default : atts
     (** [atts_default] is [atts ()]. *)
@@ -1216,7 +1214,7 @@ module Resp : sig
 
   (** {1:pre_canned Pre-canned responses}
 
-      The optional [set] argument of the functions below always
+      The optional [headers] argument of the functions below always
       {!Http.H.override} those the function computed.
 
       See also {{!Req.deconstruct}request deconstruction} combinators.
@@ -1230,31 +1228,31 @@ module Resp : sig
   (** {2:pre_canned_content Content responses} *)
 
   val content :
-    ?explain:string -> ?set:Http.headers -> mime_type:Http.mime_type ->
+    ?explain:string -> ?headers:Http.headers -> mime_type:Http.mime_type ->
     int -> string -> t
   (** [content ~mime_type st s] responds [s] with content type
       [mime_type] and status [st]. Sets {!Http.H.content_type} and
       {!Http.H.content_length} appropriately. *)
 
-  val text : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val text : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [text] responds with UTF-8 encoded plain text, i.e.
       {!content} with {!Http.Mime_type.text_plain}. *)
 
-  val html : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val html : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [html] responds with UTF-8 encoded HTML text, i.e.
       {!content} with {!Http.Mime_type.text_html}.  *)
 
-  val json : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val json : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [json] responds with JSON text, i.e. {!content} with
       {!Http.Mime_type.application_json}. *)
 
-  val octets : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val octets : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [octets] responds with octets, i.e. {!content} with
       {!Http.Mime_type.application_octet_stream}. *)
 
   (** {2:pre_redirect Redirect responses} *)
 
-  val redirect : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val redirect : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [redirect status loc] redirects to {{!Http.H.location}location} [loc]
       with status [status] (defaults to {!Http.found_302}). See also
       {!val:Req.service_redirect}. *)
@@ -1262,39 +1260,38 @@ module Resp : sig
   (** {2:pre_client_errors Client error responses} *)
 
   val bad_request_400 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [bad_request ?explain ?reason ()] is an {!empty} response with
       status {!Http.bad_request_400}. *)
 
   val unauthorized_401 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [unauthorized ?explain ?reason ()] is an {!empty} response with
       status {!Http.unauthorized_401}. *)
 
   val forbidden_403 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [forbidden ?explain ?reason] is an {!empty} response with
       status {!Http.forbidden_403}. *)
 
   val not_found_404 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [not_found ?explain ?reason] is an {!empty} response with
       status {!Http.not_found_404}. *)
 
   val method_not_allowed_405 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers ->
-    allowed:Http.meth list -> unit ->
-    ('a, t) result
+    ?explain:string -> ?reason:string -> ?headers:Http.headers ->
+    allowed:Http.meth list -> unit -> ('a, t) result
   (** [method_not_allowed ~allowed] is an {!empty} response with status
       {!Http.method_not_allowed_405}. It sets the {!Http.H.allow} header
       to the [allow]ed methods (which can be empty). *)
 
   val gone_410 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [not_found ?explain ?reason] is an {!empty} response with
       status {!Http.gone_410}. *)
@@ -1302,16 +1299,23 @@ module Resp : sig
   (** {2:pre_server_errors Server error responses} *)
 
   val server_error_500 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
     (** [server_error ?explain ?reason] is an {!empty} response with
         status {!Http.server_error_500}. *)
 
   val not_implemented_501 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
     (** [server_error ?explain ?reason] is an {!empty} response with
         status {!Http.not_implemented_501}. *)
+
+  (** {1:error_map Error mapper} *)
+
+  val map_errors : ?only_empty:bool -> (t -> t) -> t -> t
+  (** [map_errors f r] maps [r] with [f] if [r]'s status
+      is a 4XX or 5XX. If [only_empty] is [true]
+      (defaults to [false]) it does so only on empty body responses. *)
 end
 
 (** HTTP requests. *)
@@ -1572,6 +1576,9 @@ module Connector : sig
 
       These message are emited by connector to track activity and
       report unexpected messages. *)
+
+  type dur_ns = int64
+  (** The type for integer nanosecond duration. *)
 
   type log_msg =
   [ `Service_exn of exn * Stdlib.Printexc.raw_backtrace
