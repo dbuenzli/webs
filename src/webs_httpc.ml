@@ -99,7 +99,7 @@ let decode_headers buf crlfs =
   loop Http.H.empty buf (List.hd crlfs) (List.tl crlfs)
 
 let x_service_root = Http.Name.v "x-service-root"
-let decode_service_root hs = match Http.H.find x_service_root hs with
+let decode_service_path hs = match Http.H.find x_service_root hs with
 | None -> None
 | Some v ->
     match Http.Path.decode v with
@@ -118,14 +118,14 @@ let read_req c fd =
     let crlfs, first_start, first_len = read_clrfs c ~max_bytes buf fd in
     let meth, target, version = decode_request_line buf (List.hd crlfs) in
     let hs = decode_headers buf crlfs in
-    let service_root = decode_service_root hs in
+    let service_path = decode_service_path hs in
     let max_req_body_byte_size = c.max_req_body_byte_size in
     let* body_length = body_length hs in
     let body =
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd buf ~first_start ~first_len
     in
-    Ok (Req.v ?service_root ~version meth target ~headers:hs ~body_length ~body)
+    Ok (Req.v ?service_path ~version meth target ~headers:hs ~body_length ~body)
   with
   | Failure e -> Error (`Malformed e)
 
@@ -158,7 +158,6 @@ let resp_of_error e =
 let apply_service c service req =
   try
     let resp = service req in
-    c.log (`Trace (Some req, Some resp)); (* TODO we don't want that here *)
     Ok resp
   with
   | e ->
@@ -170,12 +169,14 @@ let apply_service c service req =
 
 let serve_req c fd service =
   try
-    let _t = Webs_unix.Time.counter () in (* TODO integrate with trace *)
+    let dur = Webs_unix.Time.counter () in
     let req = read_req c fd in
     let resp = Result.bind req (apply_service c service) in
     let resp = Result.fold ~ok:Fun.id ~error:resp_of_error resp in
     write_resp c fd resp;
-    shutdown_noerr fd Unix.SHUTDOWN_ALL
+    shutdown_noerr fd Unix.SHUTDOWN_ALL;
+    let dur = Webs_unix.(Time.Span.to_uint64_ns @@ Time.count dur) in
+    c.log (`Trace (dur, Result.to_option req, Some resp));
   with
   | e ->
       (* apply_service catches some of exns and turns them into 500.

@@ -1,5 +1,7 @@
 # A laundry list
 
+* Add connector support for 
+  https://w3c.github.io/server-timing/#the-server-timing-header-field
 * Review the security aspects of the x-service-root header. 
   On a second thought it doesn't look like a good idea.
 * Make the login example bearable
@@ -8,8 +10,7 @@
   once we upgraded. Maybe via a new body response case. Read
   again https://tools.ietf.org/html/rfc7230#section-6 and 6.7.
 * Keep-alive, we can likely hide that in the connector we just need 
-  to fit it in the picture with connection limits (which are not implemented
-  anyways).
+  to fit it in the picture with connection limits.
 * remote peer address, x-forwarded-for and/or sockaddr from accept
 * Look into clone()/chroot isolation
 * With a gateway there are many moving configuration parts e.g. 
@@ -27,7 +28,6 @@
   it seems to accept spaces. The function should likely return an 
   error or introduce an indirect type for the constructor.
 * Move to a unified connector API ? 
-* Not yet fully convinced by the `Http` module. It's getting there though.
 * Do not trip too much on Resp.t -> Req.t and middlware model. In particular 
   it makes erroring paths obscure. Rather look into composing function 
   that construct ('a, Resp.t) result which end with (Resp.t, Resp.t) result.

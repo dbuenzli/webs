@@ -9,8 +9,11 @@
 #if defined(__APPLE__) && defined(__MACH__)
   #define OCAML_WEBS_DARWIN
 
-#elif defined(__linux__)
-  #define OCAML_WEBS_LINUX
+#elif defined(__unix__) || defined(__unix)
+ #include <unistd.h>
+ #if defined(_POSIX_VERSION)
+   #define OCAML_WEBS_POSIX
+ #endif
 
 #elif defined (_WIN32)
   #define OCAML_WEBS_WINDOWS

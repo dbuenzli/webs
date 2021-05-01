@@ -121,6 +121,18 @@ let test_path () =
   assert (Http.Path.filepath_ext "a.bla/a" = "");
   assert (Http.Path.filepath_ext "/a.bla/a" = "");
   assert (Http.Path.filepath_ext "/a.bla/a.ext" = ".ext");
+  log "Webs.Http.Path.concat";
+  assert (Http.Path.concat [] [] = []);
+  assert (Http.Path.concat [""] [] = [""]);
+  assert (Http.Path.concat [] [""] = [""]);
+  assert (Http.Path.concat [""] [""] = [""]);
+  assert (Http.Path.concat [] ["a"] = ["a"]);
+  assert (Http.Path.concat ["a"] [] = ["a"]);
+  assert (Http.Path.concat ["a"] [""] = ["a"; ""]);
+  assert (Http.Path.concat ["a"; ""] [""] = ["a"; ""]);
+  assert (Http.Path.concat ["a"; "b"; ""] [] = ["a"; "b"; ""]);
+  assert (Http.Path.concat ["a"; "b"; ""] [""] = ["a"; "b"; ""]);
+  assert (Http.Path.concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]);
   ()
 
 let test_digits () =

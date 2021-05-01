@@ -208,3 +208,8 @@ let () = if !Sys.interactive then () else main ()
 
 Note that if your Nginx gateway is configured to do so this properly
 handles [etags] and range requests.
+
+{2:caching Caching}
+
+Explain a bit of the caching stuff. In particular if your webs log is
+full of HTML page asset requests (even 302), something is likely wrong.

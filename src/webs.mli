@@ -5,15 +5,15 @@
 
 (** Web service interface.
 
-    Consult the {{!page-web_service_howto}web service howto} for a quick
-    steps to run your first service. A few tools are in are in
-    {!Webs_kit} and gateway connectors to run services can be found
+    Consult the {{!page-web_service_howto}web service howto} for quick
+    steps to run your first service. A few tools are in {!Webs_kit}
+    and gateway connectors to run services can be found
     {{!page-index.connectors}here}.
 
     Open the module to use it. It defines only modules and types in
     your scope. *)
 
-(** {1 Services} *)
+(** {1:services Services} *)
 
 (** HTTP nuts and bolts.
 
@@ -494,14 +494,15 @@ module Http : sig
     val strip_prefix : prefix:path -> path -> path option
     (** [strip_prefix ~prefix p] removes the prefix path [prefix] from [p].
         If [prefix] is not a strict prefix of [p] this is [None].
-        If [prefix = p] this is [Some [""]], the root path. If [prefix]
+        If [prefix = p] this is [Some [""]] (FIXME this feels right
+        and wrong at the same time), the root path. If [prefix]
         ends with an empty segment, it matches any corresponding segment
         at that point (so that stripping [/a/] from [/a/b] results in [/b]).
 
         A few examples:
         {ul
-        {- [strip_prefix [] _ = None]}
         {- [strip_prefix _ [] -> None]}
+        {- [strip_prefix [] _ = None]}
         {- [strip_prefix [""] (_ :: _ as l) = Some l]}
         {- [strip_prefix [""; "a"] [""; "a"] = Some [""]]}
         {- [strip_prefix [""; "a"] [""; "a"; ""] = Some [""]]}
@@ -511,8 +512,19 @@ module Http : sig
         {- [strip_prefix [""; "a"; ""] [""; "a"; "b"] = Some ["b"]]}} *)
 
     val concat : path -> path -> path
-    (** [concat p0 p1] concatenates [p0] and [p1]. This drops
-        a potential last empty segment from [p0]. *)
+    (** [concat p0 p1] concatenates [p0] and [p1]. If [p0] ends with
+        an empty segment and [p1] is non-empty that empty segment is dropped.
+        A few examples:
+        {ul
+        {- [concat p0 [] = p0]}
+        {- [concat [] p1 = p1]}
+        {- [concat [""] ["a"; "b"] = ["a"; "b"]]}
+        {- [concat ["a"] [""] = ["a"; ""]]}
+        {- [concat ["a"; ""] [""] = ["a"; ""]]}
+        {- [concat ["a"; "b"] ["c"; "d"] = ["a"; "b"; "c"; "d"]]}
+        {- [concat ["a"; "b"; ""] ["c"; "d"] = ["a"; "b"; "c"; "d"]]}
+        {- [concat ["a"; "b"; ""] [""] = ["a"; "b"]]}
+        {- [concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]]}} *)
 
     (** {1:filepath File paths} *)
 
@@ -602,6 +614,9 @@ module Http : sig
 
   (** {1:query queries} *)
 
+  type query
+  (** The type for queries. See {!Query.t}. *)
+
   (** URI query and [application/x-www-form-urlencoded] codec.
 
       Encodes and decodes
@@ -612,57 +627,60 @@ module Http : sig
 
     (** {1:queries Queries} *)
 
-    type t
+    type t = query
     (** The type for queries as key-values maps. Both keys and values
         are properly decoded. Note that keys can map to
         multiple values. *)
 
-    val empty : t
+    val empty : query
     (** [empty] is the empty key-values map. *)
 
-    val mem : string -> t -> bool
+    val is_empty : query -> bool
+    (** [is_empty q] is true if [q] is {!empty}. *)
+
+    val mem : string -> query -> bool
     (** [mem k q] is true [iff] key [k] is bound in [q]. *)
 
-    val def : string -> string -> t -> t
+    val def : string -> string -> query -> query
     (** [def k v q] is [q] with [k] bound only to value [v]. *)
 
-    val add : string -> string -> t -> t
+    val add : string -> string -> query -> query
     (** [add k v q] is [q] with value [v] appended to
         [k]'s values (or {!set} if there was no binding for [k]). *)
 
-    val undef : string -> t -> t
+    val undef : string -> query -> query
     (** [undef k q] is [q] with [k] unbound. *)
 
-    val find : string -> t -> string option
+    val find : string -> query -> string option
     (** [find k q] is the value of [k]'s first binding in [q], if any. *)
 
-    val find_all : string -> t -> string list
+    val find_all : string -> query -> string list
     (** [find_all k q] are all the values bound to [k] or the empty
         list if [k] is unbound. *)
 
-    val fold : (string -> string -> 'a -> 'a) -> t -> 'a -> 'a
+    val fold : (string -> string -> 'a -> 'a) -> query -> 'a -> 'a
     (** [fold f q acc] folds over all the key-value bindings. For keys
         with multiple values folds over them in the same order
         as {!find_all}. *)
 
-    val keep_only_first : t -> t
+    val keep_only_first : query -> query
     (** [keep_only_first q] is [q] with only the first value kept in bindings
         with multiple values. *)
 
     (** {1:conv Converting} *)
 
-    val decode : string -> t
+    val decode : string -> query
     (** [decode s] decodes the [application/x-www-form-urlencoded]
         [s] to a query.  If a key is defined more than once,
         the first definition is returned by {!find} and the
         left-to-right order preserved by {!find_all}'s list. The input
         string is not checked for UTF-8 validity. *)
 
-    val encode : t -> string
+    val encode : query -> string
     (** [encode q] encodes [q] to an [application/x-www-form-urlencoded]
         string. *)
 
-    val pp : Format.formatter -> t -> unit
+    val pp : Format.formatter -> query -> unit
     (** [pp] is an unspecified formatter for queries. *)
   end
 
@@ -882,12 +900,9 @@ module Http : sig
       ?max_age:int -> ?domain:string -> ?path:path -> ?secure:bool ->
       ?http_only:bool -> ?same_site:string -> unit -> atts
     (** [atts] are the given cookie attributes. If an attribute is
-        absent it is not mentioned in the cookie sepcification except
-        for [same_site] which are always specified and respectively
-        defaults to ["strict"] and [http_only] with default to [true].
-
-        {b TODO.} Maybe [secure] should default to [true] it's just if we
-        devise a good dev/production configuration story. *)
+        absent it is not mentioned in the cookie specification except
+        for [secure] which defaults to [true], [same_site] which
+        defaults to ["strict"] and [http_only] which defaults to [true].  *)
 
     val atts_default : atts
     (** [atts_default] is [atts ()]. *)
@@ -1216,7 +1231,7 @@ module Resp : sig
 
   (** {1:pre_canned Pre-canned responses}
 
-      The optional [set] argument of the functions below always
+      The optional [headers] argument of the functions below always
       {!Http.H.override} those the function computed.
 
       See also {{!Req.deconstruct}request deconstruction} combinators.
@@ -1230,31 +1245,31 @@ module Resp : sig
   (** {2:pre_canned_content Content responses} *)
 
   val content :
-    ?explain:string -> ?set:Http.headers -> mime_type:Http.mime_type ->
+    ?explain:string -> ?headers:Http.headers -> mime_type:Http.mime_type ->
     int -> string -> t
   (** [content ~mime_type st s] responds [s] with content type
       [mime_type] and status [st]. Sets {!Http.H.content_type} and
       {!Http.H.content_length} appropriately. *)
 
-  val text : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val text : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [text] responds with UTF-8 encoded plain text, i.e.
       {!content} with {!Http.Mime_type.text_plain}. *)
 
-  val html : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val html : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [html] responds with UTF-8 encoded HTML text, i.e.
       {!content} with {!Http.Mime_type.text_html}.  *)
 
-  val json : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val json : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [json] responds with JSON text, i.e. {!content} with
       {!Http.Mime_type.application_json}. *)
 
-  val octets : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val octets : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [octets] responds with octets, i.e. {!content} with
       {!Http.Mime_type.application_octet_stream}. *)
 
   (** {2:pre_redirect Redirect responses} *)
 
-  val redirect : ?explain:string -> ?set:Http.headers -> int -> string -> t
+  val redirect : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [redirect status loc] redirects to {{!Http.H.location}location} [loc]
       with status [status] (defaults to {!Http.found_302}). See also
       {!val:Req.service_redirect}. *)
@@ -1262,39 +1277,38 @@ module Resp : sig
   (** {2:pre_client_errors Client error responses} *)
 
   val bad_request_400 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [bad_request ?explain ?reason ()] is an {!empty} response with
       status {!Http.bad_request_400}. *)
 
   val unauthorized_401 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [unauthorized ?explain ?reason ()] is an {!empty} response with
       status {!Http.unauthorized_401}. *)
 
   val forbidden_403 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [forbidden ?explain ?reason] is an {!empty} response with
       status {!Http.forbidden_403}. *)
 
   val not_found_404 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [not_found ?explain ?reason] is an {!empty} response with
       status {!Http.not_found_404}. *)
 
   val method_not_allowed_405 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers ->
-    allowed:Http.meth list -> unit ->
-    ('a, t) result
+    ?explain:string -> ?reason:string -> ?headers:Http.headers ->
+    allowed:Http.meth list -> unit -> ('a, t) result
   (** [method_not_allowed ~allowed] is an {!empty} response with status
       {!Http.method_not_allowed_405}. It sets the {!Http.H.allow} header
       to the [allow]ed methods (which can be empty). *)
 
   val gone_410 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
   (** [not_found ?explain ?reason] is an {!empty} response with
       status {!Http.gone_410}. *)
@@ -1302,16 +1316,23 @@ module Resp : sig
   (** {2:pre_server_errors Server error responses} *)
 
   val server_error_500 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
     (** [server_error ?explain ?reason] is an {!empty} response with
         status {!Http.server_error_500}. *)
 
   val not_implemented_501 :
-    ?explain:string -> ?reason:string -> ?set:Http.headers -> unit ->
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
     ('a, t) result
     (** [server_error ?explain ?reason] is an {!empty} response with
         status {!Http.not_implemented_501}. *)
+
+  (** {1:error_map Error mapper} *)
+
+  val map_errors : ?only_empty:bool -> (t -> t) -> t -> t
+  (** [map_errors f r] maps [r] with [f] if [r]'s status
+      is a 4XX or 5XX. If [only_empty] is [true]
+      (defaults to [false]) it does so only on empty body responses. *)
 end
 
 (** HTTP requests. *)
@@ -1340,7 +1361,7 @@ module Req : sig
   (** The type for HTTP requests. *)
 
   val v :
-    ?service_root:Http.path -> ?version:Http.version ->
+    ?service_path:Http.path -> ?version:Http.version ->
     ?body_length:int option -> ?body:body ->
     ?headers:Http.headers -> Http.meth -> string -> t
   (** [v meth request_target] is an HTTP request with method [meth],
@@ -1348,11 +1369,6 @@ module Req : sig
       {!Http.H.empty}), [body] (defaults to {!empty_body}),
       [body_length] (defaults to [None] or [Some 0] if body is
       {!empty_body}) and version (defaults to (1,1)). *)
-
-  val service_root : t -> Http.path
-  (** [service_root r] is the root path on which the service is served.
-      Consult the documentation of connectors to understand how this
-      is derived (usually from the gateway via a [x-service-root] header). *)
 
   val version : t -> Http.version
   (** [version r] is [r]'s
@@ -1368,6 +1384,11 @@ module Req : sig
       target}.  This should be the raw request, still percent encoded.
       Note that you usually rather want to use the convenience {!path}
       and {!query} which are derived from this value. *)
+
+  val service_path : t -> Http.path
+  (** [service_path r] is the root path on which the service is served.
+      Consult the documentation of connectors to understand how this
+      is derived (usually from the gateway via a [x-service-root] header). *)
 
   val path : t -> Http.path
   (** [path r] is the absolute path of {!request_target}. This is as a
@@ -1399,8 +1420,8 @@ module Req : sig
   val with_path : Http.path -> t -> t
   (** [with_path p r] is [r] with path [p]. *)
 
-  val with_service_root : Http.path -> t -> t
-  (** [with_service_root p r] is [r] with service root [r]. *)
+  val with_service_path : Http.path -> t -> t
+  (** [with_service_path p r] is [r] with service path [r]. *)
 
   val pp : Format.formatter -> t -> unit
   (** [pp ppf req] prints and unspecified representation of [req]
@@ -1468,11 +1489,11 @@ module Req : sig
     val trace : [> `TRACE] t
   end
 
-
   (** {2:service_forwarding Service forwarding}
 
       {b FIXME.}
       {ul
+      {- LIKELY REMOVE ALL THAT, leave these things to {!Kurl}}
       {- Not sure this is a good terminology.}
       {- Introduce a variation where you push [n] segments
          on the service path.}} *)
@@ -1510,10 +1531,10 @@ module Req : sig
 
   (** {2:queries Queries}
 
-      {b Warning.} {!Http.Query.t} values are untrusted,
+      {b Warning.} {!Http.type-query} values are untrusted,
       you need to properly validate their data. *)
 
-  val to_query : t -> (Http.Query.t, Resp.t) result
+  val to_query : t -> (Http.query, Resp.t) result
   (** [to_query r] extracts a query from [r]. This is
       {ul
       {- [Ok q] with [q] parsed from [Req.query r] if [r]'s
@@ -1573,11 +1594,14 @@ module Connector : sig
       These message are emited by connector to track activity and
       report unexpected messages. *)
 
+  type dur_ns = int64
+  (** The type for integer nanosecond duration. *)
+
   type log_msg =
   [ `Service_exn of exn * Stdlib.Printexc.raw_backtrace
   | `Connector_exn of exn * Stdlib.Printexc.raw_backtrace
   | `Connection_reset
-  | `Trace of Req.t option * Resp.t option ]
+  | `Trace of dur_ns * Req.t option * Resp.t option ]
   (** The type for connector log messages. These *)
 
   val no_log : log_msg -> unit

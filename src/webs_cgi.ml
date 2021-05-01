@@ -118,7 +118,7 @@ let body_length hs = match Http.H.request_body_length hs with
 let read_req c env fd_in =
   try
     let extra_vars = c.extra_vars in
-    let service_root, version, meth, target, hs =
+    let service_path, version, meth, target, hs =
       header_section_of_env ~extra_vars env
     in
     let buf = Bytes.create io_buffer_size in
@@ -129,7 +129,7 @@ let read_req c env fd_in =
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd_in buf ~first_start ~first_len
     in
-    Ok (Req.v ?service_root ~version meth target ~headers:hs ~body_length ~body)
+    Ok (Req.v ?service_path ~version meth target ~headers:hs ~body_length ~body)
   with
   | Failure e -> Error (`Malformed e)
   (* FIXME maybe for error from header_section we should rather throw
@@ -172,7 +172,6 @@ let resp_of_error e =
 let apply_service c service req =
   try
     let resp = service req in
-    c.log (`Trace (Some req, Some resp)); (* TODO we don't want that here *)
     Ok resp
   with
   | e ->
@@ -184,10 +183,14 @@ let apply_service c service req =
 
 let serve_req c env fd_in fd_out service =
   try
+    let dur = Webs_unix.Time.counter () in
     let req = read_req c env fd_in in
     let resp = Result.bind req (apply_service c service) in
     let resp = Result.fold ~ok:Fun.id ~error:resp_of_error resp in
-    Ok (write_resp c fd_out resp)
+    let () = write_resp c fd_out resp in
+    let dur = Webs_unix.(Time.Span.to_uint64_ns @@ Time.count dur) in
+    c.log (`Trace (dur, Result.to_option req, Some resp));
+    Ok ()
   with
   | e ->
       (* apply_service catches some of exns and turns them into 500.
