@@ -3,7 +3,8 @@
 * Add connector support for 
   https://w3c.github.io/server-timing/#the-server-timing-header-field
 * Review the security aspects of the x-service-root header. 
-  On a second thought it doesn't look like a good idea.
+  On a second thought it doesn't look like a good idea: don't 
+  do configuration over what actually comes from the network…
 * Make the login example bearable
 * Body request/response need to correctly handle failures/resources.
 * Websocket upgrading works. The question is how to fit it in the model 
