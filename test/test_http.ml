@@ -138,6 +138,89 @@ let test_path () =
   assert (Http.Path.undot_and_compress
             ["a"; "."; "b"; "."; "."] = ["a"; "b"; ""]);
   assert (Http.Path.undot_and_compress [".."] = [""]);
+  log "Webs.Http.Path.relativize";
+  let str l = "/" ^ String.concat "/" l and rel_str l = String.concat "/" l in
+  let concat_rel ~root rel = match root, rel with
+  | [], _ | _, [] -> assert false
+  | root, rel ->
+      (* This should mimic an HTML href concat. *)
+      match List.rev root with
+      | _ :: r -> List.rev_append r rel | r -> List.rev_append r rel
+  in
+  let test ?(trace = false) root path expect =
+    let rel = Http.Path.relativize ~root path in
+    let cat = Http.Path.undot_and_compress (concat_rel root rel) in
+    if rel = expect && path = cat then begin
+      if trace then
+        Format.printf
+          "@[<v>@,root: %s@,path: %s@,cat : %s@,rel : %s@]@."
+          (str root) (str path) (str cat) (rel_str rel);
+    end else begin
+      Format.printf
+        "@[<v>@,root: %s@,trgt: %s@,cat : %s@,rel : %s@,exp : %s@]@."
+        (str root) (str path) (str cat) (rel_str rel) (rel_str expect);
+      assert false;
+    end
+  in
+  test [""] [""] ["."];
+  test [""] ["a"] ["a"];
+  test [""] ["a"; ""] ["a"; ""];
+  test [""] ["a"; "b"] ["a"; "b"];
+  test [""] ["a"; "b"; ""] ["a"; "b"; ""];
+  test [""] ["a"; "b"; "c"] ["a"; "b"; "c"];
+  test [""] ["b"] ["b"];
+  test [""] ["b"; ""] ["b"; ""];
+  test [""] ["b"; "c"] ["b"; "c"];
+
+  test ["a"] [""] ["."];
+  test ["a"] ["a"] ["a"];
+  test ["a"] ["a"; ""] ["a"; ""];
+  test ["a"] ["a"; "b"] ["a"; "b"];
+  test ["a"] ["a"; "b"; ""] ["a"; "b"; ""];
+  test ["a"] ["a"; "b"; "c"] ["a"; "b"; "c"];
+  test ["a"] ["b"] ["b"];
+  test ["a"] ["b"; ""] ["b"; ""];
+  test ["a"] ["b"; "c"] ["b"; "c"];
+
+  test ["a"; ""] [""] [".."];
+  test ["a"; ""] ["a"] [".."; "a"];
+  test ["a"; ""] ["a"; ""] ["."];
+  test ["a"; ""] ["a"; "b"] ["b"];
+  test ["a"; ""] ["a"; "b"; ""] ["b"; ""];
+  test ["a"; ""] ["a"; "b"; "c"] ["b"; "c"];
+  test ["a"; ""] ["b"] [".."; "b"];
+  test ["a"; ""] ["b"; ""] [".."; "b"; ""];
+  test ["a"; ""] ["b"; "c"] [".."; "b"; "c"];
+
+  test ["a"; "b"] [""] [".."];
+  test ["a"; "b"] ["a"] [".."; "a"];
+  test ["a"; "b"] ["a"; ""] [".."; "a"; ""];
+  test ["a"; "b"] ["a"; "b"] ["b"];
+  test ["a"; "b"] ["a"; "b"; ""] ["b"; ""];
+  test ["a"; "b"] ["a"; "b"; "c"] ["b"; "c"];
+  test ["a"; "b"] ["b"] [".."; "b"];
+  test ["a"; "b"] ["b"; ""] [".."; "b"; ""];
+  test ["a"; "b"] ["b"; "c"] [".."; "b"; "c"];
+
+  test ["a"; "b"; ""] [""] [".."; ".."];
+  test ["a"; "b"; ""] ["a"] [".."; ".."; "a"];
+  test ["a"; "b"; ""] ["a"; ""] [".."; ".."; "a"; ""];
+  test ["a"; "b"; ""] ["a"; "b"] [".."; "b"];
+  test ["a"; "b"; ""] ["a"; "b"; ""] ["."];
+  test ["a"; "b"; ""] ["a"; "b"; "c"] ["c"];
+  test ["a"; "b"; ""] ["b"] [".."; ".."; "b"];
+  test ["a"; "b"; ""] ["b"; ""] [".."; ".."; "b"; ""];
+  test ["a"; "b"; ""] ["b"; "c"] [".."; ".."; "b"; "c"];
+
+  test ["a"; "b"; "c"] [""] [".."; ".."];
+  test ["a"; "b"; "c"] ["a"] [".."; ".."; "a"];
+  test ["a"; "b"; "c"] ["a"; ""] [".."; ".."; "a"; ""];
+  test ["a"; "b"; "c"] ["a"; "b"] [".."; "b"];
+  test ["a"; "b"; "c"] ["a"; "b"; ""] [".."; "b"; ""];
+  test ["a"; "b"; "c"] ["a"; "b"; "c"] ["c"];
+  test ["a"; "b"; "c"] ["b"] [".."; ".."; "b"];
+  test ["a"; "b"; "c"] ["b"; ""] [".."; ".."; "b"; ""];
+  test ["a"; "b"; "c"] ["b"; "c"] [".."; ".."; "b"; "c"];
   ()
 
 let test_digits () =

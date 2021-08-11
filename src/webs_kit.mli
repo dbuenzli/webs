@@ -264,6 +264,10 @@ module Kurl : sig
     (** [of_req ~ext r] is a bare URL request from [r]. {!Bare.meth} is
         {!Req.meth}, {!Bare.path} is {!Req.path}, {!Bare.query} is parsed
         {!Req.query}, [ext] defaults to [""]. *)
+
+    val pp : Format.formatter -> bare -> unit
+    (** [pp ppf b] formats an unspecified representation of [b] on
+        [ppf]. *)
   end
 
   (** {2:encoders Encoders} *)
@@ -368,25 +372,25 @@ module Kurl : sig
     type root_is = [`Dir of string option | `File]
     (** See {!val-kind}. *)
 
-    type 'a t
+    type 'a t = 'a kind
     (** See {!type-kind}. *)
 
     val v : ?root_is:root_is -> ?name:string -> 'a enc -> 'a dec -> 'a kind
     (** See {!val-kind}. *)
 
-    val name : 'a t -> string
+    val name : 'a kind -> string
     (** [kind k] is the name of [k]. *)
 
-    val root_is : 'a t -> root_is
+    val root_is : 'a kind -> root_is
     (** [root_is k] is root path encoding behaviour for [k], see {!val-kind}. *)
 
-    val enc : 'a t -> 'a enc
+    val enc : 'a kind -> 'a enc
     (** [enc k] is the encoder of [k]. *)
 
-    val dec : 'a t -> 'a dec
+    val dec : 'a kind -> 'a dec
     (** [dec k] is the decoder of [k]. *)
 
-    val equal : 'a t -> 'a t -> bool
+    val equal : 'a kind -> 'a kind -> bool
     (** [equal k0 k1] is [true] iff [k0] and [k1] are the same kind. *)
 
     (** {1:bare Bare kinds} *)

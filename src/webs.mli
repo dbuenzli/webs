@@ -526,6 +526,10 @@ module Http : sig
         {- [concat ["a"; "b"; ""] [""] = ["a"; "b"]]}
         {- [concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]]}} *)
 
+    val relativize : root:path -> path -> path
+    (** [relativise ~root p] is the relative path [r] that goes from
+        [root] to [p]. *)
+
     (** {1:filepath File paths} *)
 
     val has_dir_seps : string -> bool

@@ -531,6 +531,25 @@ module Http = struct
         | "" :: r -> List.rev_append r p1
         | r -> List.rev_append r p1
 
+    let relativize ~root path =
+      let rec dotdots segs ~on:acc = match segs with
+      | _ :: segs -> dotdots segs ~on:(".." :: acc) | [] -> acc
+      in
+      match root, path with (* Simpler if root paths are handled separately *)
+      | [_], [""] -> ["."]
+      | path, [""] -> dotdots (List.tl path) ~on:[]
+      | [_], path -> path
+      | root, path ->
+          let rec loop last root path = match root, path with
+          | r :: root, p :: path when String.equal r p -> loop r root path
+          | [], [] -> [if last = "" then "." else last] (* root = path *)
+          | [], q -> last :: q (* root = r and path = r/q *)
+          | p, [] -> dotdots p ~on:[last] (* root = r/q and path = r *)
+          | p, [""] -> dotdots p ~on:[last; ""] (* root = r/q and path = r/ *)
+          | p, q -> dotdots (List.tl p) ~on:q (* root = r/p  path = r/q *)
+          in
+          loop "" root path
+
     (* File paths *)
 
     let has_no_dir_seps s = (* String.forall :-( *)

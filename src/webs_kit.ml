@@ -158,6 +158,18 @@ module Kurl = struct
       let none = Http.Query.empty in
       let query = Option.fold ~none ~some:Http.Query.decode (Req.query r) in
       bare ?ext ~query (Req.meth r) (Req.path r)
+
+    let pp ppf b =
+      let pp_field f pp_v ppf v =
+        Format.fprintf ppf "@[<h>(%s %a)@]" f pp_v v
+      in
+      let pp_cut = Format.pp_print_cut in
+      Format.pp_open_vbox ppf 1;
+      pp_field "meth" Http.Meth.pp ppf b.meth; pp_cut ppf ();
+      pp_field "path" Http.Path.pp ppf b.path; pp_cut ppf ();
+      pp_field "query" Http.Query.pp ppf b.query; pp_cut ppf ();
+      pp_field "ext" Format.pp_print_string ppf b.ext;
+      Format.pp_close_box ppf ()
   end
 
   (* Decoder helpers *)
@@ -514,22 +526,11 @@ module Kurl = struct
 
     (* Relative *)
 
-    let relativize_path ~root path =
-      let rec loop last root path = match root, path with
-      | r :: root, p :: path when String.equal r p -> loop r root path
-      | [_], q -> q
-      | [], q -> last :: q
-      | p, q ->
-          let up = List.rev_map (Fun.const "..") p in
-          List.rev_append up (last :: q)
-      in
-      loop "" root path
-
     let rel_bare uf ~root u =
       if uf.disable_rel then bare uf u else
       let root = bare uf root in
       let u = bare uf u in
-      let path = relativize_path ~root:root.path u.path in
+      let path = Http.Path.relativize ~root:root.path u.path in
       Bare.v u.meth path ~query:u.query ~ext:u.ext
 
     let rel_req uf ~root u =
