@@ -133,6 +133,11 @@ let test_path () =
   assert (Http.Path.concat ["a"; "b"; ""] [] = ["a"; "b"; ""]);
   assert (Http.Path.concat ["a"; "b"; ""] [""] = ["a"; "b"; ""]);
   assert (Http.Path.concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]);
+  log "Webs.Http.Path.undot_and_compress";
+  assert (Http.Path.undot_and_compress ["a"; "b"; "."] = ["a"; "b"; ""]);
+  assert (Http.Path.undot_and_compress
+            ["a"; "."; "b"; "."; "."] = ["a"; "b"; ""]);
+  assert (Http.Path.undot_and_compress [".."] = [""]);
   ()
 
 let test_digits () =

@@ -83,9 +83,9 @@ let webs_tool =
 
 (* Tests *)
 
-let test base ~requires =
+let test ?doc base ~requires =
   let srcs = Fpath.[`File (v (Fmt.str "test/%s.ml" base))] in
-  B0_ocaml.exe base ~doc:(Fmt.str "test %s" base) ~srcs ~requires
+  B0_ocaml.exe base ?doc ~srcs ~requires
 
 let test_http = test "test_http" ~requires:[webs]
 let test_http = test "test_sha_256" ~requires:[webs; webs_kit]

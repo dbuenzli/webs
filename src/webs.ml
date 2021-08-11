@@ -500,13 +500,14 @@ module Http = struct
 
     let _undot_and_compress ~check (* also applied on discarded segs *) p =
       let rec loop acc = function
+      | "." :: [] -> loop ("" :: acc) []
       | "." :: ps -> loop acc ps
       | ".." :: ps when acc = [] -> loop acc ps
       | ".." :: ps -> loop (List.tl acc) ps
       | "" :: [] -> loop ("" :: acc) []
       | "" :: ps -> loop acc ps
       | seg :: ps -> if check seg then loop (seg :: acc) ps else failwith ""
-      | [] -> List.rev acc
+      | [] -> if acc = [] then [""] else List.rev acc
       in
       loop [] p
 
