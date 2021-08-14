@@ -49,11 +49,11 @@ val max_connections : t -> int
 val listener : t -> Webs_unix.listener
 (** [listener c] is the connector connection listener. *)
 
-val serve : ?stop_on_sigint:bool -> t -> Webs.service -> (unit, string) result
+val serve : ?handle_stop_sigs:bool -> t -> Webs.service -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks,
-    serving requests with [s] until {!stop} is called on [c]. If
-    [stop_on_sigint] is [true] (default) a signal handler is installed
-    during the call to gracefully [stop] the serve.
+    serving requests with [s] until {!stop} is called on [c] or
+    a [SIGINT] or [SIGTERM] signal is received if [handle_stop_sigs] is [true]
+    (default).
 
     The {!Webs.Req.service_root} of requests is decoded from the
     custom HTTP header [x-service-root] this should be set
@@ -70,9 +70,10 @@ val serve : ?stop_on_sigint:bool -> t -> Webs.service -> (unit, string) result
     {- If a {!Webs.Http.H.expect} header is found TODO}}
 
     {b Signals.} When [serve] is entered {!Stdlib.Sys.sigpipe} is made
-    to be ignored and a handler for {!Stldib.Sys.sigint} is installed
-    if [stop_on_sigint] is [true]. The previous values are restored
-    when the function returns. *)
+    to be ignored and a handler for {!Stdlib.Sys.sigint} and
+    {!Stdlib.Sys.sigstop} is installed if [handle_stop_sigs] is
+    [true]. The previous values are restored when the function
+    returns. *)
 
 val stop : t -> unit
 (** [stop s] stops [s]. If [s] is blocked on [serve] this makes it

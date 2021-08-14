@@ -216,6 +216,10 @@ end
        formatting functions ? Likely not on [bare], you never get fragments
        to decode so it seems a bit OT.}
     {- Terminology: service or url request tree ?}
+    {- The Kurl name doesn't really reflect that this
+       is not about URLs but URL {e requests} maybe the module
+       name shoud be changed to reflect that. Kreq ? But
+       bare doesn't have the headers. }
     {- Integrate sessions ? Maybe not, here is the reasoning:
        the custom request types should only ever hold what can be specified
        by responses since they need to create these values.}

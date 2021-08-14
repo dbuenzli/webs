@@ -191,20 +191,29 @@ let serve_req c fd service =
 
 let stop c = c.serving <- false
 
-let serve ?(stop_on_sigint = true) c service =
+let set_stop_sig ~handle_stop_sigs c s =
+  let stop_sig _ = stop c in
+  if not handle_stop_sigs then Ok None else
+  Result.map Option.some (set_signal s Sys.(Signal_handle stop_sig))
+
+let restore_stop_sig_noerr s = function
+| None -> () | Some b -> set_signal_noerr s b
+
+let serve ?(handle_stop_sigs = true) c service =
   if c.serving then Ok () else
   let () = c.serving <- true in
-  let sigint _ = stop c in
-  let* sigint_behaviour = set_signal Sys.sigint (Sys.Signal_handle sigint) in
   let* sigpipe_behaviour = set_signal Sys.sigpipe Sys.Signal_ignore in
+  let* sigint_behaviour = set_stop_sig ~handle_stop_sigs c Sys.sigint in
+  let* sigterm_behaviour = set_stop_sig ~handle_stop_sigs c Sys.sigterm in
   let* accept_fd, close = Webs_unix.fd_of_listener c.listener in
   let tpool = Webs_tpool.create c.max_connections in
   let sem = Semaphore.Counting.make c.max_connections in
   let finally () =
     Webs_tpool.finish tpool;
     if close then close_noerr accept_fd;
-    set_signal_noerr Sys.sigint sigint_behaviour;
-    set_signal_noerr Sys.sigpipe sigpipe_behaviour
+    set_signal_noerr Sys.sigpipe sigpipe_behaviour;
+    restore_stop_sig_noerr Sys.sigint sigint_behaviour;
+    restore_stop_sig_noerr Sys.sigterm sigterm_behaviour;
   in
   Fun.protect ~finally @@ fun () ->
   let* () = listen_on_fd accept_fd ~backlog:128 (* SOMAXCONN *) in
