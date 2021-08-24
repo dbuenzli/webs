@@ -750,19 +750,26 @@ module Authenticated_cookie = struct
   | None -> Ok []
   | Some s -> Http.Cookie.decode_list  s
 
-  let get ~private_key ~now ~name req = match cookies (Req.headers req) with
-  | Error _ -> None
+  let find ~private_key ~now ~name req = match cookies (Req.headers req) with
+  | Error e -> Error (`Cookie e)
   | Ok cookies ->
       match List.assoc_opt name cookies with
-      | None -> None
+      | None -> Ok None
+      | Some "" -> Ok None
       | Some cookie ->
           match Authenticatable.decode ~private_key ~now cookie with
-          | Ok (_, data) -> (Some data)
-          | Error _ -> None
+          | Ok (_, data) -> Ok (Some data)
+          | Error _ as e ->  e
 
   let set ~private_key ~expire ?atts ~name data resp =
     let value = Authenticatable.encode ~private_key ~expire data in
     let cookie = Http.Cookie.encode ?atts ~name value in
+    let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
+    Resp.with_headers hs resp
+
+  let clear ?atts ~name resp =
+    let atts = Http.Cookie.atts ?init:atts ~max_age:(Some ~-1) () in
+    let cookie = Http.Cookie.encode ~atts ~name "" in
     let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
     Resp.with_headers hs resp
 end
@@ -823,17 +830,16 @@ module Session = struct
 
   let with_authenticated_cookie ~private_key ?atts ~name () =
     let load st req =
-      match Authenticated_cookie.get ~private_key ~now:None ~name req with
-      | None -> None
-      | Some "" (* TODO sort that out correctly *) -> None
-      | Some s -> Result.to_option (st.decode s)
+      match Authenticated_cookie.find ~private_key ~now:None ~name req with
+      | Ok None -> None
+      | Ok (Some s) -> Result.to_option (st.decode s)
+      | Error _ -> None
     in
-    let save st s resp =
-      let data = match s with
-      | None -> (* TODO sort that out correctly *) ""
-      | Some s -> st.encode s
-      in
-      Authenticated_cookie.set ?atts ~private_key ~expire:None ~name data resp
+    let save st s resp = match s with
+    | None -> Authenticated_cookie.clear ?atts ~name resp
+    | Some s ->
+        let data = st.encode s in
+        Authenticated_cookie.set ?atts ~private_key ~expire:None ~name data resp
     in
     handler ~load ~save ()
 end

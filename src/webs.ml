@@ -989,25 +989,38 @@ module Http = struct
   end
 
   module Cookie = struct
-    type atts = string
-    let atts
-        ?max_age ?domain ?(path = []) ?(secure = true) ?(http_only = true)
-        ?(same_site = "strict") ()
+    type atts =
+      { max_age : int option;
+        domain : string option;
+        path : path;
+        secure : bool;
+        http_only : bool;
+        same_site : string; }
+
+    let atts_default =
+      { max_age = None; domain = None; path = []; secure = true;
+        http_only = true; same_site = "strict"; }
+
+    let atts ?init:(a = atts_default)
+        ?(max_age = a.max_age) ?(domain = a.domain) ?(path = a.path)
+        ?(secure = a.secure) ?(http_only = a.http_only)
+        ?(same_site = a.same_site) ()
       =
-      let max_age = match max_age with
+      { max_age; domain; path; secure; http_only; same_site }
+
+    let encode_atts a =
+      let max_age = match a.max_age with
       | None -> "" | Some a -> ";max-age=" ^ string_of_int a
       in
-      let domain = match domain with None -> "" | Some d -> ";domain=" ^ d in
-      let path = if path = [] then "" else ";path=" ^ (Path.encode path) in
-      let secure = if secure then ";Secure" else "" in
-      let http_only = if http_only then ";httponly" else "" in
-      let same_site = ";samesite=" ^ same_site in
+      let domain = match a.domain with None -> "" | Some d -> ";domain=" ^ d in
+      let path = if a.path = [] then "" else ";path=" ^ (Path.encode a.path) in
+      let secure = if a.secure then ";Secure" else "" in
+      let http_only = if a.http_only then ";httponly" else "" in
+      let same_site = ";samesite=" ^ a.same_site in
       String.concat "" [max_age; domain; path; secure; http_only; same_site]
 
-    let atts_default = atts ()
-
     let encode ?(atts = atts_default) ~name value =
-      String.concat "" [name; "="; value; atts]
+      String.concat "" [name; "="; value; encode_atts atts]
 
     let decode_list s =
       (* Very lax parsing. TODO better,

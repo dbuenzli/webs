@@ -279,15 +279,15 @@ module El : sig
   val raw : string -> html
   (** [raw s] is the raw string [s] without escaping markup delimiters.
       [s] must be well-formed HTML otherwise invalid markup will be generated.
-      This can be used to
+      This can be used to:
       {ul
-      {- Include foreign markup.}
-      {- With the {!style} element, to avoid unpleasant surprises.}} *)
+      {- include foreign markup.}
+      {- avoid unpleasant surprises with the {!style} element.}} *)
 
   (** {2:page Page}
 
       There's more than one way to generate a basic HTML page. The following
-      provides good defaults for a minimal document. *)
+      provides good defaults for a quick minimal document. *)
 
   val page :
     ?lang:string -> ?generator:string -> ?styles:string list ->

@@ -27,7 +27,7 @@ module Gateway : sig
       {- Header [header] set to [file]. The actual [header] to use
          depends on your gateway.}}
 
-      {b Note.} The gateway docs of this mecanism are unclear whether we
+      {b Note.} The gateway docs of this mechanism are unclear whether we
       should also transfer some of [r]'s headers in the response
       e.g. the etag and conditional headers but at least with Nginx
       that doesn't seem to be the case. *)
@@ -832,69 +832,68 @@ end
 (** Authenticated cookies.
 
     An authenticated cookie lets your service store expirable state on
-    the client with the guarantee that it cannot tamper with it. The
-    data is {b not encrypted}, this is not made to store service
+    the client with the guarantee that it cannot tamper with it. {b The
+    data is not encrypted}, this is not made to store service
     secrets on the client.
 
-    In order to use this you need a private key in your service. An
-    easy way to handle this is to generate one randomly with
-    {!Authenticatable.random_key} when you start your service. Note
-    however that this invalidates any data currently stored on your
-    clients whenever you restart your service – that may be okay, or
-    not. *)
+    Authenticated cookies use the {!Authenticatable} scheme. This means
+    you need a private key in your service. An easy way to handle this is
+    to generate one randomly with
+    {!Authenticatable.random_private_key_hs256} when you start your
+    service. Note however that this invalidates any data currently
+    stored on your clients whenever you restart your service – that
+    may be okay, or not, save it and load it from a [0o600] protected
+    file if it's not. Also if you use a single service key you cannot
+    invalidate the data of your clients on a per-user basis. *)
 module Authenticated_cookie : sig
 
-  val get :
+  val find :
     private_key:Authenticatable.private_key ->
-    now:Authenticatable.time option -> name:string -> Req.t -> string option
-  (** [get ~private_key ~now ~name req] is the cookie of [req] named [name]
-      authenticated and expired by [private_key] and [now] (see
-      {!Authenticatable.decode}).
-
-      {b TODO.} Any kind of error leads to [None]. *)
+    now:Authenticatable.time option -> name:string -> Req.t ->
+    (string option, [Authenticatable.decode_error | `Cookie of string ]) result
+  (** [find ~private_key ~now ~name req] is the cookie of [req] named
+      [name] authenticated and expired by [private_key] and
+      [now]. This is [Ok None] if no cookie named [name] could be
+      found or if its value is [""]. If the cookie was {!set} with
+      an [expire] you need to provide a [now] otherwise it will never
+      authenticate, see {!Authenticatable.decode} for more details. *)
 
   val set :
     private_key:Authenticatable.private_key ->
     expire:Authenticatable.time option -> ?atts:Http.Cookie.atts ->
     name:string -> string -> Resp.t -> Resp.t
   (** [set ~private_key ~expire ~atts ~name data resp] sets in [resp] the
-      cookie [name] to [data] authenticated
-      by [private_key] and expiring at [expire] (see
-      {!Authenticatable.encode}). [atts] are the cookie's attribute
-      they default to {!Webs.Http.Cookie.atts_default}. *)
+      cookie [name] to [data] authenticated by [private_key] and expiring at
+      [expire] (see {!Authenticatable.encode}). [atts] are the cookie's
+      attributes, they default to {!Webs.Http.Cookie.atts_default}.
+
+      {b Note.} The expiration [expire], if provided, expires the
+      authenticated data, it does not affect cookie expiration. Use the
+      [max_age] attribute of {!Webs.Http.Cookie.val-atts} for that.  *)
+
+  val clear : ?atts:Http.Cookie.atts -> name:string -> Resp.t -> Resp.t
+  (** [clear ~atts ~name rresp] clears the cookie named [name] in
+      [resp] by setting its [max-age] to [-1] and value to
+      [""]. [atts] should be the same attributes as those given to
+      [set], the [max_age] attribute gets overriden with a [-1] by
+      the function. *)
 end
 
-(** Sessions.
+(** Session handling.
 
-    Sessions maintain state across request/response cycles. This module
-    provides a basic infrastructure to abstract the mecanism handling
-    sessions.
+    Sessions maintain state across request-response cycles. This
+    module provides a basic mechanism to abstract session handlers.
 
-    One built-in mecanism is offered for {b unencrypted} but authenticated
-    client-side sessions via {!Authenticated_cookie}s.
-
-    {b TODO.}
-    {ul
-    {- Error paths. In particular on load.}
-    {- Expiry.}
-    {- Provide a reasonably efficient and convenient (Tpf ?) binary
-       solution for {!state} codec.}
-    {- Authenticated cookie, fix the None path. Use expiration, option
-       to refresh on each request. Understand caching issues. Global salty
-       invalidation ?}
-    {- Add session handler init hooks and expiry cleanup}
-    {- Should {!state} be as a heterogenous dict with
-       serialisation ? That makes state composable, but implicitely
-       composable. We should rather go for
-       explicit compositionality and state design.}} *)
+    One built-in mechanism is offered for {b unencrypted} but authenticated
+    client-side sessions via {!Authenticated_cookie}s.  *)
 module Session : sig
 
   (** {1:session Session state} *)
 
   type 'a state
   (** The type for session state of type ['a]. Values of this type
-      describe how to test ['a] for equality and codec it with
-      bytes. *)
+      describe how to test ['a] for equality and encode and decode it
+      to bytes. *)
 
   val state :
     eq:('a -> 'a -> bool) -> encode:('a -> string) ->
@@ -902,7 +901,7 @@ module Session : sig
   (** [state ~eq ~encode ~decode ()] tests state for equality with
       [eq], encodes it with [encode] and decodes it with [decode]. *)
 
-  (** Built-in state values. {b TODO.} Call Tpf to the rescue. *)
+  (** Built-in state values. {b FIXME.} Remove that. *)
   module State : sig
     val int : int state
     val string : string state
@@ -920,10 +919,10 @@ module Session : sig
     save:('a state -> 'a option -> Resp.t -> Resp.t) -> unit ->
     'a handler
   (** [handler ~load ~save ()] is a session handler using [load]
-      to setup the session state and [save] to save before responding.
+      to setup the session state and [save] to save it before responding.
 
-      {b TODO} do we want to give the original [Req.t] to save
-      aswell ? *)
+      {b Warning.} [save] gets invoked [iff] the state to save is different
+      from the one that was loaded. *)
 
   type 'a resp = 'a option * Resp.t
   (** The type for session responses. *)
@@ -955,10 +954,73 @@ module Session : sig
     private_key:Authenticatable.private_key -> ?atts:Http.Cookie.atts ->
     name:string -> unit -> 'a handler
   (** [with_authenticated_cookie ~private_key ~atts ~name] stores
-      state on the client with an {!Authenticated_cookie} that can be
-      authenticated with the private key [private_key].  [name] is the
-      name of the cookie.  [atts] are the attributes of the cookie,
-      they default to {!Webs.Http.Cookie.atts_default}. *)
+      {{:expiring}non-expirable} state on the client with an
+      {!Authenticated_cookie} that can be authenticated with the private key
+      [private_key]. [name] is the name of the cookie.  [atts] are the
+      attributes of the cookie, they default to
+      {!Webs.Http.Cookie.atts_default}.
+
+      {b Warning.} Cookies are set in the response iff the state changes
+      in a request-response cycle. In particular this means that using
+      a [max_age] in the cookie attributes, will only refresh the deadline
+      whenever the state changes; but {{!expiring}we argue} this should not
+      be used anyways. *)
+
+  (** {1:design_notes Design notes}
+
+      {b TODO.} Decide whether they makes sense.
+
+      {2:expiring Expiring sessions}
+
+      The session mechanism has no provision to automatically expire
+      sessions. In general expiring sessions is not very user
+      friendly, especially on mobile. It seems better to let the user
+      have its state indefinitely if it wishes and have a [sudo]-like
+      mechanism that asks and provides elevated authentication for a
+      limited amount of time to peform more sensitive operations.
+
+      This expiration mechanism can be devised on top of the mechanism
+      of this module using session state itself – for example by
+      having a [sudo_until : Ptime.t option] field in the state of an
+      authenticated cookie and dedicated logic to handle it.
+
+      Somehow it feels like a good separation of concerns, or not.
+
+      {2:state State data structure}
+
+      The {!type-state} type could be a heterogenous dictionary with
+      serializable values. This makes state highly composable, but {e
+      implicitely} composable and thus harder to understand and audit.
+
+      For now we would rather try to explore how inconvenient explicit
+      state design and composition is or becomes in practice. Also
+      note that implicit design is also possible, but not advised,
+      with {!type-state}, by simply multiplying the cookies.
+
+      {2:load_error Load errors}
+
+      {b FIXME.}
+
+      The signature of [load] is not very good for session error
+      reporting; it basically entices to drop the session without notice
+      on errors (e.g. in {!with_authenticated_cookie} we might
+      want to show a page that user was logged out, or not).
+
+ Tried with:
+{[
+load : 'a state -> Webs.Req.t -> ('a option, Resp.t) result
+]}
+      but things don't seem end up at the right place. Somehow
+      we rather have the error end up in the [service] function in {!setup}.
+      Maybe we should move on to:
+{[
+load : 'a state -> Webs.Req.t -> ('a option, 'e) result
+]}
+     and carry the ['e] in the handler type. In the service we can then quickly
+     handle the error with combinators or access the state
+     or simply ignore the error and continue with [None]. This
+     This would also be useful for e.g. an {!expiring} version of
+     {!with_authenticated_cookie}. *)
 end
 
 (** HTTP basic authentication

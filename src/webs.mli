@@ -901,22 +901,23 @@ module Http : sig
   module Cookie : sig
 
     type atts
-    (** The type for cookie attributes. *)
-
-    val atts :
-      ?max_age:int -> ?domain:string -> ?path:path -> ?secure:bool ->
-      ?http_only:bool -> ?same_site:string -> unit -> atts
-    (** [atts] are the given cookie attributes. If an attribute is
-        absent it is not mentioned in the cookie specification except
-        for [secure] which defaults to [true], [same_site] which
-        defaults to ["strict"] and [http_only] which defaults to [true].  *)
+    (** The type for {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes}cookie attributes}. *)
 
     val atts_default : atts
-    (** [atts_default] is [atts ()]. *)
+    (** [atts_default] are cookie attributes with [secure] set to [true],
+        [http_only] set to [true], [same_site] set to ["strict"] and no other
+        attribute specified. *)
+
+    val atts :
+      ?init:atts -> ?max_age:int option -> ?domain:string option ->
+      ?path:path -> ?secure:bool -> ?http_only:bool -> ?same_site:string ->
+      unit -> atts
+    (** [atts ()] are the given {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes}cookie attributes}. Those unspecified take
+        the value of [init] which defaults to {!atts_default}. *)
 
     val encode : ?atts:atts -> name:string -> string -> string
     (** [encodes ~atts name s] encodes a cookie
-        with attributes [atts] (defaults) to {!atts_default} for
+        with attributes [atts] (defaults to {!atts_default}) for
         {!H.set_cookie}. *)
 
     val decode_list : string -> ((string * string) list, string) result
