@@ -750,6 +750,8 @@ module Authenticated_cookie = struct
   | None -> Ok []
   | Some s -> Http.Cookie.decode_list  s
 
+  let base64url = true
+
   let find ~private_key ~now ~name req = match cookies (Req.headers req) with
   | Error e -> Error (`Cookie e)
   | Ok cookies ->
@@ -757,12 +759,12 @@ module Authenticated_cookie = struct
       | None -> Ok None
       | Some "" -> Ok None
       | Some cookie ->
-          match Authenticatable.decode ~private_key ~now cookie with
+          match Authenticatable.decode ~base64url ~private_key ~now cookie with
           | Ok (_, data) -> Ok (Some data)
           | Error _ as e ->  e
 
   let set ~private_key ~expire ?atts ~name data resp =
-    let value = Authenticatable.encode ~private_key ~expire data in
+    let value = Authenticatable.encode ~base64url ~private_key ~expire data in
     let cookie = Http.Cookie.encode ?atts ~name value in
     let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
     Resp.with_headers hs resp
