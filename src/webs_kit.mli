@@ -212,6 +212,7 @@ end
 
     {b TODO.}
     {ul
+    {- Bare.equal}
     {- Integrate fragment part ? If yes, in the [bare] type or on
        formatting functions ? Likely not on [bare], you never get fragments
        to decode so it seems a bit OT.}
@@ -715,84 +716,117 @@ end
 (** Authenticatable data.
 
     This module defines a simple US-ASCII compatible
-    {{!Authenticatable.t}encoding
-    scheme} to publish {b non-secret}, expirable data bytes
-    authenticatable via a secret private key. Human readability is a
-    non-goal, storing your state in non-trusted environments is.
+    {{!Authenticatable.t}encoding scheme} to publish {b
+    non-encrypted}, expirable data bytes authenticatable with a secret
+    private key. Human readability and secrecy is a non-goal, storing
+    your state in non-trusted environments is.
 
     {b The data is not encrypted}.
 
-    {b TODOs.}
-    {ul
-    {- {!decode}, are we happy about the erroring structure ?}
-    {- {!encode}/{!decode}, provide primed version which compose
-       with [{to,of}_string] funs ?}} *)
+    {b Note.} The scheme and module is designed with extensibility
+    in mind but for now only an {{!Sha_256.val-hmac}HMAC-SHA-256} scheme
+    is defined. *)
 module Authenticatable : sig
 
   (** {1:time Time} *)
 
   type time = int
-  (** The type for some notion of time to expire data. For example you
-      can use a logical notion of time or the number of seconds since
-      the epoch. *)
+  (** The type for some notion of time to expire data. The semantics is left
+      to the client, for example you can use a logical notion of time or the
+      number of seconds since the epoch. *)
 
   (** {1:keys Keys} *)
 
-  type private_key = string
-  (** The type for private keys. This is used with
-      {{!val:Sha_256.hmac}[HMAC-SHA-256]}, so it should be at least 32
-      bytes long. *)
+  type private_key = [
+    | `Hs256 of string (** Used with
+      {{!Sha_256.val-hmac}[HMAC-SHA-256]}, hence should be at least 32
+      bytes. *) ]
+  (** The type for private keys.  *)
 
-  val random_private_key : unit -> private_key
-  (** [random_private_key ()] are 64 bytes random bytes sourced after having
-      called {!Stdlib.Random.self_init}. *)
+  val random_private_key_hs256 : unit -> private_key
+  (** [random_private_key_hs256 ()] are 64 random bytes sourced from
+      a {!Stdlib.Random.make_self_init} initialized PRNG. *)
 
   (** {1:auth Authenticatable} *)
 
   type t = string
   (** The type for authenticatable bytes. The encoding scheme for bytes
       [data] and an optional expiration timestamp [expire] and private key
-      [private_key] is:
+      [private_key] is, with [+] as string concatenation:
 {[
-expire = match expire with None -> "" | Some e -> string_of_int e
-msg = expire + ":" + data
-authenticatable = (base64|base64url)(hmac-sha-256(private_key, msg) + msg)
+exp = match expire with None -> "" | Some e -> string_of_int e
+msg = exp + ":" + data
+hs256 = "HS256:" + hmac-sha-256(private_key, msg)
+auth_hs256_base64 = base64(hs256 + msg)
+auth_hs256_base64url = base64url(hs256 + msg)
 ]}
   *)
 
   val encode :
     ?base64url:bool -> private_key:private_key -> expire:time option ->
     string -> t
-  (** [encode ~private_key ~expire data] makes data [data] expire at [expire]
-      (if any) and authenticatable via the private key [private_key]. If
-      [base64url] is [true] (defaults to [false]) the [base64url]
-      encoding scheme is used instead of [base64] (see {!Webs.Http.Base64}). *)
+  (** [encode ~base64url ~private_key ~expire data] makes data [data]
+      expire at [expire] (if any) and authenticatable via the private
+      key and scheme defined by [private_key]. If [base64url] is [true]
+      (defaults to [false]) the
+      {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
+      encoding scheme is used instead of [base64]. *)
+
+  type format_error =
+  [ `Base64 of bool * int (** [true] if [base64url] and input byte index.  *)
+  | `Scheme of string option (** Scheme name, if one was found. *) ]
+  (** The type for decode format errors. *)
+
+  val format_error_to_string : format_error -> string
+  (** [format_error_to_string e] is an english error message for [e]. *)
+
+  type decode_error =
+  [ `Authentication (** Authentication error. *)
+  | `Expired of time (** Expiration time. *)
+  | `Missing_now_for of time (** Expiration time. *)
+  | `Format of format_error ]
+  (** The type for decode errors. See {!decode}. *)
+
+  val decode_error_to_string : decode_error -> string
+  (** [decode_error_to_string e] is an english error message for [e]. *)
 
   val decode :
-    ?base64url:bool -> private_key:private_key -> now:time -> t ->
-    (time option * string, [`Expired | `Decode | `Authentication]) result
-  (** [decode ~key ~now s] authenticates data [s] with the private
-      key [key] and makes it expire (if applicable) according to [now].
+    ?base64url:bool -> private_key:private_key -> now:time option -> t ->
+    (time option * string, decode_error) result
+  (** [decode ~base64url ~private_key ~now s] authenticates data [s] with
+      the private key and scheme defined by [private_key] and expires it
+      (if applicable) according to [now]. If [now] is [None] and [s] has
+      an expiration timestamp, the result errors (see below).
+
       The result is:
       {ul
-      {- [Ok (expire, data)] with [data] authenticated by [private_key]
-         and [now] stricly smaller than [expire] (if any).}
-      {- [Error `Expired] if the data could be authenticated but
-         [now] is larger or equal to [expire] (if any).}
+      {- [Ok (expire, data)] with [data] the authenticated bytes, [expire]
+         the expiration timestamp (if any) iff [s] is
+         authenticated by [private_key] and,
+         if [expire] is [Some t], [now] is [Some n] with [n < t].}
       {- [Error `Authentication] if [s] cannot be authenticated by
-         [key].}
-      {- [Error `Decode] if any other decoding error occurs.}}
+         [private_key].}
+      {- [Error (`Expired t)], if [s] is authenticated by [private_key]
+         and expires at [t] but [now] is [Some n] with [n >= t].}
+      {- [Error (`Missing_now_for t)], if [s] is authenticated by
+         [private_key] and expires at [t] but [now] is [None].}
+      {- [Error (`Format _)] if any other decoding error occurs.}}
 
-      If [base64url] is [true] (defaults to [false]) the [base64url] encoding
-      scheme is used instead of [base64]. *)
+      If [base64url] is [true] (defaults to [false]) the
+      {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
+      encoding scheme is used instead of [base64]. *)
 
   (** {1:untrusted Untrusted decode} *)
 
   val untrusted_decode :
     ?base64url:bool -> t ->
-    ([`Untrusted of Sha_256.t * time option * string], [`Decode]) result
+    ([`Untrusted_hs256 of Sha_256.t * time option * string], format_error)
+      result
     (** [untrusted_decode s] decodes the encoding structure of [s] but
-        neither authenticates nor expires the data. *)
+        neither authenticates nor expires the data. If [base64url] is [true]
+        (defaults to [false]) the
+        {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
+        encoding scheme is used instead of [base64]. *)
 end
 
 (** Authenticated cookies.
@@ -811,8 +845,8 @@ end
 module Authenticated_cookie : sig
 
   val get :
-    private_key:Authenticatable.private_key -> now:Authenticatable.time ->
-    name:string -> Req.t -> string option
+    private_key:Authenticatable.private_key ->
+    now:Authenticatable.time option -> name:string -> Req.t -> string option
   (** [get ~private_key ~now ~name req] is the cookie of [req] named [name]
       authenticated and expired by [private_key] and [now] (see
       {!Authenticatable.decode}).

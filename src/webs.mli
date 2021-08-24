@@ -45,12 +45,15 @@ module Http : sig
       {{:https://tools.ietf.org/html/rfc4648#section-4}RFC 4684}. *)
   module Base64 : sig
     val encode : ?url:bool -> string -> string
-    (** [encode s] is the [base64] (or [base64url] if [url] is [true])
-        encoding of [s] . *)
+    (** [encode s] is the [base64] (or
+        {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
+        if [url] is [true]) encoding of [s] . *)
 
     val decode : ?url:bool -> string -> (string, int) result
-    (** [decode s] is the [base64] (or [base64url] if [url] is [true])
-        decode of [s]. In case of error the integer indicates:
+    (** [decode s] is the [base64] (or
+        {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
+        if [url] is [true]) decode of [s]. In case of error the integer
+        indicates:
         {ul
         {- Either the byte index of the error for an invalid
            alphabet character error}

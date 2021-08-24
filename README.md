@@ -41,7 +41,7 @@ than on the issue tracker.
 
 ## Sample programs 
 
-A few programs can be found in the [test][test] directory. 
+A few programs can be found in the [test](test) directory.
 
 The [`webs`](test/webs_tool) command line tool serves your files
 over HTTP/1.1.

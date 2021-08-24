@@ -18,8 +18,8 @@ let alter_expires s =
 
 let test_authenticatable () =
   print_endline "Test Authenticatable.";
-  let k0 = Authenticatable.random_private_key () in
-  let k1 = Authenticatable.random_private_key () in
+  let k0 = Authenticatable.random_private_key_hs256 () in
+  let k1 = Authenticatable.random_private_key_hs256 () in
   let data = "Try changing that." in
   let expire = Some 3 in
   let m0 = Authenticatable.encode ~private_key:k0 ~expire data in
@@ -27,14 +27,19 @@ let test_authenticatable () =
   let m0_a0 = alter_data m0 in
   let m0_a1 = alter_expires m0 in
   let decode = Authenticatable.decode in
-  assert (decode ~private_key:k0 ~now:1 m0 = Ok (Some 3, data));
-  assert (decode ~private_key:k0 ~now:3 m0 = Error `Expired);
-  assert (decode ~private_key:k0 ~now:4 m0 = Error `Expired);
-  assert (decode ~private_key:k0 ~now:1 m0_a0 = Error `Authentication);
-  assert (decode ~private_key:k0 ~now:1 m0_a1 = Error `Authentication);
-  assert (decode ~private_key:k1 ~now:1 m0 = Error `Authentication);
-  assert (decode ~private_key:k1 ~now:1 m1 = Ok (None, data));
-  assert (decode ~private_key:k1 ~now:9 m1 = Ok (None, data));
+  assert (decode ~private_key:k0 ~now:None m0 = Error (`Missing_now_for 3));
+  assert (decode ~private_key:k0 ~now:(Some 1) m0 = Ok (Some 3, data));
+  assert (decode ~private_key:k0 ~now:(Some 3) m0 = Error (`Expired 3));
+  assert (decode ~private_key:k0 ~now:(Some 4) m0 = Error (`Expired 3));
+  assert (decode ~private_key:k0 ~now:(Some 1) m0_a0 = Error `Authentication);
+  assert (decode ~private_key:k0 ~now:(Some 1) m0_a1 = Error `Authentication);
+  assert (decode ~private_key:k0 ~now:None m0_a0 = Error `Authentication);
+  assert (decode ~private_key:k0 ~now:None m0_a1 = Error `Authentication);
+  assert (decode ~private_key:k1 ~now:None m0 = Error `Authentication);
+  assert (decode ~private_key:k1 ~now:(Some 1) m0 = Error `Authentication);
+  assert (decode ~private_key:k1 ~now:None m1 = Ok (None, data));
+  assert (decode ~private_key:k1 ~now:(Some 1) m1 = Ok (None, data));
+  assert (decode ~private_key:k1 ~now:(Some 9) m1 = Ok (None, data));
   ()
 
 let main () =
