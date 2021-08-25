@@ -811,73 +811,82 @@ module Authenticated_cookie = struct
 end
 
 module Session = struct
+
+  (* Session state description *)
+
   type 'a state =
     { eq : 'a -> 'a -> bool;
       encode : 'a -> string;
       decode : string -> ('a, string) result; }
 
-  let[@inline] state ~eq ~encode ~decode () = { eq; encode; decode }
-
   module State = struct
-    let string =
-      state ~eq:String.equal ~encode:Fun.id ~decode:Result.ok ()
-
-    let int =
-      let encode i = string_of_int i in
-      let decode s = Option.to_result ~none:"not an int" (int_of_string_opt s)in
-      state ~eq:Int.equal ~encode ~decode ()
-
-    let pair s0 s1 = (* TODO this is of course broken *)
-      let encode (v0, v1) = String.concat "\x00" [s0.encode v0; s1.encode v1] in
-      let decode s = match String.index_opt s '\x00' with
-      | None -> Error "can't decode pair"
-      | Some i ->
-          let* v0 = s0.decode (Http.string_subrange ~last:(i - 1) s) in
-          let* v1 = s1.decode (Http.string_subrange ~first:(i + 1) s) in
-          Ok (v0, v1)
-      in
-      let eq (v0, v1) (v0', v1') = s0.eq v0 v0' && s1.eq v1 v1' in
-      state ~eq ~encode ~decode ()
+    type 'a t = 'a state
+    let v ~eq ~encode ~decode () = { eq; encode; decode }
+    let eq s = s.eq
+    let encode s = s.encode
+    let decode s = s.decode
+    let option_eq st s0 s1 = match s0, s1 with
+    | None, None -> true | Some s0, Some s1 -> st.eq s0 s1 | _ -> false
   end
 
-  type 'a handler =
-    { load : 'a state -> Req.t -> 'a option;
+  (* Handler *)
+
+  type ('a, 'e) handler =
+    { load : 'a state -> Req.t -> ('a option, 'e) result;
       save : 'a state -> 'a option -> Resp.t -> Resp.t }
 
-  let handler ~load ~save () = { load; save }
-
-  let eq_state st s0 s1 = match s0, s1 with
-  | Some s0, Some s1 -> st.eq s0 s1
-  | None, None -> true
-  | _ -> false
+  module Handler = struct
+    type ('a, 'e) t = ('a, 'e) handler
+    let v ~load ~save () = { load; save }
+    let load h = h.load
+    let save h = h.save
+  end
 
   type 'a resp = 'a option * Resp.t
   type nonrec 'a result = ('a resp, 'a resp) result
 
-  let setup st handler service =
-    fun req ->
-    let s = handler.load st req in
-    let s', resp = service s req in
-    if eq_state st s s' then resp else handler.save st s' resp
+  let setup sd h service = fun req ->
+    let r = h.load sd req in
+    let s', resp = service r req in
+    match r with
+    | Ok s when State.option_eq sd s s' -> resp
+    | Ok _ | Error _ -> h.save sd s' resp
+
+  (* Client stored *)
+
+  type client_stored_error =
+  [ Authenticated_cookie.error | `State_decode of string ]
+
+  let client_stored_error_message = function
+  | `State_decode e -> strf "state decode: %s" e
+  | #Authenticated_cookie.error as e -> Authenticated_cookie.error_message e
+
+  let client_stored_error_string r =
+    Result.map_error client_stored_error_message r
+
+  let client_stored ~private_key ?atts ~name () =
+    let load sd r =
+      match Authenticated_cookie.find ~private_key ~now:None ~name r with
+      | Ok (Some (_, s)) ->
+          begin match sd.decode s with
+          | Error e -> Error (`State_decode e)
+          | Ok v -> Ok (Some v)
+          end
+      | (Ok None | Error _ as v) -> v
+    in
+    let save sd s r = match s with
+    | None -> Authenticated_cookie.clear ?atts ~name r
+    | Some s ->
+        let data = sd.encode s in
+        Authenticated_cookie.set ?atts ~private_key ~expire:None ~name data r
+    in
+    Handler.v ~load ~save ()
+
+  (* Result state injection *)
 
   let for_result st = function Ok v -> Ok (st, v) | Error e -> Error (st, e)
   let for_ok st = function Ok v -> Ok (st, v) | Error _ as e -> e
   let for_error st = function Ok _ as v -> v | Error e -> Error (st, e)
-
-  let with_authenticated_cookie ~private_key ?atts ~name () =
-    let load st req =
-      match Authenticated_cookie.find ~private_key ~now:None ~name req with
-      | Ok None -> None
-      | Ok (Some (_, s)) -> Result.to_option (st.decode s)
-      | Error _ -> None
-    in
-    let save st s resp = match s with
-    | None -> Authenticated_cookie.clear ?atts ~name resp
-    | Some s ->
-        let data = st.encode s in
-        Authenticated_cookie.set ?atts ~private_key ~expire:None ~name data resp
-    in
-    handler ~load ~save ()
 end
 
 (* Basic authentication *)

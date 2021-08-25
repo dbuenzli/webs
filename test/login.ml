@@ -48,13 +48,11 @@ module User = struct
   | _, _ -> false
 end
 
-let private_key = (* expires on restart *)
-  Authenticatable.random_private_key_hs256 ()
+let session ~private_key =
+  Session.client_stored ~private_key ~name:"webs_login" ()
 
-let session =
-  Session.with_authenticated_cookie ~private_key ~name:"webs_login" ()
-
-let user_state = Session.State.string
+let user_state =
+  Session.State.v ~eq:String.equal ~encode:Fun.id ~decode:Result.ok ()
 
 let home req =
   let* _m = Req.Allow.(meths [get] req) in
@@ -106,8 +104,9 @@ let logout_user ~and_goto user req =
   let explain = Option.map (fun u -> u ^ "logged out") user in
   Ok (None, Req.service_redirect ?explain Http.see_other_303 and_goto req)
 
-let service req =
+let service ~private_key req =
   let serve user req =
+    let user = Option.join @@ Result.to_option user (* drop sess. on error *) in
     Resp.result @@ match Req.path req with
     | [ "" ] -> Session.for_result user @@ home req
     | ["restricted"] -> restricted ~login:["login"] user req
@@ -115,9 +114,13 @@ let service req =
     | ["logout"] -> logout_user ~and_goto:[""] user req
     | _ -> Session.for_result user (Resp.not_found_404 ())
   in
-  Session.setup user_state session serve req
+  Session.setup user_state (session private_key) serve req
 
-let main () = Webs_cli.quick_serve ~name:"login" service
+let main () =
+  let private_key = Authenticatable.random_private_key_hs256 () in
+  Webs_cli.quick_serve ~name:"login" (service ~private_key)
+
+
 let () = if !Sys.interactive then () else main ()
 
 (*---------------------------------------------------------------------------

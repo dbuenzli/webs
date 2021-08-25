@@ -58,7 +58,7 @@ module Http = struct
 
     let url u = if u then "url" else ""
     let error_message = function
-    | Unexpected_eoi u -> strf "unexpecteed end of base64%s input" (url u)
+    | Unexpected_eoi u -> strf "unexpected end of base64%s input" (url u)
     | Invalid_letter (u, i, c) ->
         strf "%d: invalid base64%s alphabet character %C" i (url u) c
 

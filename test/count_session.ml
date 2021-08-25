@@ -21,13 +21,17 @@ let count count = strf
 |} count
 
 (* sessions expires on restart *)
-let private_key = Authenticatable.random_private_key_hs256 ()
-let session =
-  Session.with_authenticated_cookie ~private_key ~name:"webs_count" ()
 
-let state = Session.State.int
+let session ~private_key =
+  Session.client_stored ~private_key ~name:"webs_count" ()
+
+let state =
+  let encode i = string_of_int i in
+  let decode s = Option.to_result ~none:"not an int" (int_of_string_opt s)in
+  Session.State.v ~eq:Int.equal ~encode ~decode ()
 
 let count c req =
+  let c = Option.join @@ Result.to_option c (* drop session on errors *) in
   let c = Option.value ~default:0 c in
   let c' = match (Req.query req) with
   | Some "next" -> c + 1
@@ -36,15 +40,18 @@ let count c req =
   in
   Some c', Resp.html Http.ok_200 (count c')
 
-let service req =
+let service ~private_key req =
   Resp.result @@ match Req.path req with
   | [""] ->
-      let* _m = Req.Allow.(meths [get] req) in
-      Ok (Session.setup state session count req)
+      let* `GET = Req.Allow.(meths [get] req) in
+      Ok (Session.setup state (session ~private_key) count req)
   | _ ->
       Resp.not_found_404 ()
 
-let main () = Webs_cli.quick_serve ~name:"count_session" service
+let main () =
+  let private_key = Authenticatable.random_private_key_hs256 () in
+  Webs_cli.quick_serve ~name:"count_session" (service ~private_key)
+
 let () = if !Sys.interactive then () else main ()
 
 (*---------------------------------------------------------------------------

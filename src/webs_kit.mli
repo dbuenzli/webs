@@ -880,7 +880,9 @@ module Authenticated_cookie : sig
 
   (** {1:get Getting} *)
 
-  type error = [ Authenticatable.error | `Cookie of string ]
+  type error =
+  [ Authenticatable.error (** Authenticatable data errors. *)
+  | `Cookie of string (** Cookie decoding errors. *) ]
   (** The type for authenticated cookie decode and authentication
       errors. *)
 
@@ -907,57 +909,148 @@ end
     Sessions maintain state across request-response cycles. This
     module provides a basic mechanism to abstract session handlers.
 
-    One built-in mechanism is offered for {b unencrypted} but authenticated
-    client-side sessions via {!Authenticated_cookie}s.  *)
+    A handler {{!Session.section-client_stored}implementation} using
+    {!Authenticated_cookie}s for storing session state on the clients is
+    also provided.  *)
 module Session : sig
 
-  (** {1:session Session state} *)
+  (** {1:state_descr State descriptors} *)
 
   type 'a state
-  (** The type for session state of type ['a]. Values of this type
-      describe how to test ['a] for equality and encode and decode it
-      to bytes. *)
+  (** The type for describing session state of type ['a]. Values of this type
+      describe to {{!type-handler}session handlers} how to assert values of
+      type ['a] for equality and how to codec them with bytes. *)
 
-  val state :
-    eq:('a -> 'a -> bool) -> encode:('a -> string) ->
-    decode:(string -> ('a, string) result) -> unit -> 'a state
-  (** [state ~eq ~encode ~decode ()] tests state for equality with
-      [eq], encodes it with [encode] and decodes it with [decode]. *)
+  (** State descriptors.
 
-  (** Built-in state values. {b FIXME.} Remove that. *)
+      {b FIXME.} encode allow errors ? [pp] ? *)
   module State : sig
-    val int : int state
-    val string : string state
-    val pair : 'a state -> 'b state -> ('a * 'b) state
+
+    type 'a t = 'a state
+    (** See {!Session.type-state}. *)
+
+    val v :
+      eq:('a -> 'a -> bool) -> encode:('a -> string) ->
+      decode:(string -> ('a, string) result) -> unit -> 'a state
+  (** [v ~eq ~encode ~decode ()] tests state for equality with
+      [eq], encodes it to bytes with [encode] and decodes from bytes
+      with [decode]. *)
+
+    val eq : 'a state -> ('a -> 'a -> bool)
+    (** [eq sd] is the equality function of [sd]. *)
+
+    val encode : 'a state -> ('a -> string)
+    (** [encode sd] is the encoding function of [sd]. *)
+
+    val decode : 'a state -> (string -> ('a, string) result)
+    (** [decode sd] is the decoding function of [sd]. *)
+
+    val option_eq : 'a state -> 'a option -> 'a option -> bool
+    (** [option_eq sd] is [eq] trivially extended to optional state. *)
   end
 
   (** {1:handler Session handler} *)
 
-  type 'a handler
-  (** The type for session handler of state of type ['a]. Values
-      of this type are in charge of loading and saving the state. *)
+  type ('a, 'e) handler
+  (** The type for session handler with state of type ['a] and state
+      loading errors of type ['e]. Values of this type are in charge of
+      loading the state when a request is received and saving it when
+      a response is sent back and the state has changed. *)
 
-  val handler :
-    load:('a state -> Req.t -> 'a option) ->
-    save:('a state -> 'a option -> Resp.t -> Resp.t) -> unit ->
-    'a handler
-  (** [handler ~load ~save ()] is a session handler using [load]
-      to setup the session state and [save] to save it before responding.
+  (** Session handlers. *)
+  module Handler : sig
 
-      {b Warning.} [save] gets invoked [iff] the state to save is different
-      from the one that was loaded. *)
+    type ('a, 'e) t = ('a, 'e) handler
+    (** See {!Session.type-handler}. *)
+
+    val v :
+      load:('a state -> Req.t -> ('a option, 'e) result) ->
+      save:('a state -> 'a option -> Resp.t -> Resp.t) -> unit ->
+      ('a, 'e) handler
+    (** [handler ~load ~save ()] is a session handler using [load]
+        to setup the session state and [save] to save it before responding.
+
+        Sessions as are represented by ['a option] values. On [load] a [None]
+        indicates there is no session. On [save] a [None] indicates to
+        drop the session.
+
+        {b Warning.} [save] gets invoked [iff] the state to save is different
+        from the one that was loaded. *)
+
+    val load :
+      ('a, 'e) handler -> ('a state -> Req.t -> ('a option, 'e) result)
+    (** [load h] is the state loading function of [h]. *)
+
+    val save :
+      ('a, 'e) handler -> ('a state -> 'a option -> Resp.t -> Resp.t)
+    (** [save h] is the state saving function of [h]. *)
+  end
 
   type 'a resp = 'a option * Resp.t
   (** The type for session responses. *)
 
   val setup :
-    'a state -> 'a handler -> ('a option -> Req.t -> 'a resp) -> Webs.service
-  (** [setup st handler service] handles loading and saving state [st]
-      with handler [handler] for service [service] which gets current
-      session state as argument and should tuple the new state with
-      the resulting request. *)
+    'a state -> ('a, 'e) handler ->
+    (('a option, 'e) result -> Req.t -> 'a resp) -> Webs.service
+  (** [setup sd h service] handles loading and saving state described
+      by [sd] with handler [h] for service [service].
 
-  (** {1:result Injecting session state in [result]} *)
+      The resulting service behaves as follows. On a request [r],
+      [service] is invoked with the state loaded by [h] for [r]. The
+      new state returned by [service] is saved by [h] if different from
+      the loaded state. *)
+
+  (** {1:client_stored Client stored sessions}
+
+      This handler provides sessions by storing them on the client.
+      The session data is {b unencrypted} but authenticated, the
+      client cannot tamper with it – unless it finds out about your
+      private key.
+
+      This is convenient for small user state like login status as no
+      state needs to be maintained on the server. However be mindful
+      about the size of your state as it travels in each request and,
+      on state changes, in responses. *)
+
+  type client_stored_error =
+  [ Authenticated_cookie.error (** Authenticated cookie errors. *)
+  | `State_decode of string (** Session state decode errors. *) ]
+  (** The type for client stored load state errors. *)
+
+  val client_stored_error_message : client_stored_error -> string
+  (** [client_stored_error_message e] is an english error
+      message for [e]. *)
+
+  val client_stored_error_string :
+    ('a, client_stored_error) Stdlib.result -> ('a, string) Stdlib.result
+  (** [client_stored_error_string r] is
+      [Result.map_error client_stored_error_message r]. *)
+
+  val client_stored :
+    private_key:Authenticatable.private_key -> ?atts:Http.Cookie.atts ->
+    name:string -> unit -> ('a, client_stored_error) handler
+  (** [client_stored ~private_key ~atts ~name] stores
+      {{:expiring}non-expirable} state on the client in an
+      {!Authenticated_cookie} authenticated with the private key
+      [private_key], named [name] and with attributes [atts]
+      [atts] (defaults to {!Webs.Http.Cookie.atts_default}).
+
+      {b Important.} The default [atts] has no path defined. This sets
+      the cookie (and thus the session) only for the requested URI prefix
+      which is unlikely to be what you want. FIXME cross-check that.
+
+      {b Warning.} The state is not encrypted and stored on the client's
+      matchine, make sure no service secrets are part of the state.
+
+      {b Warning.} Cookies are set in the response iff the state changes
+      in a request-response cycle. In particular this means that using
+      a [max_age] in the cookie attributes, will only refresh the deadline
+      whenever the state changes; but {{!expiring}we argue} this should not
+      be used anyways. *)
+
+  (** {1:result [result] state injection}
+
+      Convenience result combinators. *)
 
   val for_result :
     's option -> ('a, 'b) result -> ('s option * 'a, 's option * 'b) result
@@ -971,29 +1064,15 @@ module Session : sig
 
   type nonrec 'a result = ('a resp, 'a resp) result
 
-  (** {1:built-in Built-in session handlers} *)
-
-  val with_authenticated_cookie :
-    private_key:Authenticatable.private_key -> ?atts:Http.Cookie.atts ->
-    name:string -> unit -> 'a handler
-  (** [with_authenticated_cookie ~private_key ~atts ~name] stores
-      {{:expiring}non-expirable} state on the client with an
-      {!Authenticated_cookie} that can be authenticated with the private key
-      [private_key]. [name] is the name of the cookie.  [atts] are the
-      attributes of the cookie, they default to
-      {!Webs.Http.Cookie.atts_default}.
-
-      {b Warning.} Cookies are set in the response iff the state changes
-      in a request-response cycle. In particular this means that using
-      a [max_age] in the cookie attributes, will only refresh the deadline
-      whenever the state changes; but {{!expiring}we argue} this should not
-      be used anyways. *)
 
   (** {1:design_notes Design notes}
 
       {b TODO.} Decide whether they makes sense.
 
       {2:expiring Expiring sessions}
+
+      {b FIXME.} Revise this now that we have state load errors
+      in the service, it brings new ways around this.
 
       The session mechanism has no provision to automatically expire
       sessions. In general expiring sessions is not very user
@@ -1016,34 +1095,7 @@ module Session : sig
       implicitely} composable and thus harder to understand and audit.
 
       For now we would rather try to explore how inconvenient explicit
-      state design and composition is or becomes in practice. Also
-      note that implicit design is also possible, but not advised,
-      with {!type-state}, by simply multiplying the cookies.
-
-      {2:load_error Load errors}
-
-      {b FIXME.}
-
-      The signature of [load] is not very good for session error
-      reporting; it basically entices to drop the session without notice
-      on errors (e.g. in {!with_authenticated_cookie} we might
-      want to show a page that user was logged out, or not).
-
- Tried with:
-{[
-load : 'a state -> Webs.Req.t -> ('a option, Resp.t) result
-]}
-      but things don't seem end up at the right place. Somehow
-      we rather have the error end up in the [service] function in {!setup}.
-      Maybe we should move on to:
-{[
-load : 'a state -> Webs.Req.t -> ('a option, 'e) result
-]}
-     and carry the ['e] in the handler type. In the service we can then quickly
-     handle the error with combinators or access the state
-     or simply ignore the error and continue with [None]. This
-     This would also be useful for e.g. an {!expiring} version of
-     {!with_authenticated_cookie}. *)
+      state design and composition is or becomes in practice. *)
 end
 
 (** HTTP basic authentication
