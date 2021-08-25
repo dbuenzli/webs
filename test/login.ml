@@ -48,7 +48,9 @@ module User = struct
   | _, _ -> false
 end
 
-let private_key = Authenticatable.random_private_key () (* expires on restart *)
+let private_key = (* expires on restart *)
+  Authenticatable.random_private_key_hs256 ()
+
 let session =
   Session.with_authenticated_cookie ~private_key ~name:"webs_login" ()
 

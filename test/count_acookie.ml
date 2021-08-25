@@ -19,12 +19,17 @@ let count count = strf
 </html>
 |} count
 
-let private_key = Authenticatable.random_private_key () (* expires on restart *)
+let private_key = (* expires on restart *)
+  Authenticatable.random_private_key_hs256 ()
+
 let cookie_name = "count"
 
 let get_expirable_count ~private_key ~now req =
-  Option.value ~default:0 @@ Option.join @@ Option.map int_of_string_opt @@
-  Authenticated_cookie.get ~private_key ~now ~name:cookie_name req
+  let now = Some now and name = cookie_name in
+  match  Authenticated_cookie.find ~private_key ~now ~name req with
+  | Error e -> 0
+  | Ok None -> 0
+  | Ok (Some s) -> Option.value ~default:0 (int_of_string_opt s)
 
 let set_expirable_count ~private_key ~now ~count r =
   let expire = Some (now + 10) in

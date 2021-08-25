@@ -21,7 +21,7 @@ let count count = strf
 |} count
 
 (* sessions expires on restart *)
-let private_key = Authenticatable.random_private_key ()
+let private_key = Authenticatable.random_private_key_hs256 ()
 let session =
   Session.with_authenticated_cookie ~private_key ~name:"webs_count" ()
 
