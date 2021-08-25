@@ -14,3 +14,16 @@ requests to responses.
 {- Note about "middleware" which are not}
 {- Note about transforming req/resp to/from data structure
    and keep the routing to minimal service binding points}}
+
+
+{1:sessions Sessions}
+
+This means
+you need a private key in your service. An easy way to handle this is
+o generate one randomly with
+{!Authenticatable.random_private_key_hs256} when you start your
+service. Note however that this invalidates any data currently
+stored on your clients whenever you restart your service – that
+may be okay, or not, save it and load it from a [0o600] protected
+file if it's not. Also if you use a single service key you cannot
+invalidate the data of your clients on a per-user basis.

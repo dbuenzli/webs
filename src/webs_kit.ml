@@ -92,12 +92,11 @@ module Res = struct
 
     type error = [`Overflow | `Syntax]
 
-    let error_to_string = function
+    let error_message = function
     | `Overflow -> "id overflow"
     | `Syntax -> "id syntax error"
 
-    let error_to_resp e =
-      Resp.v ~reason:(error_to_string e) Http.bad_request_400
+    let error_to_resp e = Resp.v ~reason:(error_message e) Http.bad_request_400
 
     (* Identifiers *)
 
@@ -662,109 +661,116 @@ module Authenticatable = struct
   (* Keys *)
 
   type private_key = [ `Hs256 of string ]
+
   let random_private_key_hs256 () =
     let r = Random.State.make_self_init () in
     let b = Bytes.create 64 in
     for i = 0 to 63 do Bytes.set_uint8 b i (Random.State.int r 256) done;
     `Hs256 (Bytes.unsafe_to_string b)
 
+  let private_key_to_ascii_string = function
+  | `Hs256 k -> "HS256:" ^ (Http.Base64.url_encode k)
+
+  let private_key_of_ascii_string s = match String.index_opt s ':' with
+  | None -> Error (strf "private key: missing ':' separator")
+  | Some i ->
+      let scheme = Http.string_subrange ~last:(i - 1) s in
+      let d = Http.string_subrange ~first:(i + 1) s in
+      match scheme with
+      | "HS256" ->
+          let* k = Http.Base64.url_decode d |> Http.Base64.error_string in
+          Ok (`Hs256 k)
+      | s -> Error (strf "private key: unknown scheme: %S" scheme)
+
   (* Authenticatable *)
 
   type t = string
 
-  let encode ?(base64url = false) ~private_key:(`Hs256 key) ~expire:e data =
+  (* Encode *)
+
+  let encode ~private_key:(`Hs256 key) ~expire:e data =
     let e = match e with None -> "" | Some t -> string_of_int t in
     let msg = String.concat ":" [e; data] in
     let hmac = "HS256:" ^ Sha_256.hmac ~key msg in
-    Http.Base64.encode ~url:base64url (hmac ^ msg)
+    Http.Base64.url_encode (hmac ^ msg)
 
-  type format_error = [ `Base64 of bool * int | `Scheme of string option ]
+  (* Decode *)
 
-  let format_error_to_string = function
+  type format_error =
+  [ `Base64url of Http.Base64.error
+  | `Scheme of string option ]
+
+  let format_error_message = function
   | `Scheme None -> "scheme decode error"
   | `Scheme (Some ("HS256" as s)) -> strf "scheme %s decode error" s
   | `Scheme (Some s) -> strf "unknown scheme %S" s
-  | `Base64 (url, i) ->
-      strf "%d: base64%s decode error" i (if url then "url" else "")
+  | `Base64url e -> Http.Base64.error_message e
 
-  type decode_error =
+  type error =
   [ `Authentication
   | `Expired of time
   | `Missing_now_for of time
   | `Format of format_error ]
 
-  let decode_error_to_string = function
+  let error_message = function
   | `Authentication -> "data not authenticated by private key"
-  | `Format e -> format_error_to_string e
+  | `Format e -> format_error_message e
   | `Expired t -> strf "data expired at %d" t
   | `Missing_now_for t -> strf "missing current time for data expiring at %d." t
 
+  let error_string r = Result.map_error error_message r
+
   let hs256 = "HS256"
 
-  let decode_hmac ?(base64url = false) s =
-    match Http.Base64.decode ~url:base64url s with
-    | Error i -> Error (`Base64 (base64url, i))
-    | Ok s ->
-        if String.length s < 6 then Error (`Scheme None) else
-        let algo = Http.string_subrange ~last:4 s in
-        let is_hs256 = String.equal algo hs256 && s.[5] = ':' in
-        if not is_hs256 then Error (`Scheme (Some algo)) else
-        if String.length s < 39 then Error (`Scheme (Some hs256)) else
-        let hmac = Http.string_subrange ~first:6 ~last:37 s in
-        let msg = Http.string_subrange ~first:38 s in
-        Ok (hmac, msg)
+  let decode_hmac s = match Http.Base64.url_decode s with
+  | Error e -> Error (`Base64url e)
+  | Ok s ->
+      if String.length s < 6 then Error (`Scheme None) else
+      let algo = Http.string_subrange ~last:4 s in
+      let is_hs256 = String.equal algo hs256 && s.[5] = ':' in
+      if not is_hs256 then Error (`Scheme (Some algo)) else
+      if String.length s < 39 then Error (`Scheme (Some hs256)) else
+      let hmac = Http.string_subrange ~first:6 ~last:37 s in
+      let msg = Http.string_subrange ~first:38 s in
+      Ok (hmac, msg)
 
   let decode_msg msg = match String.index_opt msg ':' with
   | None -> Error (`Scheme (Some hs256))
   | Some i ->
       let expire = Http.string_subrange ~last:(i - 1) msg in
       let data = Http.string_subrange ~first:(i + 1) msg in
-      match expire with
-      | "" -> Ok (None, data)
-      | e ->
-          match int_of_string expire with
-          | exception Failure _ -> Error (`Scheme (Some hs256))
-          | t -> Ok (Some t, data)
+      if String.equal expire "" then Ok (None, data) else
+      match int_of_string_opt expire with
+      | None -> Error (`Scheme (Some hs256))
+      | Some _ as t -> Ok (t, data)
 
-  let decode ?base64url ~private_key:(`Hs256 key) ~now s =
-    match decode_hmac ?base64url s with
-    | Error e -> Error (`Format e)
-    | Ok (hmac, msg) ->
-        let hmac' = Sha_256.hmac ~key msg in
-        if not (Sha_256.equal hmac hmac') then Error `Authentication else
-        match decode_msg msg, now with
-        | Error e, _ -> Error (`Format e)
-        | Ok (None, data) as r, _ -> r
-        | Ok (Some t, data) as r, Some now when now < t -> r
-        | Ok (Some t, data), Some _ -> Error (`Expired t)
-        | Ok (Some t, data), None -> Error (`Missing_now_for t)
+  let decode ~private_key:(`Hs256 key) ~now s = match decode_hmac s with
+  | Error e -> Error (`Format e)
+  | Ok (hmac, msg) ->
+      let hmac' = Sha_256.hmac ~key msg in
+      if not (Sha_256.equal hmac hmac') then Error `Authentication else
+      match decode_msg msg, now with
+      | Error e, _ -> Error (`Format e)
+      | Ok (Some t, data) as r, Some now when now < t -> r
+      | Ok (Some t, data), Some _ -> Error (`Expired t)
+      | Ok (Some t, data), None -> Error (`Missing_now_for t)
+      | Ok (None, data) as r, _ -> r
 
-  let untrusted_decode ?base64url s =
-    let* hmac, msg = decode_hmac ?base64url s in
+  (* Untrusted decode *)
+
+  type untrusted = [`Untrusted_hs256 of Sha_256.t * time option * string ]
+  let untrusted_decode s =
+    let* hmac, msg = decode_hmac s in
     let* expire, data = decode_msg msg in
     Ok (`Untrusted_hs256 (hmac, expire, data))
 end
 
 module Authenticated_cookie = struct
-  let cookies hs = match Http.H.(find cookie hs) with (* TODO lazy in Req ? *)
-  | None -> Ok []
-  | Some s -> Http.Cookie.decode_list  s
 
-  let base64url = true
-
-  let find ~private_key ~now ~name req = match cookies (Req.headers req) with
-  | Error e -> Error (`Cookie e)
-  | Ok cookies ->
-      match List.assoc_opt name cookies with
-      | None -> Ok None
-      | Some "" -> Ok None
-      | Some cookie ->
-          match Authenticatable.decode ~base64url ~private_key ~now cookie with
-          | Ok (_, data) -> Ok (Some data)
-          | Error _ as e ->  e
+  (* Setting and clearing *)
 
   let set ~private_key ~expire ?atts ~name data resp =
-    let value = Authenticatable.encode ~base64url ~private_key ~expire data in
+    let value = Authenticatable.encode ~private_key ~expire data in
     let cookie = Http.Cookie.encode ?atts ~name value in
     let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
     Resp.with_headers hs resp
@@ -774,6 +780,22 @@ module Authenticated_cookie = struct
     let cookie = Http.Cookie.encode ~atts ~name "" in
     let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
     Resp.with_headers hs resp
+
+  (* Getting *)
+
+  type error = [ Authenticatable.error | `Cookie of string ]
+
+  let error_message = function
+  | `Cookie s -> s
+  | #Authenticatable.error as e -> Authenticatable.error_message e
+
+  let error_string r = Result.map_error error_message r
+
+  let find ~private_key ~now ~name r  = match Req.find_cookie ~name r with
+  | Error e -> Error (`Cookie e)
+  | Ok (None | Some "") -> Ok None
+  | Ok (Some c) ->
+      Result.map Option.some (Authenticatable.decode ~private_key ~now c)
 end
 
 module Session = struct
@@ -834,7 +856,7 @@ module Session = struct
     let load st req =
       match Authenticated_cookie.find ~private_key ~now:None ~name req with
       | Ok None -> None
-      | Ok (Some s) -> Result.to_option (st.decode s)
+      | Ok (Some (_, s)) -> Result.to_option (st.decode s)
       | Error _ -> None
     in
     let save st s resp = match s with

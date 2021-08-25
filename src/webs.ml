@@ -52,13 +52,25 @@ module Http = struct
     check s 0 (String.length s - 1)
 
   module Base64 = struct
+    type error =
+    | Invalid_letter of (bool * int * char)
+    | Unexpected_eoi of bool
+
+    let url u = if u then "url" else ""
+    let error_message = function
+    | Unexpected_eoi u -> strf "unexpecteed end of base64%s input" (url u)
+    | Invalid_letter (u, i, c) ->
+        strf "%d: invalid base64%s alphabet character %C" i (url u) c
+
+    let error_string r = Result.map_error error_message r
+
     let alpha =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
     let alpha_url =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
-    let encode ?(url = false) s =
+    let _encode ~url s =
       let rec loop alpha len e ei s i  = match i >= len with
       | true -> Bytes.unsafe_to_string e
       | false ->
@@ -83,7 +95,7 @@ module Http = struct
           let alpha = if url then alpha_url else alpha in
           loop alpha len (Bytes.create (((len + 2) / 3) * 4)) 0 s 0
 
-    let decode ?(url = false) s =
+    let _decode ~url s =
       let exception Alpha_error of int in
       let decode_alpha len s i = match s.[i] with
       | 'A' .. 'Z' as c -> Char.code c - 0x41
@@ -117,21 +129,17 @@ module Http = struct
       in
       let len = String.length s in
       if len = 0 then Ok "" else
-      if len mod 4 <> 0 then (Error len) else
+      if len mod 4 <> 0 then Error (Unexpected_eoi url) else
       let dlen = (len / 4) * 3 in
       let dlen = if s.[len - 1] = '=' then dlen - 1 else dlen in
       let dlen = if s.[len - 2] = '=' then dlen - 1 else dlen in
-      try Ok (loop len (Bytes.create dlen) 0 s 0) with Alpha_error i -> Error i
+      try Ok (loop len (Bytes.create dlen) 0 s 0) with
+      | Alpha_error i -> Error (Invalid_letter (url, i, s.[i]))
 
-    let decode' ?(url = false) s = match decode ~url s with
-    | Ok _ as v -> v
-    | Error i ->
-        let url = if url then "url" else "" in
-        let msg = match i < String.length s with
-        | true -> strf "%d: invalid base64%s alphabet character %C" i url s.[i]
-        | false -> strf "truncated base64%s input (not a multiple of 4)" url
-        in
-        Error msg
+    let[@inline] encode s = _encode ~url:false s
+    let[@inline] decode s = _decode ~url:false s
+    let[@inline] url_encode s = _encode ~url:true s
+    let[@inline] url_decode s = _decode ~url:true s
   end
 
   module Pct = struct
@@ -1558,6 +1566,14 @@ module Req = struct
     | Some path ->
         let service_path = Http.Path.concat (service_path r) strip in
         Ok { r with service_path; path }
+
+  let find_cookie ~name r =
+    (* XXX maybe we could lazily cache the decode in [r] *)
+    let cs = match Http.H.(find cookie (headers r)) with
+    | None -> Ok []
+    | Some s -> Http.Cookie.decode_list  s
+    in
+    match cs with Error _ as e -> e | Ok cs -> Ok (List.assoc_opt name cs)
 
   let clean_path r =
     let not_empty s = not (String.equal s "") in

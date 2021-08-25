@@ -19,27 +19,24 @@ let count count = strf
 </html>
 |} count
 
-let private_key = (* expires on restart *)
-  Authenticatable.random_private_key_hs256 ()
-
 let cookie_name = "count"
 
 let get_expirable_count ~private_key ~now req =
   let now = Some now and name = cookie_name in
-  match  Authenticated_cookie.find ~private_key ~now ~name req with
+  match Authenticated_cookie.find ~private_key ~now ~name req with
   | Error e -> 0
   | Ok None -> 0
-  | Ok (Some s) -> Option.value ~default:0 (int_of_string_opt s)
+  | Ok (Some (_, s)) -> Option.value ~default:0 (int_of_string_opt s)
 
 let set_expirable_count ~private_key ~now ~count r =
   let expire = Some (now + 10) in
   let data = string_of_int count in
   Authenticated_cookie.set ~private_key ~expire ~name:cookie_name data r
 
-let service req =
+let service ~private_key req =
   Resp.result @@ match Req.path req with
   | [""] ->
-      let* _m = Req.Allow.(meths [get] req) in
+      let* `GET = Req.Allow.(meths [get] req) in
       let now = truncate (Unix.gettimeofday ()) in
       let c = get_expirable_count ~private_key ~now req in
       let resp = Resp.html Http.ok_200 (count c) in
@@ -47,7 +44,10 @@ let service req =
   | _ ->
       Resp.not_found_404 ()
 
-let main () = Webs_cli.quick_serve ~name:"count_acookie" service
+let main () =
+  let private_key = Authenticatable.random_private_key_hs256 () in
+  Webs_cli.quick_serve ~name:"count_acookie" (service ~private_key)
+
 let () = if !Sys.interactive then () else main ()
 
 (*---------------------------------------------------------------------------

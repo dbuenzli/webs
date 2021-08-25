@@ -153,8 +153,8 @@ module Res : sig
     type error = [ `Overflow | `Syntax ]
     (** The type for parse errors. See {!of_string}. *)
 
-    val error_to_string : error -> string
-    (** [error_to_string e] is an english error message for [e]. *)
+    val error_message : error -> string
+    (** [error_message e] is an english error message for [e]. *)
 
     val error_to_resp : error -> Resp.t
     (** [error_to_resp e] is a {{!Webs.Http.bad_request_400}400} bad request
@@ -678,6 +678,9 @@ module Sha_256 : sig
       {{:https://tools.ietf.org/html/rfc8018}RFC 8018}'s
       PBKFD2-HMAC-SHA-256.
 
+      {b Warning.} Use {!equal_key} to compare derived keys,
+      not {!String.equal} or [( = )].
+
       In 2021, here is a good baseline of parameters:
       {ul
       {- A [key_len] of [32] bytes.}
@@ -723,16 +726,16 @@ end
 (** Authenticatable data.
 
     This module defines a simple US-ASCII compatible
-    {{!Authenticatable.t}encoding scheme} to publish {b
-    non-encrypted}, expirable data bytes authenticatable with a secret
+    {{!Authenticatable.auth}encoding scheme} to publish {b
+    non-encrypted}, expirable data bytes authenticatable with a
     private key. Human readability and secrecy is a non-goal, storing
-    your state in non-trusted environments is.
+    state in non-trusted environments is.
 
     {b The data is not encrypted}.
 
     {b Note.} The scheme and module is designed with extensibility
-    in mind but for now only an {{!Sha_256.val-hmac}HMAC-SHA-256} scheme
-    is defined. *)
+    in mind. But for now only an {{!Sha_256.val-hmac}HMAC-SHA-256} based
+    scheme is defined. *)
 module Authenticatable : sig
 
   (** {1:time Time} *)
@@ -742,7 +745,7 @@ module Authenticatable : sig
       to the client, for example you can use a logical notion of time or the
       number of seconds since the epoch. *)
 
-  (** {1:keys Keys} *)
+  (** {1:private_keys Private keys} *)
 
   type private_key = [
     | `Hs256 of string (** Used with
@@ -754,61 +757,69 @@ module Authenticatable : sig
   (** [random_private_key_hs256 ()] are 64 random bytes sourced from
       a {!Stdlib.Random.make_self_init} initialized PRNG. *)
 
+  val private_key_to_ascii_string : private_key -> string
+  (** [private_key_to_ascii_string k] encodes [k] to an URL safe US-ASCII
+      scheme that can be read back by {!private_key_of_string}. *)
+
+  val private_key_of_ascii_string : string -> (private_key, string) result
+  (** [private_key_of_ascii_string s] reads back the encoding of
+      {!private_key_to_string}. *)
+
   (** {1:auth Authenticatable} *)
 
   type t = string
   (** The type for authenticatable bytes. The encoding scheme for bytes
       [data] and an optional expiration timestamp [expire] and private key
-      [private_key] is, with [+] as string concatenation:
+      [private_key] is defined by:
 {[
 exp = match expire with None -> "" | Some e -> string_of_int e
-msg = exp + ":" + data
-hs256 = "HS256:" + hmac-sha-256(private_key, msg)
-auth_hs256_base64 = base64(hs256 + msg)
-auth_hs256_base64url = base64url(hs256 + msg)
+msg = exp ^ ":" ^ data
+hs256 = "HS256:" ^ (hmac_sha_256 private_key msg)
+auth = base64url (hs256 ^ msg)
 ]}
   *)
 
-  val encode :
-    ?base64url:bool -> private_key:private_key -> expire:time option ->
-    string -> t
-  (** [encode ~base64url ~private_key ~expire data] makes data [data]
+  (** {1:enc Encode} *)
+
+  val encode : private_key:private_key -> expire:time option -> string -> t
+  (** [encode ~private_key ~expire data] makes data [data]
       expire at [expire] (if any) and authenticatable via the private
-      key and scheme defined by [private_key]. If [base64url] is [true]
-      (defaults to [false]) the
-      {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
-      encoding scheme is used instead of [base64]. *)
+      key and scheme defined by [private_key]. *)
+
+  (** {1:dec Decode} *)
 
   type format_error =
-  [ `Base64 of bool * int (** [true] if [base64url] and input byte index.  *)
+  [ `Base64url of Http.Base64.error (** [base64url] decode error. *)
   | `Scheme of string option (** Scheme name, if one was found. *) ]
   (** The type for decode format errors. *)
 
-  val format_error_to_string : format_error -> string
-  (** [format_error_to_string e] is an english error message for [e]. *)
+  val format_error_message : format_error -> string
+  (** [format_error_message e] is an english error message for [e]. *)
 
-  type decode_error =
+  type error =
   [ `Authentication (** Authentication error. *)
   | `Expired of time (** Expiration time. *)
   | `Missing_now_for of time (** Expiration time. *)
   | `Format of format_error ]
-  (** The type for decode errors. See {!decode}. *)
+  (** The type for decode and authentication errors. See {!decode}. *)
 
-  val decode_error_to_string : decode_error -> string
-  (** [decode_error_to_string e] is an english error message for [e]. *)
+  val error_message : error -> string
+  (** [error_message e] is an english error message for [e]. *)
+
+  val error_string : ('a, error) result -> ('a, string) result
+  (** [error_string r] is [Result.map_error error_message r]. *)
 
   val decode :
-    ?base64url:bool -> private_key:private_key -> now:time option -> t ->
-    (time option * string, decode_error) result
-  (** [decode ~base64url ~private_key ~now s] authenticates data [s] with
+    private_key:private_key -> now:time option -> t ->
+    (time option * string, error) result
+  (** [decode ~private_key ~now s] authenticates data [s] with
       the private key and scheme defined by [private_key] and expires it
       (if applicable) according to [now]. If [now] is [None] and [s] has
-      an expiration timestamp, the result errors (see below).
-
-      The result is:
+      an expiration timestamp, the result errors. More precisely the
+      the result is:
       {ul
-      {- [Ok (expire, data)] with [data] the authenticated bytes, [expire]
-         the expiration timestamp (if any) iff [s] is
+      {- [Ok (expire, data)] with [data] the authenticated bytes and [expire]
+         the expiration timestamp iff [s] is
          authenticated by [private_key] and,
          if [expire] is [Some t], [now] is [Some n] with [n < t].}
       {- [Error `Authentication] if [s] cannot be authenticated by
@@ -817,53 +828,28 @@ auth_hs256_base64url = base64url(hs256 + msg)
          and expires at [t] but [now] is [Some n] with [n >= t].}
       {- [Error (`Missing_now_for t)], if [s] is authenticated by
          [private_key] and expires at [t] but [now] is [None].}
-      {- [Error (`Format _)] if any other decoding error occurs.}}
-
-      If [base64url] is [true] (defaults to [false]) the
-      {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
-      encoding scheme is used instead of [base64]. *)
+      {- [Error (`Format _)] if any other decoding error occurs.}} *)
 
   (** {1:untrusted Untrusted decode} *)
 
-  val untrusted_decode :
-    ?base64url:bool -> t ->
-    ([`Untrusted_hs256 of Sha_256.t * time option * string], format_error)
-      result
-    (** [untrusted_decode s] decodes the encoding structure of [s] but
-        neither authenticates nor expires the data. If [base64url] is [true]
-        (defaults to [false]) the
-        {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
-        encoding scheme is used instead of [base64]. *)
+  type untrusted = [`Untrusted_hs256 of Sha_256.t * time option * string ]
+  (** The type for untrusted decode result. *)
+
+  val untrusted_decode : t -> (untrusted, format_error) result
+  (** [untrusted_decode s] decodes the encoding structure of [s] but
+      neither authenticates nor expires the data. *)
 end
 
 (** Authenticated cookies.
 
-    An authenticated cookie lets your service store expirable state on
-    the client with the guarantee that it cannot tamper with it. {b The
-    data is not encrypted}, this is not made to store service
-    secrets on the client.
+    An authenticated cookie uses the {!Authenticatable} scheme to let
+    your service store expirable state on the client with the
+    guarantee that it cannot tamper with it.
 
-    Authenticated cookies use the {!Authenticatable} scheme. This means
-    you need a private key in your service. An easy way to handle this is
-    to generate one randomly with
-    {!Authenticatable.random_private_key_hs256} when you start your
-    service. Note however that this invalidates any data currently
-    stored on your clients whenever you restart your service – that
-    may be okay, or not, save it and load it from a [0o600] protected
-    file if it's not. Also if you use a single service key you cannot
-    invalidate the data of your clients on a per-user basis. *)
+    {b The data is not encrypted.} *)
 module Authenticated_cookie : sig
 
-  val find :
-    private_key:Authenticatable.private_key ->
-    now:Authenticatable.time option -> name:string -> Req.t ->
-    (string option, [Authenticatable.decode_error | `Cookie of string ]) result
-  (** [find ~private_key ~now ~name req] is the cookie of [req] named
-      [name] authenticated and expired by [private_key] and
-      [now]. This is [Ok None] if no cookie named [name] could be
-      found or if its value is [""]. If the cookie was {!set} with
-      an [expire] you need to provide a [now] otherwise it will never
-      authenticate, see {!Authenticatable.decode} for more details. *)
+  (** {1:setclear Setting and clearing} *)
 
   val set :
     private_key:Authenticatable.private_key ->
@@ -872,19 +858,41 @@ module Authenticated_cookie : sig
   (** [set ~private_key ~expire ~atts ~name data resp] sets in [resp] the
       cookie [name] to [data] authenticated by [private_key] and expiring at
       [expire] (see {!Authenticatable.encode}). [atts] are the cookie's
-      attributes, they default to {!Webs.Http.Cookie.atts_default}. The
-      [base64url] encoding of {!Authenticatable} is used.
+      attributes, they default to {!Webs.Http.Cookie.atts_default}.
 
       {b Note.} The expiration [expire], if provided, expires the
-      authenticated data, it does not affect cookie expiration. Use the
+      authenticated data, it does not affect HTTP cookie expiration. Use the
       [max_age] attribute of {!Webs.Http.Cookie.val-atts} for that.  *)
 
   val clear : ?atts:Http.Cookie.atts -> name:string -> Resp.t -> Resp.t
-  (** [clear ~atts ~name rresp] clears the cookie named [name] in
+  (** [clear ~atts ~name resp] clears the cookie named [name] in
       [resp] by setting its [max-age] to [-1] and value to
-      [""]. [atts] should be the same attributes as those given to
-      [set], the [max_age] attribute gets overriden with a [-1] by
+      [""]. [atts] should be the same value as the one given to
+      [set], its [max_age] attribute gets overriden with a [-1] by
       the function. *)
+
+  (** {1:get Getting} *)
+
+  type error = [ Authenticatable.error | `Cookie of string ]
+  (** The type for authenticated cookie decode and authentication
+      errors. *)
+
+  val error_message : error -> string
+  (** [error_message e] is an english error message for [e]. *)
+
+  val error_string : ('a, error) result -> ('a, string) result
+  (** [error_string r] is [Result.map_error error_message r]. *)
+
+  val find :
+    private_key:Authenticatable.private_key ->
+    now:Authenticatable.time option -> name:string -> Req.t ->
+    ((Authenticatable.time option * string) option, error) result
+  (** [find ~private_key ~now ~name req] is the cookie of [req] named
+      [name] authenticated and expired by [private_key] and
+      [now]. This is [Ok None] if no cookie named [name] could be
+      found or if its value is [""]. If the cookie was {!set} with
+      an [expire] you need to provide a [now] otherwise it will never
+      authenticate, see {!Authenticatable.decode} for more details. *)
 end
 
 (** Session handling.

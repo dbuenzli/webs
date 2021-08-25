@@ -39,30 +39,48 @@ module Http : sig
   val string_lowercase : string -> string
   (**/**)
 
-  (** Base64 codec.
+  (** [base64] and [base64url] codecs.
 
-      Codecs Base64 according to
-      {{:https://tools.ietf.org/html/rfc4648#section-4}RFC 4684}. *)
+      As defined in {{:https://tools.ietf.org/html/rfc4648}RFC 4684}. *)
   module Base64 : sig
-    val encode : ?url:bool -> string -> string
-    (** [encode s] is the [base64] (or
-        {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
-        if [url] is [true]) encoding of [s] . *)
 
-    val decode : ?url:bool -> string -> (string, int) result
-    (** [decode s] is the [base64] (or
-        {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
-        if [url] is [true]) decode of [s]. In case of error the integer
-        indicates:
-        {ul
-        {- Either the byte index of the error for an invalid
-           alphabet character error}
-        {- Or the length of the string if the string
-           length is not a multiple of [4]}} *)
+    (** {1:error Decode errors} *)
 
-    val decode' : ?url:bool -> string -> (string, string) result
-    (** [decode'] is like {!decode} but is an english error message
-        in case of error. *)
+    type error =
+    | Invalid_letter of (bool * int * char) (** index and letter. *)
+    | Unexpected_eoi of bool (** *)
+    (** The type for decoding errors. The boolean is [true] if that was
+        a [base64url] decode. *)
+
+    val error_message : error -> string
+    (** [error_message e] is an error message for [e]. *)
+
+    val error_string : ('a, error) result -> ('a, string) result
+    (** [error_string r] is [Result.map_error error_message r]. *)
+
+    (** {1:base64 [base64]} *)
+
+    val encode : string -> string
+    (** [encode s] is the
+        {{:https://tools.ietf.org/html/rfc4648#section-4}[base64]}
+        encoding of [s]. *)
+
+    val decode : string -> (string, error) result
+    (** [decode s] is the
+        {{:https://tools.ietf.org/html/rfc4648#section-4}[base64]}
+        decode of [s]. *)
+
+    (** {1:base64url [base64url]} *)
+
+    val url_encode : string -> string
+    (** [url_encode] is like {!encode} but for the
+        {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
+        encoding. *)
+
+    val url_decode : string -> (string, error) result
+    (** [url_decode] is like {!decode} but for the
+        {{:https://datatracker.ietf.org/doc/html/rfc4648#section-5}[base64url]}
+        encoding. *)
   end
 
   (** Percent-encoding codec.
@@ -1525,6 +1543,14 @@ module Req : sig
       concatenates the service root and the path. Would that be an
       argument to let [] also represent the root path ? *)
 
+  (** {3:route Service routing} *)
+
+  val to_service : strip:Http.path -> t -> (t, Resp.t) result
+  (** [to_service ~strip r] strips [strip] from [r]'s path and
+      appends it to the service root. Errors with {!Http.not_found_404}
+      if stripping [strip] results in [None]. *)
+
+
   (** {2:file_path Absolute file paths} *)
 
   val to_absolute_filepath :
@@ -1561,12 +1587,12 @@ module Req : sig
          is unsupported}
       {- {!Http.bad_request_400} reponse on decoding errors.}}}} *)
 
-  (** {2:route Service routing} *)
+  (** {2:cookies Cookies} *)
 
-  val to_service : strip:Http.path -> t -> (t, Resp.t) result
-  (** [to_service ~strip r] strips [strip] from [r]'s path and
-      appends it to the service root. Errors with {!Http.not_found_404}
-      if stripping [strip] results in [None]. *)
+  val find_cookie : name:string -> t -> (string option, string) result
+  (** [find_cookie ~name r] is the value of cookie [name] or
+      [None] if undefined in [r]. Errors on header or
+      cookie decoding errors. *)
 
   (** {2:clean Path cleaning}
 
