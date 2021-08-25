@@ -682,23 +682,30 @@ module Sha_256 : sig
       not {!String.equal} or [( = )].
 
       In 2021, here is a good baseline of parameters:
+
       {ul
       {- A [key_len] of [32] bytes.}
       {- A number of [iterations] of [400_000].}
       {- A [salt] length of [8] bytes.}}
 
+      {b Warning.} Use {!equal_key} to compare derived keys,
+      not {!String.equal} or [( = )].
+
       Raises [Invalid_argument] if [key_len] or [iterations] are smaller or
       equal to [0] or if [key_len] is greater than 2{^32} - 1 * 32
       or [max_int]. *)
 
+  val equal_key : string -> string -> bool
+  (** [equal_key k0 k1] is a constant time string equality for [k0]
+      and [k1] of the same length. Do not use to compare string of
+      different lengths this raises [Invalid_argument] in that
+      case. *)
+
   (** {1:preds Predicates and comparisons} *)
 
   val equal : t -> t -> bool
-  (** [equal h0 h1] is true iff [h0] and [h1] are equal. *)
-
-  val compare : t -> t -> int
-  (** [compare h0 h1] is a total order on hashes compatible with
-      {!equal}. *)
+  (** [equal h0 h1] is a constant time equality comparison function
+      between [h0] and [h1]. *)
 
   (** {1:convert Converting} *)
 

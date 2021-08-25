@@ -546,6 +546,19 @@ end
 module Sha_256 = struct
   type t = string
   let length h = String.length h
+  let equal_key k0 k1 = (* constant time compare *)
+    (* FIXME note sure about that maybe we should rather defer to C and
+       assembly here. *)
+    Sys.opaque_identity @@
+    let err_key_size k0l k1l = strf "key length differ (%d and %d)" k0l k1l in
+    let k0l = String.length k0 in
+    let k1l = String.length k1 in
+    if k0l <> k1l then invalid_arg (err_key_size k0l k1l) else
+    let[@inline] byte s i = Char.code (String.unsafe_get s i) in
+    let c = ref 0 in
+    for i = 0 to k0l - 1 do c := !c lor (byte k0 i lxor byte k1 i) done;
+    (!c = 0)
+
   external hash : string -> string = "ocaml_webs_sha_256"
 
   let hmac ~key msg = (* see https://tools.ietf.org/html/rfc2104 *)
@@ -565,8 +578,7 @@ module Sha_256 = struct
     let key_xor_ipad = pad_and_xor ~key ~xor:0x36 in
     hash (key_xor_opad ^ (hash (key_xor_ipad ^ msg)))
 
-  let equal = String.equal
-  let compare = String.compare
+  let equal = equal_key
   let to_bytes = Fun.id
   let of_bytes s = if String.length s <> 32 then Error () else Ok s
   let to_hex h =
