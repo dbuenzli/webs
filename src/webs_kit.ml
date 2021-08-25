@@ -684,7 +684,7 @@ module Authenticatable = struct
   | `Hs256 k -> "HS256:" ^ (Http.Base64.url_encode k)
 
   let private_key_of_ascii_string s = match String.index_opt s ':' with
-  | None -> Error (strf "private key: missing ':' separator")
+  | None -> Error (strf "missing ':' separator")
   | Some i ->
       let scheme = Http.string_subrange ~last:(i - 1) s in
       let d = Http.string_subrange ~first:(i + 1) s in
@@ -692,7 +692,7 @@ module Authenticatable = struct
       | "HS256" ->
           let* k = Http.Base64.url_decode d |> Http.Base64.error_string in
           Ok (`Hs256 k)
-      | s -> Error (strf "private key: unknown scheme: %S" scheme)
+      | s -> Error (strf "unknown scheme: %S" scheme)
 
   (* Authenticatable *)
 
