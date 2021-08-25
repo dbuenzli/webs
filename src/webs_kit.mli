@@ -220,7 +220,14 @@ end
     {- The Kurl name doesn't really reflect that this
        is not about URLs but URL {e requests} maybe the module
        name shoud be changed to reflect that. Kreq ? But
-       bare doesn't have the headers. }
+       bare doesn't have the headers.}
+    {- It's still unclear
+       whether we should not push this a bit further and
+       integrate all request aspects. This could be
+       separated in Kreq and Urlf. But we still need to
+       figure out what we want to do with requests that
+       are not [URL]able (well with {!Hc} every aspect
+       becomes [URL]able). Bare could embody {!Req.t}.}
     {- Integrate sessions ? Maybe not, here is the reasoning:
        the custom request types should only ever hold what can be specified
        by responses since they need to create these values.}
@@ -865,7 +872,8 @@ module Authenticated_cookie : sig
   (** [set ~private_key ~expire ~atts ~name data resp] sets in [resp] the
       cookie [name] to [data] authenticated by [private_key] and expiring at
       [expire] (see {!Authenticatable.encode}). [atts] are the cookie's
-      attributes, they default to {!Webs.Http.Cookie.atts_default}.
+      attributes, they default to {!Webs.Http.Cookie.atts_default}. The
+      [base64url] encoding of {!Authenticatable} is used.
 
       {b Note.} The expiration [expire], if provided, expires the
       authenticated data, it does not affect cookie expiration. Use the
