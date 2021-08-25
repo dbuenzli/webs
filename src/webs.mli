@@ -59,6 +59,10 @@ module Http : sig
            alphabet character error}
         {- Or the length of the string if the string
            length is not a multiple of [4]}} *)
+
+    val decode' : ?url:bool -> string -> (string, string) result
+    (** [decode'] is like {!decode} but is an english error message
+        in case of error. *)
   end
 
   (** Percent-encoding codec.

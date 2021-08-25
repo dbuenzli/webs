@@ -122,6 +122,16 @@ module Http = struct
       let dlen = if s.[len - 1] = '=' then dlen - 1 else dlen in
       let dlen = if s.[len - 2] = '=' then dlen - 1 else dlen in
       try Ok (loop len (Bytes.create dlen) 0 s 0) with Alpha_error i -> Error i
+
+    let decode' ?(url = false) s = match decode ~url s with
+    | Ok _ as v -> v
+    | Error i ->
+        let url = if url then "url" else "" in
+        let msg = match i < String.length s with
+        | true -> strf "%d: invalid base64%s alphabet character %C" i url s.[i]
+        | false -> strf "truncated base64%s input (not a multiple of 4)" url
+        in
+        Error msg
   end
 
   module Pct = struct
