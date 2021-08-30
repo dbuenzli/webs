@@ -34,23 +34,26 @@ let default_max_connections = 100
 
 type t =
   { mutable serving : bool;
+    service_path : Http.path;
     max_connections : int;
     max_req_headers_byte_size : int;
     max_req_body_byte_size : int;
     listener : Webs_unix.listener;
     log : Connector.log_msg -> unit; }
 
+let service_path c = c.service_path
 let max_connections c = c.max_connections
 let listener c = c.listener
 
 let create
     ?(log = Connector.default_log ~trace:true ())
+    ?(service_path = [""])
     ?(max_connections = default_max_connections)
     ?(max_req_headers_byte_size = 64 * 1024)
     ?(max_req_body_byte_size = 10 * 1024 * 1024)
     ?(listener = Webs_unix.listener_localhost) ()
   =
-  { serving = false; max_connections; max_req_headers_byte_size;
+  { serving = false; service_path; max_connections; max_req_headers_byte_size;
     max_req_body_byte_size; listener; log }
 
 (* Requests *)
@@ -98,14 +101,6 @@ let decode_headers buf crlfs =
   in
   loop Http.H.empty buf (List.hd crlfs) (List.tl crlfs)
 
-let x_service_root = Http.Name.v "x-service-root"
-let decode_service_path hs = match Http.H.find x_service_root hs with
-| None -> None
-| Some v ->
-    match Http.Path.decode v with
-    | Error e -> failwith (strf "%s: %s" (x_service_root :> string) e)
-    | Ok v -> Some v
-
 let body_length hs = match Http.H.request_body_length hs with
 | Error e -> Error (`Malformed e)
 | Ok (`Length l) -> Ok (Some l)
@@ -113,19 +108,19 @@ let body_length hs = match Http.H.request_body_length hs with
 
 let read_req c fd =
   try
+    let service_path = c.service_path in
     let max_bytes = c.max_req_headers_byte_size in
     let buf = Bytes.create (max io_buffer_size max_bytes) in
     let crlfs, first_start, first_len = read_clrfs c ~max_bytes buf fd in
     let meth, target, version = decode_request_line buf (List.hd crlfs) in
     let hs = decode_headers buf crlfs in
-    let service_path = decode_service_path hs in
     let max_req_body_byte_size = c.max_req_body_byte_size in
     let* body_length = body_length hs in
     let body =
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd buf ~first_start ~first_len
     in
-    Ok (Req.v ?service_path ~version meth target ~headers:hs ~body_length ~body)
+    Ok (Req.v ~service_path ~version meth target ~headers:hs ~body_length ~body)
   with
   | Failure e -> Error (`Malformed e)
 

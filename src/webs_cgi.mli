@@ -9,14 +9,11 @@
 
     {b Important.} Reconstructing the raw request target from CGI's
     [PATH_INFO] and [QUERY_STRING] is not really possible and
-    [PATH_INFO]s can easily get confused by requests like
-    ["/s1/s2%2Fha/s3"]. To side step this issue this connector relies on the
-    non-standard [REQUEST_URI] variable in which the raw url-encoded
-    request target should be passed. [nginx] passes that by default
-    with the value of [$request_uri], unfortunately it doesn't seem
-    to be able to chop a prefix from that variable without getting
-    url-decoded results. You can add the [REQUEST_TARGET_PREFIX] in
-    the environment whose value will be chopped from [REQUEST_URI].
+    [PATH_INFO]s easily get confused by requests like
+    ["/s1/s2%2Fha/s3"]. To side step this issue this connector relies
+    on the non-standard [REQUEST_URI] variable in which the raw
+    url-encoded request target should be passed. [nginx] passes that
+    by default with the value of [$request_uri].
 
     See the {{!page-web_service_howto}Web service howto} manual for
     instructions.
@@ -36,21 +33,24 @@ type t
     headers from the environment and the body from {!Unix.stdin}. *)
 
 val create :
-  ?log:(Connector.log_msg -> unit) -> ?max_req_body_byte_size:int ->
-  ?extra_vars:string list -> unit -> t
+  ?log:(Connector.log_msg -> unit) -> ?service_path:Http.path ->
+  ?max_req_body_byte_size:int -> ?extra_vars:string list -> unit -> t
 (** [create ()] is a new CGI connector with parameters:
     {ul
-    {- [extra_vars] is a list of environment variables whose content is
-       added to the request headers (defaults to [[]]). The header name
-       of a variable is made by lowercasing it, mapping ['_'] to ['-']
-       and prefixing the result with [x-cgi]. For example
-       [SERVER_SOFTWARE] becomes [x-cgi-server-software].}
+    {- [log] logs connector log messages. It defaults
+       {!Webs.Connector.default_log} with trace message disabled.}
+    {- [service_path] is the path at which the root of the service is being
+       served. (defaults to [[""]]). This is used to create request
+       values, see {!Req.service_path}.}
     {- [max_req_body_byte_size] is the maximal request body size in bytes.
        FIXME not enforced, unclear where this is to put the limit on, for
        streaming bodies, if we cut the line the service might end up
        being confused (but then it should also cater for that possibility).}
-    {- [log] logs connector log messages. It defaults
-       {!Webs.Connector.default_log} with trace message disabled.}} *)
+    {- [extra_vars] is a list of environment variables whose content is
+       added to the request headers (defaults to [[]]). The header name
+       of a variable is made by lowercasing it, mapping ['_'] to ['-']
+       and prefixing the result with [x-cgi]. For example
+       [SERVER_SOFTWARE] becomes [x-cgi-server-software].}} *)
 
 val serve : t -> Webs.service -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks until
@@ -64,8 +64,7 @@ val serve : t -> Webs.service -> (unit, string) result
 	  The  {!Webs.Req.t} value is constructed from the environment and
     {!Unix.stdin} as follows:
     {ul
-    {- {!Webs.Req.service_root} is extracted from the (non standard)
-       [HTTP_X_SERVICE_ROOT] variable (HTTP header).}
+    {- {!Webs.Req.service_path} is the {{!create}connector's [service_path]}.}
 	  {- {!Webs.Req.version} is the value of the
        {{:http://tools.ietf.org/html/rfc3875#section-4.1.16}[SERVER_PROTOCOL]}
        variable.}
@@ -73,10 +72,9 @@ val serve : t -> Webs.service -> (unit, string) result
        {{:http://tools.ietf.org/html/rfc3875#section-4.3}[REQUEST_METHOD]}
        variable.}
     {- {!Webs.Req.request_target} is the value of the (non standard)
-       [REQUEST_URI] variable, chopped from the value in the
-       [REQUEST_TARGET_PREFIX] variable (if present).}
+       [REQUEST_URI] variable.}
 	  {- {!Webs.Req.headers} has the following headers defined:
-    {ul
+       {ul
        {- {!Webs.Http.H.content_type} if the variable
           {{:http://tools.ietf.org/html/rfc3875#section-4.1.3}[CONTENT_TYPE]}
           is defined and non empty.}

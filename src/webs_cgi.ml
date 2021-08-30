@@ -35,17 +35,18 @@ let extra_var_to_header_name var =
 (* Connectors *)
 
 type t =
-  { extra_vars : (string * Http.name) list;
+  { service_path : Http.path;
+    extra_vars : (string * Http.name) list;
     max_req_body_byte_size : int;
     log : Connector.log_msg -> unit; }
 
 let create
-    ?(log = Connector.default_log ~trace:false ())
+    ?(log = Connector.default_log ~trace:false ()) ?(service_path = [""])
     ?(max_req_body_byte_size = 10 * 1024 * 1024) ?(extra_vars = []) ()
   =
   let with_header_name v = v, extra_var_to_header_name v in
   let extra_vars = List.map with_header_name extra_vars in
-  { extra_vars; max_req_body_byte_size; log }
+  { service_path; extra_vars; max_req_body_byte_size; log }
 
 (* Request *)
 
@@ -100,15 +101,10 @@ let get_var var decode env = match find_var var decode env with
 
 let header_section_of_env ~extra_vars env =
   let hs, env = headers_of_env ~extra_vars env in
-  let service_root = find_var "HTTP_X_SERVICE_ROOT" Http.Path.decode env in
   let version = get_var "SERVER_PROTOCOL" Http.Version.decode env in
   let meth = get_var "REQUEST_METHOD" Http.Meth.decode env in
   let request_target = get_var "REQUEST_URI" Result.ok env in
-  let request_target = match Smap.find_opt "REQUEST_TARGET_PREFIX" env with
-  | None -> request_target
-  | Some prefix -> chop_prefix ~prefix request_target
-  in
-  service_root, version, meth, request_target, hs
+  version, meth, request_target, hs
 
 let body_length hs = match Http.H.request_body_length hs with
 | Error e -> Error (`Malformed e)
@@ -117,10 +113,9 @@ let body_length hs = match Http.H.request_body_length hs with
 
 let read_req c env fd_in =
   try
+    let service_path = c.service_path in
     let extra_vars = c.extra_vars in
-    let service_path, version, meth, target, hs =
-      header_section_of_env ~extra_vars env
-    in
+    let version, meth, target, hs = header_section_of_env ~extra_vars env in
     let buf = Bytes.create io_buffer_size in
     let max_req_body_byte_size = c.max_req_body_byte_size in
     let first_start = 0 and first_len = 0 in
@@ -129,7 +124,7 @@ let read_req c env fd_in =
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd_in buf ~first_start ~first_len
     in
-    Ok (Req.v ?service_path ~version meth target ~headers:hs ~body_length ~body)
+    Ok (Req.v ~service_path ~version meth target ~headers:hs ~body_length ~body)
   with
   | Failure e -> Error (`Malformed e)
   (* FIXME maybe for error from header_section we should rather throw

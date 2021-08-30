@@ -21,6 +21,10 @@ val listener :
     {- [docs] is the section where the option is documented.}
     {- [opts] are the options to use (defaults to [["l";"listen"]]).}} *)
 
+val service_path :
+  ?opts:string list -> ?docs:string -> unit -> Webs.Http.path option Term.t
+(** [service_path] is an option for specifying an optional service path. *)
+
 val docroot : ?opts:string list -> ?docs:string -> unit -> string option Term.t
 (** [docroot] is an option for specifying an optional document root.
     {ul

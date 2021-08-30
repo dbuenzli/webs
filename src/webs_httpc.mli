@@ -25,13 +25,16 @@ type t
     one {!Thread} drawn from a pool. *)
 
 val create :
-  ?log:(Connector.log_msg -> unit) -> ?max_connections:int ->
-  ?max_req_headers_byte_size:int -> ?max_req_body_byte_size:int ->
-  ?listener:Webs_unix.listener -> unit -> t
+  ?log:(Connector.log_msg -> unit) -> ?service_path:Http.path ->
+  ?max_connections:int -> ?max_req_headers_byte_size:int ->
+  ?max_req_body_byte_size:int -> ?listener:Webs_unix.listener -> unit -> t
 (** [create ()] is a new connector with following parameters:
     {ul
-    {- [listen] specifies the socket to listen to on.
-       Defaults to {!Webs_unix.listener_localhost}}
+    {- [log] logs connector log messages. Defaults to
+       {!Webs.Connector.default_log} with trace messages.}
+    {- [service_path] is the path at which the root of the service is being
+       served. (defaults to [[""]]). This is used to create request
+       values, see {!Req.service_path}.}
     {- [max_connections] is the maximal number of allowed concurrent
        connections (defaults to {!default_max_connections}).}
     {- [max_req_headers_byte_size] is the maximal allowed size in bytes for
@@ -40,8 +43,12 @@ val create :
        FIXME not enforced, unclear where this is to put the limit on, for
        streaming bodies, if we cut the line the service might end up
        being confused (but then it should also cater for that possibility).}
-    {- [log] logs connector log messages. Defaults to
-       {!Webs.Connector.default_log} with trace messages.}} *)
+    {- [listener] specifies the socket to listen to on.
+       Defaults to {!Webs_unix.listener_localhost}}}
+*)
+
+val service_path : t -> Http.path
+(** [service_path c] is the service path of [c]. See {!create}. *)
 
 val max_connections : t -> int
 (** [max_connection c] is the maximal number of concurrent connections. *)

@@ -76,7 +76,6 @@ location /myservice/ {
 
    # Drop /myservice from requests and indicate the service root
    proxy_pass http://localhost:8000/; # Slash drops /myservice from reqs
-   proxy_set_header x-service-root /myservice;
 
    # If you need websockets
    proxy_set_header Upgrade $http_upgrade;
@@ -104,6 +103,11 @@ location block, for example to add custom request headers for your
 service, see the nginx
 {{:https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/}reverse
 proxy manual} for details.
+
+{2:bind Service path}
+
+TODO add a little discussion about [--service-path] and
+{!Req.service_path}.
 
 {1:serving_files Serving files}
 
@@ -147,7 +151,7 @@ let root = "/my/files"
 let service r =
   Resp.result @@ match Req.path r with
   | "assets" as pre :: _ ->
-      let* r = Req.allow [`GET] r in
+      let* `GET = Req.allow [`GET] r in
       let* file = Req.to_absolute_filepath ~strip:[pre] ~root r in
       Webs_unix.send_file r file
   | _ ->
@@ -169,7 +173,6 @@ We start by configuring Nginx as follows:
 location /myservice/ {
    proxy_http_version 1.1;
    proxy_pass http://localhost:8000/; # final slash is important
-   proxy_set_header x-service-root /myservice;
 }
 
 location /myservice-files/assets
@@ -196,7 +199,7 @@ let root = "/myservice-files"
 let service r =
   Resp.result @@ match Req.path r with
   | "assets" as pre :: _ ->
-      let* r = Req.allow [`GET] r in
+      let* `GET = Req.allow [`GET] r in
       let* file = Req.to_absolute_filepath ~strip:[pre] ~root r in
       Gateway.send_file ~header:Gateway.x_accel_redirect r file
   | _ ->
