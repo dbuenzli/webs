@@ -31,13 +31,15 @@
     2014}} *)
 module Http : sig
 
-  (** {1:encs Encodings} *)
+  (** {1:codecs Codecs} *)
 
   (**/**)
   val string_subrange : ?first:int -> ?last:int -> string -> string
   val string_starts_with : prefix:string -> string -> bool
   val string_lowercase : string -> string
   (**/**)
+
+  (** {2:encs Encodings} *)
 
   (** [base64] and [base64url] codecs.
 
@@ -104,7 +106,24 @@ module Http : sig
     (** [decode s] is the percent-encoding decode of [s]. *)
   end
 
-    (** {1:names Names}
+  (** HTTP digits codec.
+
+      These represent non-negative integers. The module
+      detects overflows and turns them into errors. *)
+  module Digits : sig
+    val decode : string -> (int, string) result
+    (** [decode s] is the non-empty sequence of
+        {{:https://tools.ietf.org/html/rfc5234#appendix-B.1}decimal digits}
+        [s] as a non-negative integer. *)
+
+    val encode : int -> string
+    (** [encode_digits n] is the non-negative integer [n] as a sequence
+        of decimal digits.
+
+        @raise Invalid_argument if [n] is negative. *)
+  end
+
+  (** {2:names Names}
 
       HTTP often requires to perform US-ASCII case insensitive
       comparisons on HTTP tokens.  Values of type {!name} represent
@@ -143,6 +162,28 @@ module Http : sig
     val pp : Format.formatter -> name -> unit
     (** [pp] is an unspecified formatter for header names. *)
   end
+
+  (** {2:versions Versions} *)
+
+  type version = int * int
+  (** The type for {{:https://tools.ietf.org/html/rfc7230#section-2.6}HTTP
+      versions}. Both integers must be in the interval [\[0;9\]]. *)
+
+  (** HTTP versions. *)
+  module Version : sig
+    type t = version
+    (** The type for versions. See {!type:version}. *)
+
+    val decode : string -> (version, string) result
+    (** [decode s] decodes a version from [s]. *)
+
+    val encode : version -> string
+    (** [encode v] encodes the version [v]. Assumes correct integer ranges. *)
+
+    val pp : Format.formatter -> version -> unit
+    (** [pp] is an unspecified formatter for versions. *)
+  end
+
 
   (** {1:methods Methods} *)
 
@@ -190,23 +231,234 @@ module Http : sig
     (** [pp] is an unspecified formatter for methods. *)
   end
 
-  (** {1:digits Digits} *)
+  (** {1:paths_and_queries Paths and queries} *)
 
-  (** HTTP digits.
+  type fpath = string
+    (** The type for file paths. *)
 
-      These represent non-negative integers. The module
-      detects overflows and turns them into errors. *)
-  module Digits : sig
-    val decode : string -> (int, string) result
-    (** [decode s] is the non-empty sequence of
-        {{:https://tools.ietf.org/html/rfc5234#appendix-B.1}decimal digits}
-        [s] as a non-negative integer. *)
+  type path = string list
+  (** The type for absolute URI paths represented as {e non-empty}
+      lists of {e percent-decoded} path segments. The empty list denotes
+      the absence of a path.
 
-    val encode : int -> string
-    (** [encode_digits n] is the non-negative integer [n] as a sequence
-        of decimal digits.
+      Path segments can be empty [""]. The root path [/] is
+      represented by the list [[""]] and [/a] by [["a"]], see more
+      examples {{!Path.decode}here}.
 
-        @raise Invalid_argument if [n] is negative. *)
+      {b WARNING.} You should never concatenate these segments with a
+      separator to get a file path because they may contain stray
+      percent-decoded directory separators. Use the function
+      {!Path.to_absolute_filepath} to interpret paths as file
+      paths. *)
+
+  (** Paths. *)
+  module Path : sig
+
+    (** {1:paths Paths} *)
+
+    type t = path
+    (** See {!type-path}. *)
+
+    val undot_and_compress : path -> path
+    (** [undot_and_compress p] removes ["."] and [".."]  according to
+        the RFC 3986
+        {{:https://tools.ietf.org/html/rfc3986#section-5.2.4}algorithm}
+        and suppresses non-final empty [""] segments. *)
+
+    val strip_prefix : prefix:path -> path -> path option
+    (** [strip_prefix ~prefix p] removes the prefix path [prefix] from [p].
+        If [prefix] is not a strict prefix of [p] this is [None].
+        If [prefix = p] this is [Some [""]] (FIXME this feels right
+        and wrong at the same time), the root path. If [prefix]
+        ends with an empty segment, it matches any corresponding segment
+        at that point (so that stripping [/a/] from [/a/b] results in [/b]).
+
+        A few examples:
+        {ul
+        {- [strip_prefix _ [] -> None]}
+        {- [strip_prefix [] _ = None]}
+        {- [strip_prefix [""] (_ :: _ as l) = Some l]}
+        {- [strip_prefix [""; "a"] [""; "a"] = Some [""]]}
+        {- [strip_prefix [""; "a"] [""; "a"; ""] = Some [""]]}
+        {- [strip_prefix [""; "a"] [""; "a"; "b"] = Some ["b"]]}
+        {- [strip_prefix [""; "a"; ""] [""; "a"] = None]}
+        {- [strip_prefix [""; "a"; ""] [""; "a"; ""] = Some [""]]}
+        {- [strip_prefix [""; "a"; ""] [""; "a"; "b"] = Some ["b"]]}} *)
+
+    val concat : path -> path -> path
+    (** [concat p0 p1] concatenates [p0] and [p1]. If [p0] ends with
+        an empty segment and [p1] is non-empty that empty segment is dropped.
+        A few examples:
+        {ul
+        {- [concat p0 [] = p0]}
+        {- [concat [] p1 = p1]}
+        {- [concat [""] ["a"; "b"] = ["a"; "b"]]}
+        {- [concat ["a"] [""] = ["a"; ""]]}
+        {- [concat ["a"; ""] [""] = ["a"; ""]]}
+        {- [concat ["a"; "b"] ["c"; "d"] = ["a"; "b"; "c"; "d"]]}
+        {- [concat ["a"; "b"; ""] ["c"; "d"] = ["a"; "b"; "c"; "d"]]}
+        {- [concat ["a"; "b"; ""] [""] = ["a"; "b"]]}
+        {- [concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]]}} *)
+
+    val relativize : root:path -> path -> path
+    (** [relativise ~root p] is the relative path [r] that goes from
+        [root] to [p]. *)
+
+    (** {1:filepath File paths} *)
+
+    val has_dir_seps : string -> bool
+    (** [has_dir_seps s] is true iff [s] contains a '/' or a '\\'
+        character. *)
+
+    val to_absolute_filepath : path -> (fpath, string) result
+    (** [to_absolute_filepath p] is an absolute file path for
+        {!undot_and_compress}[ p]. Errors if any of the path segments
+        contains a stray slash or backslash or if [p] is the empty
+        list. The result always uses [/] as a directory separator
+        regardless of the platform and is guaranteed to be free of
+        any [.] or [..] segments. *)
+
+    val prefix_filepath : prefix:fpath -> fpath -> fpath
+    (** [prefix_filepath ~prefix p] prefixes [p] by [prefix] avoiding
+        introducing empty segments. This function assumes [/] is the
+        directory separator regardless of the platform. *)
+
+    val filepath_ext : fpath -> string
+    (** [filepath_ext p] is the file extension of file path [p].
+        This function assumes [/] is the directory separator regardless
+        of the platform. *)
+
+    (** {1:conv Converting} *)
+
+    val encode : path -> string
+    (** [encode p] encodes an
+        {{:https://tools.ietf.org/html/rfc7230#section-2.7}[absolute-path]}
+        for [p] as follows:
+
+        {ol
+        {- In each segment {{:http://tools.ietf.org/html/rfc3986#section-2.1}
+         percent-encode} any byte that is not
+         {{:http://tools.ietf.org/html/rfc3986#section-2.3}[unreserved]},
+         {{:http://tools.ietf.org/html/rfc3986#section-2.2}[sub-delims]},
+         [':'] or ['@'] to produce a valid URI
+         {{:http://tools.ietf.org/html/rfc3986#section-3.3}[segment].}}
+        {- Prepends each segment with a ['/'].}
+        {- Concatenate the result.}}
+
+        The empty list is special cased and yields [""]. This is for
+        encoding HTTP paths, use {!to_undotted_filepath} to
+        convert paths to file paths.
+
+        Here are a few examples:
+        {ul
+        {- [encode [] = ""]}
+        {- [encode [""] = "/"]}
+        {- [encode [""; ""] = "//"]}
+        {- [encode [""; "a"] = "//a"]}
+        {- [encode ["a";"b";"c"] = "/a/b/c"]}
+        {- [encode ["a";"b";"";"c";] = "/a/b//c"]}
+        {- [encode ["a";"b";"c";""] = "/a/b/c/"]}
+        {- [encode ["a";"b";"c";" "] = "/a/b/c/%20"]}
+        {- [encode ["a";"b";"c";"";""] = "/a/b/c//"]}
+        {- [encode ["a"; "b/"; "c"] = "/a/b%2F/c"]}
+        {- [encode ["r\xC3\xC9volte"] = "/r%C3%C9volte"]}
+        {- [encode ["a"; "not%20"; "b"] = "/a/not%2520/b"]}} *)
+
+    val decode : string -> (path, string) result
+    (** [decode s] decodes an
+        {{:https://tools.ietf.org/html/rfc7230#section-2.7}[absolute-path]}
+        to its
+        {{:http://tools.ietf.org/html/rfc3986#section-2.1}percent-decoded}
+        list of segments. By definition of [absolute-path] the list of
+        segments is never empty.
+
+        Here are a few examples:
+        {ul
+        {- [decode "/" = Ok [""]]}
+        {- [decode "//" = Ok ["";""]]}
+        {- [decode "//a" = Ok ["";"a"]]}
+        {- [decode "/a/b/c" = Ok ["a";"b";"c"]]}
+        {- [decode "/a/b//c" = Ok ["a";"b";"";"c"]]}
+        {- [decode "/a/b/c/" = Ok ["a";"b";"c";""]]}
+        {- [decode "/a/b/c/%20" = Ok ["a";"b";"c";" "]]}
+        {- [decode "/a/b//c//" = Ok ["a";"b";"";"c";"";""]]}
+        {- [decode "/a/b%2F/c" = Ok ["a"; "b/"; "c"]]}
+        {- [decode "/r%C3%C9volte" = Ok ["r\xC3\xC9volte"]]}
+        {- [decode  "/a/not%2520/b" = Ok ["a"; "not%20"; "b"]]}
+        {- [decode "" = Error _]}
+        {- [decode "a/b/c" = Error _]}} *)
+
+    val pp : Format.formatter -> path -> unit
+    (** [pp] is an unspecified formatter for paths. *)
+  end
+
+    type query
+  (** The type for queries as key-values maps. Both keys and values
+      are properly decoded. Note that keys can map to
+      multiple values. *)
+
+  (** Queries and query codecs. *)
+  module Query : sig
+
+    (** {1:queries Queries} *)
+
+    type t = query
+    (** See {!type-query}. *)
+
+    val empty : query
+    (** [empty] is the empty key-values map. *)
+
+    val is_empty : query -> bool
+    (** [is_empty q] is true if [q] is {!empty}. *)
+
+    val mem : string -> query -> bool
+    (** [mem k q] is true [iff] key [k] is bound in [q]. *)
+
+    val def : string -> string -> query -> query
+    (** [def k v q] is [q] with [k] bound only to value [v]. *)
+
+    val add : string -> string -> query -> query
+    (** [add k v q] is [q] with value [v] appended to
+        [k]'s values (or {!set} if there was no binding for [k]). *)
+
+    val undef : string -> query -> query
+    (** [undef k q] is [q] with [k] unbound. *)
+
+    val find : string -> query -> string option
+    (** [find k q] is the value of [k]'s first binding in [q], if any. *)
+
+    val find_all : string -> query -> string list
+    (** [find_all k q] are all the values bound to [k] or the empty
+        list if [k] is unbound. *)
+
+    val fold : (string -> string -> 'a -> 'a) -> query -> 'a -> 'a
+    (** [fold f q acc] folds over all the key-value bindings. For keys
+        with multiple values folds over them in the same order
+        as {!find_all}. *)
+
+    val keep_only_first : query -> query
+    (** [keep_only_first q] is [q] with only the first value kept in bindings
+        with multiple values. *)
+
+    (** {1:conv Converting} *)
+
+    val decode : string -> query
+    (** [decode s] decodes the
+        {{:https://url.spec.whatwg.org/#application/x-www-form-urlencoded}
+        [application/x-www-form-urlencoded]}
+        [s] to a query.  If a key is defined more than once,
+        the first definition is returned by {!find} and the
+        left-to-right order preserved by {!find_all}'s list. The input
+        string is not checked for UTF-8 validity. *)
+
+    val encode : query -> string
+    (** [encode q] encodes [q] to an
+        {{:https://url.spec.whatwg.org/#application/x-www-form-urlencoded}
+        [application/x-www-form-urlencoded]}
+        string. *)
+
+    val pp : Format.formatter -> query -> unit
+    (** [pp] is an unspecified formatter for queries. *)
   end
 
   (** {1:header Headers} *)
@@ -323,6 +575,174 @@ module Http : sig
     val is_token : string -> bool
     (** [is_token s] is [true] iff [s] in an HTTP
         a {{:https://tools.ietf.org/html/rfc7230#section-3.2.6}token}. *)
+  end
+
+
+  (** {2:cookie Cookies} *)
+
+  (** Cookies.
+
+      {b References}
+      {ul
+      {- A. Barth.
+      {{:https://tools.ietf.org/html/rfc6265}
+      {e HTTP State Management Mechanism}}.
+      2011}} *)
+  module Cookie : sig
+
+    type atts
+    (** The type for {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes}cookie attributes}. *)
+
+    val atts_default : atts
+    (** [atts_default] are cookie attributes with [secure] set to [true],
+        [http_only] set to [true], [same_site] set to ["strict"] and no other
+        attribute specified. *)
+
+    val atts :
+      ?init:atts ->
+      ?domain:string option -> ?http_only:bool -> ?max_age:int option ->
+      ?path:path -> ?same_site:string -> ?secure:bool -> unit -> atts
+    (** [atts ()] are the given {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes}cookie attributes}. Those unspecified take
+        the value of [init] which defaults to {!atts_default}. *)
+
+    val encode : ?atts:atts -> name:string -> string -> string
+    (** [encodes ~atts name s] encodes a cookie
+        with attributes [atts] (defaults to {!atts_default}) for
+        {!Headers.add_set_cookie}. *)
+
+    val decode_list : string -> ((string * string) list, string) result
+    (** [decode_list s] parses the
+        {{:https://tools.ietf.org/html/rfc6265#section-4.2.1}cookie string}
+        of a {!val-cookie} header value. *)
+  end
+
+  (** {2:etags_range Etags and ranges} *)
+
+  (** Entity tags.
+
+      {b References}
+      {ul
+      {- R. Fielding et al.
+      {{:https://tools.ietf.org/html/rfc7232}
+      {e Hypertext Transfer Protocol (HTTP/1.1): Conditional requests}}.
+      2014}} *)
+  module Etag : sig
+
+    (** {1:etags Etags} *)
+
+    type t
+    (** The type for
+        {{:https://tools.ietf.org/html/rfc7232#section-2.3}etags}. *)
+
+    val v : weak:bool -> string -> t
+    (** [v ~weak tag] is the etag [tag]. [weak] indicates if the etag is weak.
+
+        {b Warning.}  The function does not check that the bytes of
+        [tag] are valid; each should be one of [0x21], \[[0x23];[0x7E]\]
+        or \[[0x80];[0xFF]\]. *)
+
+    val is_weak : t -> bool
+    (** [is_weak e] is [true] iff [e] is weak. *)
+
+    val tag : t -> string
+    (** [tag e] is the entity tag of [e]. *)
+
+    val weak_match : t -> t -> bool
+    (** [weak_match e0 e1] is [true] iff [e0] and [e1]
+        {{:https://tools.ietf.org/html/rfc7232#section-2.3.2}weakly match}. *)
+
+    val strong_match : t -> t -> bool
+    (** [strong_match e0 e1] is [true] iff [e0] and [e1]
+        {{:https://tools.ietf.org/html/rfc7232#section-2.3.2}strongly match}. *)
+
+    val decode : string -> (t, string) result
+    (** [decode s] is an
+        {{:https://tools.ietf.org/html/rfc7232#section-2.3}etags} from [s]. *)
+
+    val encode : t -> string
+    (** [encode etag] is [etag] as an etag. *)
+
+    (** {1:conds Etag conditions} *)
+
+    type cond = [ `Any | `Etags of t list (** *) ]
+    (** The type for etags conditions. This represents the value
+        of {!H.if_match} or {!H.if_none_match} headers. *)
+
+    val decode_cond : string -> (cond, string) result
+    (** [decode_cond s] parses an etag condition from [s]. *)
+
+    val encode_cond : cond -> string
+    (** [encode_cond c] serializes condition [c]. *)
+
+    val eval_if_match : cond -> t option -> bool
+    (** [eval_if_match c t] evaluates the logic of an
+        {!H.if_match} header condition [c] on an entity represented
+        by [t] ([None] means the representation does not exist). This is:
+        {ul
+        {- [true] if [c] is [None] (no condition).}
+        {- [true] if [t] is [Some _] and [c] is [Some `Any].}
+        {- [true] if [t] is [Some etag], [c] is [Some (`Etags etags)] and
+           [etag] {{!strong_match}strongly matches} one of the [etags].}
+        {- [false] otherwise.}} *)
+
+    val eval_if_none_match : cond -> t option -> bool
+    (** [eval_if_none_match c t] evaluates the logic of an
+        {!H.if_none_match} header condition [c] on an entity represented
+        by [t] ([None] means the representation does not exist). This is:
+        {ul
+        {- [true] if [t] is [None] and [c] is [Some `Any].}
+        {- [true] if [t] is [Some etag], [c] is [Some (`Etags etags)] and
+           [etag] {{!weak_match}weakly matches} none of the [etags]}
+        {- [false] otherwise.}} *)
+
+    val eval_if_range : t -> t option -> bool
+    (** [eval_if_range req t] evaluates the logic of an {!H.if_range} header
+        etag [req] on an entity represented by [t] ([None] means the
+        representation does not exist). This is:
+        {ul
+        {- [true] if [t] is [Some etag] and [etag] {{!strong_match}strongly
+            matches} [req]}
+        {- [false] otherwise.}} *)
+  end
+
+  (** Range requests.
+
+      {b References.}
+      {ul
+      {- R. Fielding et al.
+      {{:https://tools.ietf.org/html/rfc7233}
+      {e Hypertext Transfer Protocol (HTTP/1.1): Range Requests}}.
+      2014}} *)
+  module Range : sig
+
+    (** {1:bytes Byte ranges} *)
+
+    type bytes =
+    [ `First of int (** First given offset to last offset *)
+    | `Last of int (** At most last given [n] bytes. *)
+    | `Range of int * int (** First offset and last offset. *) ]
+    (** The type for byte range specifications. Offsets are zero-based. *)
+
+    val eval_bytes : len:int -> bytes -> (int * int) option
+    (** [eval_bytes ~len b] given a representation length [len] and
+        byte range [b] returns a concrete zero-based byte range or
+        [None] if the range cannot be satisfied for [len].  *)
+
+    (** {1:ranges Ranges} *)
+
+    type t =
+    [ `Bytes of bytes list (** Byte ranges. *)
+    | `Other of string * string (** Range unit and value. *) ]
+    (** The type for ranges. *)
+
+    val decode : string -> (t, string) result
+    (** [decode s] decodes a
+        {{:https://tools.ietf.org/html/rfc7233#section-3.1}range} header
+        value. *)
+
+    val encode : t -> string
+    (** [encode r] serializes ranges [r] in unit [u].
+        It's the client duty to make sure ranges are valid. *)
   end
 
   (** {2:standard_header_names Standard header names} *)
@@ -485,470 +905,6 @@ module Http : sig
   (** {{:https://tools.ietf.org/html/rfc7235#section-4.1}
         [www-authenticate]} *)
 
-  (** {1:paths Paths} *)
-
-  type fpath = string
-    (** The type for file paths. *)
-
-  type path = string list
-  (** The type for absolute URI paths represented as {e non-empty}
-      lists of {e percent-decoded} path segments. The empty list denotes
-      the absence of a path.
-
-      Path segments can be empty [""]. The root path [/] is
-      represented by the list [[""]] and [/a] by [["a"]], see more
-      examples {{!Path.decode}here}.
-
-      {b WARNING.} You should never concatenate these segments with a
-      separator to get a file path because they may contain stray
-      percent-decoded directory separators. Use the function
-      {!Path.to_absolute_filepath} to interpret paths as file
-      paths. *)
-
-  (** Paths. *)
-  module Path : sig
-
-    (** {1:paths Paths} *)
-
-    type t = path
-    (** See {!type-path}. *)
-
-    val undot_and_compress : path -> path
-    (** [undot_and_compress p] removes ["."] and [".."]  according to
-        the RFC 3986
-        {{:https://tools.ietf.org/html/rfc3986#section-5.2.4}algorithm}
-        and suppresses non-final empty [""] segments. *)
-
-    val strip_prefix : prefix:path -> path -> path option
-    (** [strip_prefix ~prefix p] removes the prefix path [prefix] from [p].
-        If [prefix] is not a strict prefix of [p] this is [None].
-        If [prefix = p] this is [Some [""]] (FIXME this feels right
-        and wrong at the same time), the root path. If [prefix]
-        ends with an empty segment, it matches any corresponding segment
-        at that point (so that stripping [/a/] from [/a/b] results in [/b]).
-
-        A few examples:
-        {ul
-        {- [strip_prefix _ [] -> None]}
-        {- [strip_prefix [] _ = None]}
-        {- [strip_prefix [""] (_ :: _ as l) = Some l]}
-        {- [strip_prefix [""; "a"] [""; "a"] = Some [""]]}
-        {- [strip_prefix [""; "a"] [""; "a"; ""] = Some [""]]}
-        {- [strip_prefix [""; "a"] [""; "a"; "b"] = Some ["b"]]}
-        {- [strip_prefix [""; "a"; ""] [""; "a"] = None]}
-        {- [strip_prefix [""; "a"; ""] [""; "a"; ""] = Some [""]]}
-        {- [strip_prefix [""; "a"; ""] [""; "a"; "b"] = Some ["b"]]}} *)
-
-    val concat : path -> path -> path
-    (** [concat p0 p1] concatenates [p0] and [p1]. If [p0] ends with
-        an empty segment and [p1] is non-empty that empty segment is dropped.
-        A few examples:
-        {ul
-        {- [concat p0 [] = p0]}
-        {- [concat [] p1 = p1]}
-        {- [concat [""] ["a"; "b"] = ["a"; "b"]]}
-        {- [concat ["a"] [""] = ["a"; ""]]}
-        {- [concat ["a"; ""] [""] = ["a"; ""]]}
-        {- [concat ["a"; "b"] ["c"; "d"] = ["a"; "b"; "c"; "d"]]}
-        {- [concat ["a"; "b"; ""] ["c"; "d"] = ["a"; "b"; "c"; "d"]]}
-        {- [concat ["a"; "b"; ""] [""] = ["a"; "b"]]}
-        {- [concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]]}} *)
-
-    val relativize : root:path -> path -> path
-    (** [relativise ~root p] is the relative path [r] that goes from
-        [root] to [p]. *)
-
-    (** {1:filepath File paths} *)
-
-    val has_dir_seps : string -> bool
-    (** [has_dir_seps s] is true iff [s] contains a '/' or a '\\'
-        character. *)
-
-    val to_absolute_filepath : path -> (fpath, string) result
-    (** [to_absolute_filepath p] is an absolute file path for
-        {!undot_and_compress}[ p]. Errors if any of the path segments
-        contains a stray slash or backslash or if [p] is the empty
-        list. The result always uses [/] as a directory separator
-        regardless of the platform and is guaranteed to be free of
-        any [.] or [..] segments. *)
-
-    val prefix_filepath : prefix:fpath -> fpath -> fpath
-    (** [prefix_filepath ~prefix p] prefixes [p] by [prefix] avoiding
-        introducing empty segments. This function assumes [/] is the
-        directory separator regardless of the platform. *)
-
-    val filepath_ext : fpath -> string
-    (** [filepath_ext p] is the file extension of file path [p].
-        This function assumes [/] is the directory separator regardless
-        of the platform. *)
-
-    (** {1:conv Converting} *)
-
-    val encode : path -> string
-    (** [encode p] encodes an
-        {{:https://tools.ietf.org/html/rfc7230#section-2.7}[absolute-path]}
-        for [p] as follows:
-
-        {ol
-        {- In each segment {{:http://tools.ietf.org/html/rfc3986#section-2.1}
-         percent-encode} any byte that is not
-         {{:http://tools.ietf.org/html/rfc3986#section-2.3}[unreserved]},
-         {{:http://tools.ietf.org/html/rfc3986#section-2.2}[sub-delims]},
-         [':'] or ['@'] to produce a valid URI
-         {{:http://tools.ietf.org/html/rfc3986#section-3.3}[segment].}}
-        {- Prepends each segment with a ['/'].}
-        {- Concatenate the result.}}
-
-        The empty list is special cased and yields [""]. This is for
-        encoding HTTP paths, use {!to_undotted_filepath} to
-        convert paths to file paths.
-
-        Here are a few examples:
-        {ul
-        {- [encode [] = ""]}
-        {- [encode [""] = "/"]}
-        {- [encode [""; ""] = "//"]}
-        {- [encode [""; "a"] = "//a"]}
-        {- [encode ["a";"b";"c"] = "/a/b/c"]}
-        {- [encode ["a";"b";"";"c";] = "/a/b//c"]}
-        {- [encode ["a";"b";"c";""] = "/a/b/c/"]}
-        {- [encode ["a";"b";"c";" "] = "/a/b/c/%20"]}
-        {- [encode ["a";"b";"c";"";""] = "/a/b/c//"]}
-        {- [encode ["a"; "b/"; "c"] = "/a/b%2F/c"]}
-        {- [encode ["r\xC3\xC9volte"] = "/r%C3%C9volte"]}
-        {- [encode ["a"; "not%20"; "b"] = "/a/not%2520/b"]}} *)
-
-    val decode : string -> (path, string) result
-    (** [decode s] decodes an
-        {{:https://tools.ietf.org/html/rfc7230#section-2.7}[absolute-path]}
-        to its
-        {{:http://tools.ietf.org/html/rfc3986#section-2.1}percent-decoded}
-        list of segments. By definition of [absolute-path] the list of
-        segments is never empty.
-
-        Here are a few examples:
-        {ul
-        {- [decode "/" = Ok [""]]}
-        {- [decode "//" = Ok ["";""]]}
-        {- [decode "//a" = Ok ["";"a"]]}
-        {- [decode "/a/b/c" = Ok ["a";"b";"c"]]}
-        {- [decode "/a/b//c" = Ok ["a";"b";"";"c"]]}
-        {- [decode "/a/b/c/" = Ok ["a";"b";"c";""]]}
-        {- [decode "/a/b/c/%20" = Ok ["a";"b";"c";" "]]}
-        {- [decode "/a/b//c//" = Ok ["a";"b";"";"c";"";""]]}
-        {- [decode "/a/b%2F/c" = Ok ["a"; "b/"; "c"]]}
-        {- [decode "/r%C3%C9volte" = Ok ["r\xC3\xC9volte"]]}
-        {- [decode  "/a/not%2520/b" = Ok ["a"; "not%20"; "b"]]}
-        {- [decode "" = Error _]}
-        {- [decode "a/b/c" = Error _]}} *)
-
-    val pp : Format.formatter -> path -> unit
-    (** [pp] is an unspecified formatter for paths. *)
-  end
-
-  (** {1:query queries} *)
-
-  type query
-  (** The type for queries as key-values maps. Both keys and values
-      are properly decoded. Note that keys can map to
-      multiple values. *)
-
-  (** Queries and query codecs. *)
-  module Query : sig
-
-    (** {1:queries Queries} *)
-
-    type t = query
-    (** See {!type-query}. *)
-
-    val empty : query
-    (** [empty] is the empty key-values map. *)
-
-    val is_empty : query -> bool
-    (** [is_empty q] is true if [q] is {!empty}. *)
-
-    val mem : string -> query -> bool
-    (** [mem k q] is true [iff] key [k] is bound in [q]. *)
-
-    val def : string -> string -> query -> query
-    (** [def k v q] is [q] with [k] bound only to value [v]. *)
-
-    val add : string -> string -> query -> query
-    (** [add k v q] is [q] with value [v] appended to
-        [k]'s values (or {!set} if there was no binding for [k]). *)
-
-    val undef : string -> query -> query
-    (** [undef k q] is [q] with [k] unbound. *)
-
-    val find : string -> query -> string option
-    (** [find k q] is the value of [k]'s first binding in [q], if any. *)
-
-    val find_all : string -> query -> string list
-    (** [find_all k q] are all the values bound to [k] or the empty
-        list if [k] is unbound. *)
-
-    val fold : (string -> string -> 'a -> 'a) -> query -> 'a -> 'a
-    (** [fold f q acc] folds over all the key-value bindings. For keys
-        with multiple values folds over them in the same order
-        as {!find_all}. *)
-
-    val keep_only_first : query -> query
-    (** [keep_only_first q] is [q] with only the first value kept in bindings
-        with multiple values. *)
-
-    (** {1:conv Converting} *)
-
-    val decode : string -> query
-    (** [decode s] decodes the
-        {{:https://url.spec.whatwg.org/#application/x-www-form-urlencoded}
-        [application/x-www-form-urlencoded]}
-        [s] to a query.  If a key is defined more than once,
-        the first definition is returned by {!find} and the
-        left-to-right order preserved by {!find_all}'s list. The input
-        string is not checked for UTF-8 validity. *)
-
-    val encode : query -> string
-    (** [encode q] encodes [q] to an
-        {{:https://url.spec.whatwg.org/#application/x-www-form-urlencoded}
-        [application/x-www-form-urlencoded]}
-        string. *)
-
-    val pp : Format.formatter -> query -> unit
-    (** [pp] is an unspecified formatter for queries. *)
-  end
-
-    (** {1:mime_type MIME types} *)
-
-  type mime_type = string
-  (** The type for MIME types. *)
-
-  (** MIME type constants and file extensions. *)
-  module Mime_type : sig
-
-    (** {1:mime_types MIME types} *)
-
-    type t = mime_type
-    (** See {!type-mime_type}. *)
-
-    val application_json : mime_type
-    (** [application_json] is ["application/json"], JSON text. *)
-
-    val application_octet_stream : mime_type
-    (** [application_octet_stream] is ["application/octet-stream"],
-        arbitrary bytes. *)
-
-    val application_x_www_form_urlencoded : mime_type
-    (** [application_x_www_form_urlencoded] is
-        ["application/x-www-form-urlencoded"]. *)
-
-    val text_css : mime_type
-    (** [text_css] is ["text/css"], a CSS stylesheet. *)
-
-    val text_html : mime_type
-    (** [text_html] is ["text/html; charset=utf-8"], UTF-8 encoded HTML text. *)
-
-    val text_javascript : mime_type
-    (** [text_jvascript] is ["text/javascript"], JavaScript code. *)
-
-    val text_plain : mime_type
-    (** [text_plain] is ["text/plain; charset=utf-8"],
-        UTF-8 encoded plain text. *)
-
-    val multipart_byteranges : mime_type
-    (** [multipart_byteranges] is ["multipart/byteranges"]. *)
-
-    val multipart_form_data : mime_type
-    (** [multipart_form_data] is ["multipart/form-data"]. *)
-
-    (** {1:from_exts From file extensions} *)
-
-    type file_ext = string
-    (** The type for file extensions, including the [.] character. *)
-
-    type file_ext_map = t Map.Make(String).t
-    (** The type for maps from {{!file_ext}file extensions} to MIME types. *)
-
-    val default_file_ext_map : file_ext_map Lazy.t
-    (** [default_file_ext_map] is a default extension map. The map is
-        documented by its implementation. Non self-describing
-        [text/*] MIME types have the parameter [charset=utf-8]. *)
-
-    val of_file_ext : ?map:file_ext_map -> file_ext -> t
-    (** [of_file_ext ~map ext] is the value of [ext] in [map] or
-        ["application/octet-stream"] if [ext] is unbound in [map].
-        [map] defaults to {!default_file_ext_map}. *)
-
-    val of_filepath : ?map:file_ext_map -> fpath -> t
-    (** [of_filepath ~map f] is [of_file_ext ~map (Http.filepath_ext f)]. *)
-  end
-
-  (** {1:etags_range Etags and ranges} *)
-
-  (** Entity tags.
-
-      {b References}
-      {ul
-      {- R. Fielding et al.
-      {{:https://tools.ietf.org/html/rfc7232}
-      {e Hypertext Transfer Protocol (HTTP/1.1): Conditional requests}}.
-      2014}} *)
-  module Etag : sig
-
-    (** {1:etags Etags} *)
-
-    type t
-    (** The type for
-        {{:https://tools.ietf.org/html/rfc7232#section-2.3}etags}. *)
-
-    val v : weak:bool -> string -> t
-    (** [v ~weak tag] is the etag [tag]. [weak] indicates if the etag is weak.
-
-        {b Warning.}  The function does not check that the bytes of
-        [tag] are valid; each should be one of [0x21], \[[0x23];[0x7E]\]
-        or \[[0x80];[0xFF]\]. *)
-
-    val is_weak : t -> bool
-    (** [is_weak e] is [true] iff [e] is weak. *)
-
-    val tag : t -> string
-    (** [tag e] is the entity tag of [e]. *)
-
-    val weak_match : t -> t -> bool
-    (** [weak_match e0 e1] is [true] iff [e0] and [e1]
-        {{:https://tools.ietf.org/html/rfc7232#section-2.3.2}weakly match}. *)
-
-    val strong_match : t -> t -> bool
-    (** [strong_match e0 e1] is [true] iff [e0] and [e1]
-        {{:https://tools.ietf.org/html/rfc7232#section-2.3.2}strongly match}. *)
-
-    val decode : string -> (t, string) result
-    (** [decode s] is an
-        {{:https://tools.ietf.org/html/rfc7232#section-2.3}etags} from [s]. *)
-
-    val encode : t -> string
-    (** [encode etag] is [etag] as an etag. *)
-
-    (** {1:conds Etag conditions} *)
-
-    type cond = [ `Any | `Etags of t list (** *) ]
-    (** The type for etags conditions. This represents the value
-        of {!H.if_match} or {!H.if_none_match} headers. *)
-
-    val decode_cond : string -> (cond, string) result
-    (** [decode_cond s] parses an etag condition from [s]. *)
-
-    val encode_cond : cond -> string
-    (** [encode_cond c] serializes condition [c]. *)
-
-    val eval_if_match : cond -> t option -> bool
-    (** [eval_if_match c t] evaluates the logic of an
-        {!H.if_match} header condition [c] on an entity represented
-        by [t] ([None] means the representation does not exist). This is:
-        {ul
-        {- [true] if [c] is [None] (no condition).}
-        {- [true] if [t] is [Some _] and [c] is [Some `Any].}
-        {- [true] if [t] is [Some etag], [c] is [Some (`Etags etags)] and
-           [etag] {{!strong_match}strongly matches} one of the [etags].}
-        {- [false] otherwise.}} *)
-
-    val eval_if_none_match : cond -> t option -> bool
-    (** [eval_if_none_match c t] evaluates the logic of an
-        {!H.if_none_match} header condition [c] on an entity represented
-        by [t] ([None] means the representation does not exist). This is:
-        {ul
-        {- [true] if [t] is [None] and [c] is [Some `Any].}
-        {- [true] if [t] is [Some etag], [c] is [Some (`Etags etags)] and
-           [etag] {{!weak_match}weakly matches} none of the [etags]}
-        {- [false] otherwise.}} *)
-
-    val eval_if_range : t -> t option -> bool
-    (** [eval_if_range req t] evaluates the logic of an {!H.if_range} header
-        etag [req] on an entity represented by [t] ([None] means the
-        representation does not exist). This is:
-        {ul
-        {- [true] if [t] is [Some etag] and [etag] {{!strong_match}strongly
-            matches} [req]}
-        {- [false] otherwise.}} *)
-  end
-
-  (** Range requests.
-
-      {b References.}
-      {ul
-      {- R. Fielding et al.
-      {{:https://tools.ietf.org/html/rfc7233}
-      {e Hypertext Transfer Protocol (HTTP/1.1): Range Requests}}.
-      2014}} *)
-  module Range : sig
-
-    (** {1:bytes Byte ranges} *)
-
-    type bytes =
-    [ `First of int (** First given offset to last offset *)
-    | `Last of int (** At most last given [n] bytes. *)
-    | `Range of int * int (** First offset and last offset. *) ]
-    (** The type for byte range specifications. Offsets are zero-based. *)
-
-    val eval_bytes : len:int -> bytes -> (int * int) option
-    (** [eval_bytes ~len b] given a representation length [len] and
-        byte range [b] returns a concrete zero-based byte range or
-        [None] if the range cannot be satisfied for [len].  *)
-
-    (** {1:ranges Ranges} *)
-
-    type t =
-    [ `Bytes of bytes list (** Byte ranges. *)
-    | `Other of string * string (** Range unit and value. *) ]
-    (** The type for ranges. *)
-
-    val decode : string -> (t, string) result
-    (** [decode s] decodes a
-        {{:https://tools.ietf.org/html/rfc7233#section-3.1}range} header
-        value. *)
-
-    val encode : t -> string
-    (** [encode r] serializes ranges [r] in unit [u].
-        It's the client duty to make sure ranges are valid. *)
-  end
-
-  (** {1:cookie Cookies} *)
-
-  (** Cookies.
-
-      {b References}
-      {ul
-      {- A. Barth.
-      {{:https://tools.ietf.org/html/rfc6265}
-      {e HTTP State Management Mechanism}}.
-      2011}} *)
-  module Cookie : sig
-
-    type atts
-    (** The type for {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes}cookie attributes}. *)
-
-    val atts_default : atts
-    (** [atts_default] are cookie attributes with [secure] set to [true],
-        [http_only] set to [true], [same_site] set to ["strict"] and no other
-        attribute specified. *)
-
-    val atts :
-      ?init:atts -> ?max_age:int option -> ?domain:string option ->
-      ?path:path -> ?secure:bool -> ?http_only:bool -> ?same_site:string ->
-      unit -> atts
-    (** [atts ()] are the given {{:https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes}cookie attributes}. Those unspecified take
-        the value of [init] which defaults to {!atts_default}. *)
-
-    val encode : ?atts:atts -> name:string -> string -> string
-    (** [encodes ~atts name s] encodes a cookie
-        with attributes [atts] (defaults to {!atts_default}) for
-        {!Headers.add_set_cookie}. *)
-
-    val decode_list : string -> ((string * string) list, string) result
-    (** [decode_list s] parses the
-        {{:https://tools.ietf.org/html/rfc6265#section-4.2.1}cookie string}
-        of a {!val-cookie} header value. *)
-  end
-
   (** {1:status_codes Status codes} *)
 
   type status = int
@@ -1103,25 +1059,69 @@ module Http : sig
   val http_version_not_supported_505 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.6.6}[505]} *)
 
-  (** {1:versions Versions} *)
+    (** {1:mime_type MIME types} *)
 
-  type version = int * int
-  (** The type for {{:https://tools.ietf.org/html/rfc7230#section-2.6}HTTP
-      versions}. Both integers must be in the interval [\[0;9\]]. *)
+  type mime_type = string
+  (** The type for MIME types. *)
 
-  (** HTTP versions. *)
-  module Version : sig
-    type t = version
-    (** The type for versions. See {!type:version}. *)
+  (** MIME type constants and file extensions. *)
+  module Mime_type : sig
 
-    val decode : string -> (version, string) result
-    (** [decode s] decodes a version from [s]. *)
+    (** {1:mime_types MIME types} *)
 
-    val encode : version -> string
-    (** [encode v] encodes the version [v]. Assumes correct integer ranges. *)
+    type t = mime_type
+    (** See {!type-mime_type}. *)
 
-    val pp : Format.formatter -> version -> unit
-    (** [pp] is an unspecified formatter for versions. *)
+    val application_json : mime_type
+    (** [application_json] is ["application/json"], JSON text. *)
+
+    val application_octet_stream : mime_type
+    (** [application_octet_stream] is ["application/octet-stream"],
+        arbitrary bytes. *)
+
+    val application_x_www_form_urlencoded : mime_type
+    (** [application_x_www_form_urlencoded] is
+        ["application/x-www-form-urlencoded"]. *)
+
+    val text_css : mime_type
+    (** [text_css] is ["text/css"], a CSS stylesheet. *)
+
+    val text_html : mime_type
+    (** [text_html] is ["text/html; charset=utf-8"], UTF-8 encoded HTML text. *)
+
+    val text_javascript : mime_type
+    (** [text_jvascript] is ["text/javascript"], JavaScript code. *)
+
+    val text_plain : mime_type
+    (** [text_plain] is ["text/plain; charset=utf-8"],
+        UTF-8 encoded plain text. *)
+
+    val multipart_byteranges : mime_type
+    (** [multipart_byteranges] is ["multipart/byteranges"]. *)
+
+    val multipart_form_data : mime_type
+    (** [multipart_form_data] is ["multipart/form-data"]. *)
+
+    (** {1:from_exts From file extensions} *)
+
+    type file_ext = string
+    (** The type for file extensions, including the [.] character. *)
+
+    type file_ext_map = t Map.Make(String).t
+    (** The type for maps from {{!file_ext}file extensions} to MIME types. *)
+
+    val default_file_ext_map : file_ext_map Lazy.t
+    (** [default_file_ext_map] is a default extension map. The map is
+        documented by its implementation. Non self-describing
+        [text/*] MIME types have the parameter [charset=utf-8]. *)
+
+    val of_file_ext : ?map:file_ext_map -> file_ext -> t
+    (** [of_file_ext ~map ext] is the value of [ext] in [map] or
+        ["application/octet-stream"] if [ext] is unbound in [map].
+        [map] defaults to {!default_file_ext_map}. *)
+
+    val of_filepath : ?map:file_ext_map -> fpath -> t
+    (** [of_filepath ~map f] is [of_file_ext ~map (Http.filepath_ext f)]. *)
   end
 
   (** {1:codecs Low-level codecs} *)

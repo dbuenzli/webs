@@ -207,6 +207,8 @@ module Http = struct
       Buffer.contents b
   end
 
+  (* Basic HTTP codecing *)
+
   let crlf = "\r\n"
   let err_miss_eq = "missing '='"
   let err_miss_dash = "missing '-'"
@@ -271,23 +273,6 @@ module Http = struct
   let[@inline] digit_of_int i = Char.chr (i + 0x30) (* assert (0 <= i <= 9 *)
   let[@inline] str_digit_of_int i = String.make 1 (digit_of_int i)
 
-  module Digits = struct
-    let decode s =
-      if s = "" then Error err_empty_string else
-      let rec loop k acc max =
-        if k > max then Ok acc else
-        let c = s.[k] in
-        if not (is_digit c) then Error (err_digits_char c) else
-        let acc = acc * 10 + digit_to_int c in
-        if acc < 0 then Error err_digits_overflow else
-        loop (k + 1) acc max
-      in
-      loop 0 0 (String.length s - 1)
-
-    let encode n =
-      if n < 0 then invalid_arg (err_digits_neg n) else string_of_int n
-  end
-
   (* HTTP token, see https://tools.ietf.org/html/rfc7230#section-3.2.6 *)
 
   let[@inline] is_upper = function 'A' .. 'Z' -> true | _ -> false
@@ -336,6 +321,23 @@ module Http = struct
     in
     loop s 0 max
 
+  module Digits = struct
+    let decode s =
+      if s = "" then Error err_empty_string else
+      let rec loop k acc max =
+        if k > max then Ok acc else
+        let c = s.[k] in
+        if not (is_digit c) then Error (err_digits_char c) else
+        let acc = acc * 10 + digit_to_int c in
+        if acc < 0 then Error err_digits_overflow else
+        loop (k + 1) acc max
+      in
+      loop 0 0 (String.length s - 1)
+
+    let encode n =
+      if n < 0 then invalid_arg (err_digits_neg n) else string_of_int n
+  end
+
   (* Names *)
 
   type name = string
@@ -350,7 +352,34 @@ module Http = struct
     | Failure e -> Error e
   end
 
-  (* HTTP method *)
+  (* Versions *)
+
+  type version = int * int
+  module Version = struct
+    type t = version
+    let decode_of_bytes b ~first ~max =
+      if max - first + 1 < 8 then failwith err_version else
+      let[@inline] c b i = Bytes.get b (first + i) in
+      if c b 0 = 'H' && c b 1 = 'T' && c b 2 = 'T' && c b 3 = 'P' &&
+         c b 4 = '/' && is_digit (c b 5) && c b 6 = '.' && is_digit (c b 7)
+      then first + 8, (digit_to_int (c b 5), digit_to_int (c b 7))
+      else failwith err_version
+
+    let decode s =
+      if String.length s <> 8 then Error err_version else
+      match decode_of_bytes (Bytes.unsafe_of_string s) ~first:0 ~max:7 with
+      | exception Failure e -> Error e | (_, v) -> Ok v
+
+    let encode (maj, min) =
+      let b = Bytes.create 8 and s = Bytes.set in
+      Bytes.blit_string "HTTP/" 0 b 0 5;
+      s b 5 (digit_of_int maj); s b 6 '.'; s b 7 (digit_of_int min);
+      Bytes.unsafe_to_string b
+
+    let pp ppf v = Format.pp_print_string ppf (encode v)
+  end
+
+  (* Methods *)
 
   let meth_of_token = function
   | "GET" -> `GET | "HEAD" -> `HEAD | "POST" -> `POST | "PUT" -> `PUT
@@ -380,133 +409,8 @@ module Http = struct
 
     let pp ppf m = Format.pp_print_string ppf (encode m)
   end
-    (* Header name constants *)
 
-  let accept = "accept"
-  let accept_charset = "accept-charset"
-  let accept_encoding = "accept-encoding"
-  let accept_language = "accept-language"
-  let accept_ranges = "accept-ranges"
-  let age = "age"
-  let allow = "allow"
-  let authorization = "authorization"
-  let cache_control = "cache-control"
-  let connection = "connection"
-  let content_encoding = "content-encoding"
-  let content_language = "content-languyage"
-  let content_length = "content-length"
-  let content_location = "content-location"
-  let content_range = "content-range"
-  let content_type = "content-type"
-  let cookie = "cookie"
-  let date = "date"
-  let etag = "etag"
-  let expect = "expect"
-  let expires = "expires"
-  let from = "from"
-  let host = "host"
-  let if_match = "if-match"
-  let if_modified_since = "if-modified-since"
-  let if_none_match = "if-none-match"
-  let if_range = "if-range"
-  let if_unmodified_since = "if-unmodified-since"
-  let last_modified = "last-modified"
-  let location = "location"
-  let max_forwards = "max-forwards"
-  let pragma = "pragma"
-  let proxy_authenticate = "proxy-authenticate"
-  let proxy_authorization = "proxy-authorization"
-  let range = "range"
-  let referer = "referer"
-  let retry_after = "retry-after"
-  let server = "server"
-  let set_cookie = "set-cookie"
-  let te = "te"
-  let trailer = "trailer"
-  let transfer_encoding = "transfer-encoding"
-  let upgrade = "upgrade"
-  let user_agent = "user-agent"
-  let vary = "vary"
-  let via = "via"
-  let warning = "warning"
-  let www_authenticate = "www-authenticate"
-
-  (* Headers *)
-
-  type headers = string Smap.t (* always lowercased by header_name *)
-
-  module Headers = struct
-    type t = headers
-
-    let name = Name.v
-
-    (* Header values *)
-
-    let values_of_set_cookie_value s = String.split_on_char '\x00' s
-    let values_of_string ?(sep = ',') s =
-      List.rev @@ List.rev_map trim_ows (String.split_on_char sep s)
-
-    let values_to_string ?(sep = ',') = function
-    | [] -> invalid_arg err_empty_multi_value
-    | vs -> String.concat (String.make 1 sep) vs
-
-    let is_token = is_token
-
-    (* Header maps *)
-
-    let empty = Smap.empty
-    let is_empty = Smap.is_empty
-    let mem = Smap.mem
-    let find ?(lowervalue = false) n hs = match lowervalue with
-    | true -> Option.map string_lowercase (Smap.find_opt n hs)
-    | false -> Smap.find_opt n hs
-
-    let undef = Smap.remove
-    let get ?lowervalue n hs = match find ?lowervalue n hs with
-    | None -> invalid_arg (err_header_undefined n)
-    | Some v -> v
-
-    let def = Smap.add
-    let def_if_some n o hs = match o with None -> hs | Some v -> def n v hs
-    let def_if_undef n v hs = if mem n hs then hs else def n v hs
-
-    let _append_value sep n v hs = match Smap.find_opt n hs with
-    | None -> Smap.add n v hs
-    | Some v' -> Smap.add n (String.concat sep [v; v']) hs
-
-    let add n v hs = _append_value "," n v hs
-    let add_set_cookie v hs = _append_value "\x00" "set-cookie" v hs
-    let fold = Smap.fold
-    let override hs ~by =
-      let merge_right _ _ v = Some v in
-      Smap.union merge_right hs by
-
-    let pp ppf hs =
-      let pp_header ppf (n, v)  =
-        (* if !first then first := false else pp_cut ppf (); *)
-        if not (n = "set-cookie") then pp_field n pp_qstring ppf v else
-        let cs = values_of_set_cookie_value v in
-        List.iter (pp_field "set-cookie" pp_qstring ppf) cs
-      in
-      Format.pp_print_list pp_header ppf (Smap.bindings hs)
-
-    (* Header lookups *)
-
-    let request_body_length hs =
-      let len = find content_length hs in
-      let tr = find transfer_encoding ~lowervalue:true hs in
-      match len, tr with
-      | Some _, Some _ -> Error err_headers_length_conflicts (* §3.3.3 3. *)
-      | None, None -> Ok (`Length 0) (* §3.3.3 6. *)
-      | Some l, None -> Result.map (fun l -> `Length l) (Digits.decode l)
-      | None, Some tes ->
-          (* §3.3.3 3. *)
-          let tes = values_of_string tes in
-          let chunked = String.equal "chunked" (List.hd (List.rev tes)) in
-          if chunked then Ok `Chunked else Error err_headers_length
-  end
-
-  (* Paths *)
+  (* Paths and queries *)
 
   type fpath = string
   type path = string list
@@ -801,85 +705,187 @@ module Http = struct
       pf ppf "@[<v>%a@]" (Format.pp_print_list pp_binding) (Smap.bindings q)
   end
 
-    (* MIME types *)
+  (* Header name constants *)
 
-  type mime_type = string
-  module Mime_type = struct
-    type t = mime_type
-    let application_json = "application/json"
-    let application_octet_stream = "application/octet-stream"
-    let application_x_www_form_urlencoded = "application/x-www-form-urlencoded"
-    let text_css = "text/css"
-    let text_html = "text/html;charset=utf-8"
-    let text_javascript = "text/javascript"
-    let text_plain = "text/plain;charset=utf-8"
-    let multipart_byteranges = "multipart/byteranges"
-    let multipart_form_data = "multipart/form-data"
+  let accept = "accept"
+  let accept_charset = "accept-charset"
+  let accept_encoding = "accept-encoding"
+  let accept_language = "accept-language"
+  let accept_ranges = "accept-ranges"
+  let age = "age"
+  let allow = "allow"
+  let authorization = "authorization"
+  let cache_control = "cache-control"
+  let connection = "connection"
+  let content_encoding = "content-encoding"
+  let content_language = "content-languyage"
+  let content_length = "content-length"
+  let content_location = "content-location"
+  let content_range = "content-range"
+  let content_type = "content-type"
+  let cookie = "cookie"
+  let date = "date"
+  let etag = "etag"
+  let expect = "expect"
+  let expires = "expires"
+  let from = "from"
+  let host = "host"
+  let if_match = "if-match"
+  let if_modified_since = "if-modified-since"
+  let if_none_match = "if-none-match"
+  let if_range = "if-range"
+  let if_unmodified_since = "if-unmodified-since"
+  let last_modified = "last-modified"
+  let location = "location"
+  let max_forwards = "max-forwards"
+  let pragma = "pragma"
+  let proxy_authenticate = "proxy-authenticate"
+  let proxy_authorization = "proxy-authorization"
+  let range = "range"
+  let referer = "referer"
+  let retry_after = "retry-after"
+  let server = "server"
+  let set_cookie = "set-cookie"
+  let te = "te"
+  let trailer = "trailer"
+  let transfer_encoding = "transfer-encoding"
+  let upgrade = "upgrade"
+  let user_agent = "user-agent"
+  let vary = "vary"
+  let via = "via"
+  let warning = "warning"
+  let www_authenticate = "www-authenticate"
 
-    type file_ext = string
-    type file_ext_map = t Smap.t
-    let default_file_ext_map =
-      lazy begin
-        Smap.empty
-        |> Smap.add ".aac"  "audio/aac"
-        |> Smap.add ".avi"  "video/x-msvideo"
-        |> Smap.add ".bin"  "application/octet-stream"
-        |> Smap.add ".bmp"  "image/bmp"
-        |> Smap.add ".bz"   "application/x-bzip"
-        |> Smap.add ".bz2"  "application/x-bzip2"
-        |> Smap.add ".css"	"text/css"
-        |> Smap.add ".gz"	  "application/gzip"
-        |> Smap.add ".gif"  "image/gif"
-        |> Smap.add ".htm"  "text/html"
-        |> Smap.add ".html" "text/html"
-        |> Smap.add ".ics"	"text/calendar"
-        |> Smap.add ".jpeg" "image/jpeg"
-        |> Smap.add ".jpg"  "image/jpeg"
-        |> Smap.add ".js"	  "text/javascript"
-        |> Smap.add ".json"	"text/javascript"
-        |> Smap.add ".jsonldx" "application/ld+json"
-        |> Smap.add ".md"   "text/markdown;charset=utf-8"
-        |> Smap.add ".midi"	"audio/midi audio/x-midi"
-        |> Smap.add ".mjs"  "text/javascript"
-        |> Smap.add ".mp3"  "audio/mpeg"
-        |> Smap.add ".mpeg" "video/mpeg"
-        |> Smap.add ".oga"  "audio/ogg"
-        |> Smap.add ".ogv"  "video/ogg"
-        |> Smap.add ".ogx"  "application/ogg"
-        |> Smap.add ".opus"	"audio/opus"
-        |> Smap.add ".otf"	"font/otf"
-        |> Smap.add ".png"	"image/png"
-        |> Smap.add ".pdf"	"application/pdf"
-        |> Smap.add ".rar"	"application/vnd.rar"
-        |> Smap.add ".rtf"	"application/rtf"
-        |> Smap.add ".svg"	"image/svg+xml"
-        |> Smap.add ".tar"	"application/x-tar"
-        |> Smap.add ".tif"  "image/tiff"
-        |> Smap.add ".tiff"	"image/tiff"
-        |> Smap.add ".ts"	  "video/mp2t"
-        |> Smap.add ".ttf"	"font/ttf"
-        |> Smap.add ".txt"	"text/plain;charset=utf-8"
-        |> Smap.add ".wav"	"audio/wav"
-        |> Smap.add ".weba"	"audio/webm"
-        |> Smap.add ".webm"	"video/webm"
-        |> Smap.add ".webp"	"image/webp"
-        |> Smap.add ".woff"	"font/woff"
-        |> Smap.add ".woff2" "font/woff2"
-        |> Smap.add ".xhtml" "application/xhtml+xml"
-        |> Smap.add ".xml"  "application/xml"
-        |> Smap.add ".zip"  "application/zip"
-        |> Smap.add ".7z"	  "application/x-7z-compressed"
-      end
+  (* Headers *)
 
-    let of_file_ext ?map:m ext =
-      let m = match m with
-      | None -> Lazy.force default_file_ext_map
-      | Some m -> m
+  type headers = string Smap.t (* always lowercased by header_name *)
+
+  module Headers = struct
+    type t = headers
+
+    let name = Name.v
+
+    (* Header values *)
+
+    let values_of_set_cookie_value s = String.split_on_char '\x00' s
+    let values_of_string ?(sep = ',') s =
+      List.rev @@ List.rev_map trim_ows (String.split_on_char sep s)
+
+    let values_to_string ?(sep = ',') = function
+    | [] -> invalid_arg err_empty_multi_value
+    | vs -> String.concat (String.make 1 sep) vs
+
+    let is_token = is_token
+
+    (* Header maps *)
+
+    let empty = Smap.empty
+    let is_empty = Smap.is_empty
+    let mem = Smap.mem
+    let find ?(lowervalue = false) n hs = match lowervalue with
+    | true -> Option.map string_lowercase (Smap.find_opt n hs)
+    | false -> Smap.find_opt n hs
+
+    let undef = Smap.remove
+    let get ?lowervalue n hs = match find ?lowervalue n hs with
+    | None -> invalid_arg (err_header_undefined n)
+    | Some v -> v
+
+    let def = Smap.add
+    let def_if_some n o hs = match o with None -> hs | Some v -> def n v hs
+    let def_if_undef n v hs = if mem n hs then hs else def n v hs
+
+    let _append_value sep n v hs = match Smap.find_opt n hs with
+    | None -> Smap.add n v hs
+    | Some v' -> Smap.add n (String.concat sep [v; v']) hs
+
+    let add n v hs = _append_value "," n v hs
+    let add_set_cookie v hs = _append_value "\x00" "set-cookie" v hs
+    let fold = Smap.fold
+    let override hs ~by =
+      let merge_right _ _ v = Some v in
+      Smap.union merge_right hs by
+
+    let pp ppf hs =
+      let pp_header ppf (n, v)  =
+        (* if !first then first := false else pp_cut ppf (); *)
+        if not (n = "set-cookie") then pp_field n pp_qstring ppf v else
+        let cs = values_of_set_cookie_value v in
+        List.iter (pp_field "set-cookie" pp_qstring ppf) cs
       in
-      let default = application_octet_stream in
-      Option.value (Smap.find_opt ext m) ~default
+      Format.pp_print_list pp_header ppf (Smap.bindings hs)
 
-    let of_filepath ?map file = of_file_ext ?map (Path.filepath_ext file)
+    (* Header lookups *)
+
+    let request_body_length hs =
+      let len = find content_length hs in
+      let tr = find transfer_encoding ~lowervalue:true hs in
+      match len, tr with
+      | Some _, Some _ -> Error err_headers_length_conflicts (* §3.3.3 3. *)
+      | None, None -> Ok (`Length 0) (* §3.3.3 6. *)
+      | Some l, None -> Result.map (fun l -> `Length l) (Digits.decode l)
+      | None, Some tes ->
+          (* §3.3.3 3. *)
+          let tes = values_of_string tes in
+          let chunked = String.equal "chunked" (List.hd (List.rev tes)) in
+          if chunked then Ok `Chunked else Error err_headers_length
+  end
+
+  module Cookie = struct
+    type atts =
+      { domain : string option;
+        http_only : bool;
+        max_age : int option;
+        path : path;
+        same_site : string;
+        secure : bool; }
+
+    let atts_default =
+      { domain = None; http_only = true; max_age = None; path = [];
+        same_site = "strict"; secure = true; }
+
+    let atts
+        ?init:(a = atts_default) ?(domain = a.domain) ?(http_only = a.http_only)
+        ?(max_age = a.max_age) ?(path = a.path) ?(same_site = a.same_site)
+        ?(secure = a.secure) ()
+      =
+      { domain; http_only; max_age; path; same_site; secure }
+
+    let encode_atts a =
+      let max_age = match a.max_age with
+      | None -> "" | Some a -> ";max-age=" ^ string_of_int a
+      in
+      let domain = match a.domain with None -> "" | Some d -> ";domain=" ^ d in
+      let path = if a.path = [] then "" else ";path=" ^ (Path.encode a.path) in
+      let secure = if a.secure then ";Secure" else "" in
+      let http_only = if a.http_only then ";httponly" else "" in
+      let same_site = ";samesite=" ^ a.same_site in
+      String.concat "" [max_age; domain; path; secure; http_only; same_site]
+
+    let encode ?(atts = atts_default) ~name value =
+      String.concat "" [name; "="; value; encode_atts atts]
+
+    let decode_list s =
+      (* Very lax parsing. TODO better,
+         see https://tools.ietf.org/html/rfc6265#section-4.2*)
+      let rec loop acc = function
+      | [] -> Ok (List.rev acc)
+      | c :: cs ->
+          match String.index_opt c '=' with
+          | None -> Error "illegal cookie pair"
+          | Some i ->
+              let n = string_subrange ~last:(i - 1) c in
+              let v = string_subrange ~first:(i + 1) c in
+              let v =
+                if v = "" then ""  else
+                let len = String.length v - 1 in
+                if v.[0] = '\"' && v.[len - 1] = '\"' && len > 1
+                then string_subrange ~first:1 ~last:(len - 2) v else
+                v
+              in
+              loop ((n, v) :: acc) cs
+      in
+      loop [] (Headers.values_of_string ~sep:';' s)
   end
 
   (* Etags *)
@@ -1007,67 +1013,9 @@ module Http = struct
         String.concat "" ("bytes" :: "=" :: rs)
   end
 
-  module Cookie = struct
-    type atts =
-      { max_age : int option;
-        domain : string option;
-        path : path;
-        secure : bool;
-        http_only : bool;
-        same_site : string; }
-
-    let atts_default =
-      { max_age = None; domain = None; path = []; secure = true;
-        http_only = true; same_site = "strict"; }
-
-    let atts ?init:(a = atts_default)
-        ?(max_age = a.max_age) ?(domain = a.domain) ?(path = a.path)
-        ?(secure = a.secure) ?(http_only = a.http_only)
-        ?(same_site = a.same_site) ()
-      =
-      { max_age; domain; path; secure; http_only; same_site }
-
-    let encode_atts a =
-      let max_age = match a.max_age with
-      | None -> "" | Some a -> ";max-age=" ^ string_of_int a
-      in
-      let domain = match a.domain with None -> "" | Some d -> ";domain=" ^ d in
-      let path = if a.path = [] then "" else ";path=" ^ (Path.encode a.path) in
-      let secure = if a.secure then ";Secure" else "" in
-      let http_only = if a.http_only then ";httponly" else "" in
-      let same_site = ";samesite=" ^ a.same_site in
-      String.concat "" [max_age; domain; path; secure; http_only; same_site]
-
-    let encode ?(atts = atts_default) ~name value =
-      String.concat "" [name; "="; value; encode_atts atts]
-
-    let decode_list s =
-      (* Very lax parsing. TODO better,
-         see https://tools.ietf.org/html/rfc6265#section-4.2*)
-      let rec loop acc = function
-      | [] -> Ok (List.rev acc)
-      | c :: cs ->
-          match String.index_opt c '=' with
-          | None -> Error "illegal cookie pair"
-          | Some i ->
-              let n = string_subrange ~last:(i - 1) c in
-              let v = string_subrange ~first:(i + 1) c in
-              let v =
-                if v = "" then ""  else
-                let len = String.length v - 1 in
-                if v.[0] = '\"' && v.[len - 1] = '\"' && len > 1
-                then string_subrange ~first:1 ~last:(len - 2) v else
-                v
-              in
-              loop ((n, v) :: acc) cs
-      in
-      loop [] (Headers.values_of_string ~sep:';' s)
-  end
-
   (* Status *)
 
   type status = int
-
   module Status = struct
     type t = status
     let reason_phrase = function
@@ -1167,32 +1115,85 @@ module Http = struct
   let gateway_time_out_504 = 504
   let http_version_not_supported_505 = 505
 
-  (* Versions *)
+  (* MIME types *)
 
-  type version = int * int
+  type mime_type = string
+  module Mime_type = struct
+    type t = mime_type
+    let application_json = "application/json"
+    let application_octet_stream = "application/octet-stream"
+    let application_x_www_form_urlencoded = "application/x-www-form-urlencoded"
+    let text_css = "text/css"
+    let text_html = "text/html;charset=utf-8"
+    let text_javascript = "text/javascript"
+    let text_plain = "text/plain;charset=utf-8"
+    let multipart_byteranges = "multipart/byteranges"
+    let multipart_form_data = "multipart/form-data"
 
-  module Version = struct
-    type t = version
-    let decode_of_bytes b ~first ~max =
-      if max - first + 1 < 8 then failwith err_version else
-      let[@inline] c b i = Bytes.get b (first + i) in
-      if c b 0 = 'H' && c b 1 = 'T' && c b 2 = 'T' && c b 3 = 'P' &&
-         c b 4 = '/' && is_digit (c b 5) && c b 6 = '.' && is_digit (c b 7)
-      then first + 8, (digit_to_int (c b 5), digit_to_int (c b 7))
-      else failwith err_version
+    type file_ext = string
+    type file_ext_map = t Smap.t
+    let default_file_ext_map =
+      lazy begin
+        Smap.empty
+        |> Smap.add ".aac"  "audio/aac"
+        |> Smap.add ".avi"  "video/x-msvideo"
+        |> Smap.add ".bin"  "application/octet-stream"
+        |> Smap.add ".bmp"  "image/bmp"
+        |> Smap.add ".bz"   "application/x-bzip"
+        |> Smap.add ".bz2"  "application/x-bzip2"
+        |> Smap.add ".css"	"text/css"
+        |> Smap.add ".gz"	  "application/gzip"
+        |> Smap.add ".gif"  "image/gif"
+        |> Smap.add ".htm"  "text/html"
+        |> Smap.add ".html" "text/html"
+        |> Smap.add ".ics"	"text/calendar"
+        |> Smap.add ".jpeg" "image/jpeg"
+        |> Smap.add ".jpg"  "image/jpeg"
+        |> Smap.add ".js"	  "text/javascript"
+        |> Smap.add ".json"	"text/javascript"
+        |> Smap.add ".jsonldx" "application/ld+json"
+        |> Smap.add ".md"   "text/markdown;charset=utf-8"
+        |> Smap.add ".midi"	"audio/midi audio/x-midi"
+        |> Smap.add ".mjs"  "text/javascript"
+        |> Smap.add ".mp3"  "audio/mpeg"
+        |> Smap.add ".mpeg" "video/mpeg"
+        |> Smap.add ".oga"  "audio/ogg"
+        |> Smap.add ".ogv"  "video/ogg"
+        |> Smap.add ".ogx"  "application/ogg"
+        |> Smap.add ".opus"	"audio/opus"
+        |> Smap.add ".otf"	"font/otf"
+        |> Smap.add ".png"	"image/png"
+        |> Smap.add ".pdf"	"application/pdf"
+        |> Smap.add ".rar"	"application/vnd.rar"
+        |> Smap.add ".rtf"	"application/rtf"
+        |> Smap.add ".svg"	"image/svg+xml"
+        |> Smap.add ".tar"	"application/x-tar"
+        |> Smap.add ".tif"  "image/tiff"
+        |> Smap.add ".tiff"	"image/tiff"
+        |> Smap.add ".ts"	  "video/mp2t"
+        |> Smap.add ".ttf"	"font/ttf"
+        |> Smap.add ".txt"	"text/plain;charset=utf-8"
+        |> Smap.add ".wav"	"audio/wav"
+        |> Smap.add ".weba"	"audio/webm"
+        |> Smap.add ".webm"	"video/webm"
+        |> Smap.add ".webp"	"image/webp"
+        |> Smap.add ".woff"	"font/woff"
+        |> Smap.add ".woff2" "font/woff2"
+        |> Smap.add ".xhtml" "application/xhtml+xml"
+        |> Smap.add ".xml"  "application/xml"
+        |> Smap.add ".zip"  "application/zip"
+        |> Smap.add ".7z"	  "application/x-7z-compressed"
+      end
 
-    let decode s =
-      if String.length s <> 8 then Error err_version else
-      match decode_of_bytes (Bytes.unsafe_of_string s) ~first:0 ~max:7 with
-      | exception Failure e -> Error e | (_, v) -> Ok v
+    let of_file_ext ?map:m ext =
+      let m = match m with
+      | None -> Lazy.force default_file_ext_map
+      | Some m -> m
+      in
+      let default = application_octet_stream in
+      Option.value (Smap.find_opt ext m) ~default
 
-    let encode (maj, min) =
-      let b = Bytes.create 8 and s = Bytes.set in
-      Bytes.blit_string "HTTP/" 0 b 0 5;
-      s b 5 (digit_of_int maj); s b 6 '.'; s b 7 (digit_of_int min);
-      Bytes.unsafe_to_string b
-
-    let pp ppf v = Format.pp_print_string ppf (encode v)
+    let of_filepath ?map file = of_file_ext ?map (Path.filepath_ext file)
   end
 
   (* Low-level codecs *)
