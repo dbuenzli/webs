@@ -19,11 +19,12 @@ let () =
     Pkg.mllib "src/webs_httpc.mllib" ~dst_dir:"httpc";
     Pkg.mllib "src/webs_html.mllib" ~dst_dir:"html";
     Pkg.mllib ~cond:cmdliner "src/webs_cli.mllib" ~dst_dir:"cli";
-    Pkg.bin ~cond:cmdliner "test/webs_tool" ~dst:"webs";
-    Pkg.test ~run:false "test/httpc";
-    Pkg.test ~run:false "test/cgi";
+    Pkg.bin ~cond:cmdliner "examples/webs_tool" ~dst:"webs";
+    Pkg.test ~run:false "examples/httpc";
+    Pkg.test ~run:false "examples/cgi";
     Pkg.test "test/test_http";
-    Pkg.test ~run:false "test/multic";
+    Pkg.test "test/test_authenticatable";
+    Pkg.test ~run:false "examples/multic";
     Pkg.doc "doc/index.mld" ~dst:"odoc-pages/index.mld";
     Pkg.doc
       "doc/web_service_howto.mld" ~dst:"odoc-pages/web_service_howto.mld";

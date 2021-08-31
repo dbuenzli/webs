@@ -13,5 +13,6 @@ true : bin_annot, safe_string
 <src/webs_cli*> : package(cmdliner)
 <test> : include
 <test/*> : package(unix), use_webs_unix_stubs, use_webs_kit_stubs
-<test/{httpc,multic}*> : thread, package(threads.posix)
-<test/webs_tool*> : thread, package(threads.posix), package(cmdliner)
+<examples/*> : package(unix), use_webs_unix_stubs, use_webs_kit_stubs
+<examples/{httpc,multic}*> : thread, package(threads.posix)
+<examples/webs_tool*> : thread, package(threads.posix), package(cmdliner)

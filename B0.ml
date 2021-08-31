@@ -77,7 +77,7 @@ let webs_html_lib =
 (* Tools *)
 
 let webs_tool =
-  let srcs = Fpath.[`File (v "test/webs_tool.ml")] in
+  let srcs = Fpath.[`File (v "examples/webs_tool.ml")] in
   let requires = [cmdliner; webs; webs_kit; webs_unix; webs_cli; webs_httpc] in
   B0_ocaml.exe "webs_tool" ~doc:"Webs HTTP/1.1 server" ~srcs ~requires
 
@@ -87,38 +87,42 @@ let test ?doc base ~requires =
   let srcs = Fpath.[`File (v (Fmt.str "test/%s.ml" base))] in
   B0_ocaml.exe base ?doc ~srcs ~requires
 
+let example ?doc base ~requires =
+  let srcs = Fpath.[`File (v (Fmt.str "examples/%s.ml" base))] in
+  B0_ocaml.exe base ?doc ~srcs ~requires
+
 let test_http = test "test_http" ~requires:[webs]
 let test_http = test "test_sha_256" ~requires:[webs; webs_kit]
 let test_authenticatable =
   test "test_authenticatable" ~requires:[webs; webs_kit]
 
-let test_httpc = test "httpc" ~requires:[webs; webs_kit; webs_httpc]
-let test_cgi = test "cgi" ~requires:[webs; webs_kit; unix; webs_cgi]
-let test_bauth = test "bauth" ~requires:[webs; webs_kit; webs_cli]
-let test_sse = test "sse" ~requires:[webs; webs_kit; webs_cli]
-let test_formality = test "formality" ~requires:[webs; webs_kit; webs_cli]
-let test_min = test "min" ~requires:[webs; webs_cli]
+let example_httpc = example "httpc" ~requires:[webs; webs_kit; webs_httpc]
+let example_cgi = example "cgi" ~requires:[webs; webs_kit; unix; webs_cgi]
+let example_bauth = example "bauth" ~requires:[webs; webs_kit; webs_cli]
+let example_sse = example "sse" ~requires:[webs; webs_kit; webs_cli]
+let example_formality = example "formality" ~requires:[webs; webs_kit; webs_cli]
+let example_min = example "min" ~requires:[webs; webs_cli]
 
-let test_count_acookie =
-  test "count_acookie" ~requires:[webs; webs_kit; webs_cli]
+let example_count_acookie =
+  example "count_acookie" ~requires:[webs; webs_kit; webs_cli]
 
-let test_count_session =
-  test "count_session" ~requires:[webs; webs_kit; webs_cli]
+let example_count_session =
+  example "count_session" ~requires:[webs; webs_kit; webs_cli]
 
-let test_files_unix =
-  test "files_unix" ~requires:[webs; webs_kit; webs_unix; webs_cli]
+let example_files_unix =
+  example "files_unix" ~requires:[webs; webs_kit; webs_unix; webs_cli]
 
-let test_files_gateway =
-  test "files_gateway" ~requires:[webs; webs_kit; webs_cli]
+let example_files_gateway =
+  example "files_gateway" ~requires:[webs; webs_kit; webs_cli]
 
-let test_websocket =
-  test "websocket" ~requires:[webs; webs_kit; webs_websocket; webs_cli]
+let example_websocket =
+  example "websocket" ~requires:[webs; webs_kit; webs_websocket; webs_cli]
 
-let test_multic =
-  test "multic" ~requires:[webs; webs_kit; webs_cgi; webs_httpc]
+let example_multic =
+  example "multic" ~requires:[webs; webs_kit; webs_cgi; webs_httpc]
 
-let test_login =
-  test "login" ~requires:[webs; webs_kit; webs_cli]
+let example_login =
+  example "login" ~requires:[webs; webs_kit; webs_cli]
 
 (* Packs *)
 
