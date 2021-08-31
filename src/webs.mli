@@ -266,24 +266,34 @@ module Http : sig
         and suppresses non-final empty [""] segments. *)
 
     val strip_prefix : prefix:path -> path -> path option
-    (** [strip_prefix ~prefix p] removes the prefix path [prefix] from [p].
-        If [prefix] is not a strict prefix of [p] this is [None].
-        If [prefix = p] this is [Some [""]] (FIXME this feels right
-        and wrong at the same time), the root path. If [prefix]
-        ends with an empty segment, it matches any corresponding segment
-        at that point (so that stripping [/a/] from [/a/b] results in [/b]).
+    (** [strip_prefix ~prefix p] removes the prefix path [prefix] from
+        [p].  If [prefix] ends with an empty segment, it matches any
+        corresponding segment at that point (so that stripping [/a/]
+        from [/a/b] results in [/b]).
+
+        If [p] is not prefixed by [prefix], [None] is returned [Some
+        []] is ever returned.
+
+        Given a path [p] and the same path [p'] with a trailing
+        slash, the set of paths prefixed by [p] is the the set of
+        path prefixed by [p'] plus [p] itelf.
 
         A few examples:
         {ul
+        {- [strip_prefix [""] (_ :: _ as l) = Some l]}
         {- [strip_prefix _ [] -> None]}
         {- [strip_prefix [] _ = None]}
-        {- [strip_prefix [""] (_ :: _ as l) = Some l]}
-        {- [strip_prefix [""; "a"] [""; "a"] = Some [""]]}
-        {- [strip_prefix [""; "a"] [""; "a"; ""] = Some [""]]}
-        {- [strip_prefix [""; "a"] [""; "a"; "b"] = Some ["b"]]}
-        {- [strip_prefix [""; "a"; ""] [""; "a"] = None]}
-        {- [strip_prefix [""; "a"; ""] [""; "a"; ""] = Some [""]]}
-        {- [strip_prefix [""; "a"; ""] [""; "a"; "b"] = Some ["b"]]}} *)
+        {- [strip_prefix ["a"] ["b"] = None]}
+        {- [strip_prefix ["a"] ["a"] = Some [""]]}
+        {- [strip_prefix ["a"] ["a"; ""] = Some [""]]}
+        {- [strip_prefix ["a"] ["a"; "b"; ] = Some ["b"]]}
+        {- [strip_prefix ["a"] ["a"; "b"; ""] = Some ["b"; ""]]}
+        {- [strip_prefix ["a"] ["a"; ""; "b"] = Some [""; "b"]]}
+        {- [strip_prefix ["a"; ""] ["a"] = None]}
+        {- [strip_prefix ["a"; ""] ["a"; ""] = Some [""]]}
+        {- [strip_prefix ["a"; ""] ["a"; "b"; ] = Some ["b"]]}
+        {- [strip_prefix ["a"; ""] ["a"; "b"; ""] = Some ["b"; ""]]}
+        {- [strip_prefix ["a"; ""] ["a"; ""; "b"] = Some [""; "b"]]}} *)
 
     val concat : path -> path -> path
     (** [concat p0 p1] concatenates [p0] and [p1]. If [p0] ends with
@@ -387,6 +397,11 @@ module Http : sig
         {- [decode  "/a/not%2520/b" = Ok ["a"; "not%20"; "b"]]}
         {- [decode "" = Error _]}
         {- [decode "a/b/c" = Error _]}} *)
+
+    (**/**)
+    val and_query_of_request_target : string -> string list * string option
+    (** raises [Failure] *)
+    (**/**)
 
     val pp : Format.formatter -> path -> unit
     (** [pp] is an unspecified formatter for paths. *)
@@ -1394,56 +1409,78 @@ module Req : sig
   (** The type for HTTP requests. *)
 
   val v :
-    ?service_path:Http.path -> ?version:Http.version ->
-    ?body_length:int option -> ?body:body ->
-    ?headers:Http.headers -> Http.meth -> string -> t
-  (** [v meth request_target] is an HTTP request with method [meth],
-      request target [request_target], [headers] (defaults to
-      {!Http.Headers.empty}), [body] (defaults to {!empty_body}),
-      [body_length] (defaults to [None] or [Some 0] if body is
-      {!empty_body}) and version (defaults to (1,1)). *)
+    ?init:t -> ?body:body -> ?body_length:int option -> ?headers:Http.headers ->
+    ?meth:Http.meth -> ?path:Http.path -> ?query:string option ->
+    ?request_target:string -> ?service_path:Http.path ->
+    ?version:Http.version -> unit -> t
+  (** [v ~init ()] is an HTTP request with given attributes and for those
+      that are unspecified the ones of [init] (defaults
+      to {!default}).
 
-  val version : t -> Http.version
-  (** [version r] is [r]'s
-      {{:https://tools.ietf.org/html/rfc7230#section-2.6}HTTP version}. *)
+      {b Important.} This is not checked by the module but clients of
+      this function, at least connectors, should maintain these
+      invariant:
+      {ul
+      {- [request_target] is the raw request target, still percent
+         encoded.}
+      {- [Path.concat service_path path] should represent the path of
+         [request_target].}
+      {- [query] (if any) should correspond to the query of [request_target].}}
+
+      Routing function may tweak paths but it's a good idea to keep
+      [request_target] unchanged. *)
+
+  val default : t
+  (** [default] is a request whose [body] is
+      {!empty_body}, [body_length] is [None], [headers] is
+      {!Http.Headers.empty}, [meth] is [`GET], [path] is [[""]],
+      [query] is [None], [request_target] is ["/"], [sevice_path] is [[""]],
+      version is [(1,1)]. *)
+
+  val body : t -> body
+  (** [body r] is [r]'s body. *)
+
+  val body_length : t -> int option
+  (** [body_length r] is [r]'s request body length (if known). *)
+
+  val headers : t -> Http.headers
+  (** [headers r] is [r]'s HTTP headers. Includes at least
+      the {!Http.host} header. *)
 
   val meth : t -> Http.meth
   (** [meth r] is [r]'s
       {{:https://tools.ietf.org/html/rfc7231#section-4}HTTP method}. *)
+
+  val path : t -> Http.path
+  (** [path r] {b should} be (see {!v}) the absolute path of
+      {!request_target}, {{!Http.Path.strip_prefix}stripped}
+      by {!service_path}. *)
+
+  val query : t -> string option
+  (** [query r] {b should} be (see {!v}) the query (without the ['?'])
+      of {!request_target}. Note that query string may be the empty string
+      which is different from [None] (no ['?'] in the request target).
+      To decode the query (and handle those that are [POST]ed)
+      see {!to_query}. *)
 
   val request_target : t -> string
   (** [request_target] is [r]'s
       {{:https://tools.ietf.org/html/rfc7230#section-5.3}request
       target}. This should be the raw request, still percent encoded.
       Note that you usually rather want to use the convenience {!path}
-      and {!query} which are derived from this value. *)
+      and {!query} which {b should} (see {!v}) derived from this value. *)
 
   val service_path : t -> Http.path
   (** [service_path r] is the path on which the root of the service
-      is served. This is usually set by the connector. *)
+      is served. This is usually set by the connector. The {!path} value
+      of [r] is usually the path mentioned in {!request_target} stripped
+      by the service path. *)
 
-  val path : t -> Http.path
-  (** [path r] is the absolute path of {!request_target}. This is as a
-      list of path segments or the empty list if the request target
-      has no path. See the {!Http.path} representation for details.
+  val version : t -> Http.version
+  (** [version r] is [r]'s
+      {{:https://tools.ietf.org/html/rfc7230#section-2.6}HTTP version}. *)
 
-      {b FIXME.} Should we automatically chop [service_path] ? *)
-
-  val query : t -> string option
-  (** [query r] is the query (without the ['?']) of {!request_target}.
-      Note that query string may be the empty string which is different
-      from [None] (no ['?'] in the request target). To decode the query
-      (and handle those that are [POST]ed) see {!to_query}. *)
-
-  val headers : t -> Http.headers
-  (** [headers r] is [r]'s HTTP headers. Includes at least
-      the {!Http.host} header. *)
-
-  val body_length : t -> int option
-  (** [body_length r] is [r]'s request body length (if known). *)
-
-  val body : t -> body
-  (** [body r] is [r]'s body. *)
+  (** {b FIXME.} now that we have [init] in [v] consider removing those. *)
 
   val with_headers : Http.headers -> t -> t
   (** [with_headers hs r] is [r] with headers [hs]. *)

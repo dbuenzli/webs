@@ -438,6 +438,7 @@ module Http = struct
 
     let strip_prefix ~prefix p =
       if prefix = [] || p = [] then None else
+      if prefix = [""] then Some p else
       let rec loop pre acc = match pre, acc with
       | s :: pre, a :: acc when String.equal s a -> loop pre acc
       | ([] | [""]), (_ :: _ as acc) -> Some acc
@@ -592,9 +593,7 @@ module Http = struct
       match p with
       | None -> [], q
       | Some p ->
-          match decode p with
-          | Error _ -> [], None (* TODO what do we do ? this is bad request *)
-          | Ok segs -> segs, q
+          match decode p with Error s -> failwith s | Ok segs -> segs, q
   end
 
   (* Queries *)
@@ -1428,39 +1427,47 @@ module Req = struct
   (* Requests *)
 
   type t =
-    { service_path : Http.path;
-      version : Http.version;
+    { body : unit -> (bytes * int * int) option;
+      body_length : int option;
+      headers : Http.headers;
       meth : Http.meth;
-      request_target : string;
       path : Http.path;
       query : string option;
-      headers : Http.headers;
-      body_length : int option;
-      body : unit -> (bytes * int * int) option; }
+      request_target : string;
+      service_path : Http.path;
+      version : Http.version; }
+
+  let default =
+    { body = empty_body; body_length = None; headers = Http.Headers.empty;
+      meth = `GET; path = [""]; query = None; request_target = "/";
+      service_path = [""]; version = (1,1) }
 
   let v
-      ?(service_path = [""]) ?(version = (1,1)) ?body_length
-      ?(body = empty_body) ?(headers = Http.Headers.empty) meth request_target
+      ?init:(r = default)
+      ?(body = r.body)
+      ?(body_length = r.body_length)
+      ?(headers = r.headers)
+      ?(meth = r.meth)
+      ?(path = r.path)
+      ?(query = r.query)
+      ?(request_target = r.request_target)
+      ?(service_path = r.service_path)
+      ?(version = (1,1))
+      ()
     =
-    let path, query =
-      Http.Path.and_query_of_request_target request_target
-    in
-    let body_length = match body_length with
-    | None -> if body == empty_body then Some 0 else None
-    | Some l -> l
-    in
-    { service_path; version; meth; request_target; path; query; headers;
-      body_length; body; }
+    { body; body_length; headers; meth; path; query; request_target;
+      service_path; version; }
 
-  let version r = r.version
+  let body r = r.body
+  let body_length r = r.body_length
+  let headers r = r.headers
   let meth r = r.meth
-  let request_target r = r.request_target
-  let service_path r = r.service_path
   let path r = r.path
   let query r = r.query
-  let headers r = r.headers
-  let body_length r = r.body_length
-  let body r = r.body
+  let request_target r = r.request_target
+  let service_path r = r.service_path
+  let version r = r.version
+
   let with_headers headers r = { r with headers }
   let with_body ~body_length body r = { r with body_length; body }
   let with_path path r = { r with path }
@@ -1471,15 +1478,14 @@ module Req = struct
 
   let pp ppf r =
     pf ppf "@[<v>";
-    pp_field "service-path" Http.Path.pp_dump ppf r.service_path; pp_cut ppf ();
-    pp_field "version" Http.Version.pp ppf r.version; pp_cut ppf ();
+    pp_field "body-length" pp_body_length ppf r.body_length; pp_cut ppf ();
+    Http.Headers.pp ppf r.headers; pp_cut ppf ();
     pp_field "method" Http.Meth.pp ppf r.meth; pp_cut ppf ();
-    pp_field "request-target" Format.pp_print_string ppf r.request_target;
-    pp_cut ppf ();
     pp_field "path" Http.Path.pp_dump ppf r.path; pp_cut ppf ();
     pp_field "query" pp_query ppf r.query; pp_cut ppf ();
-    Http.Headers.pp ppf r.headers; pp_cut ppf ();
-    pp_field "body-length" pp_body_length ppf r.body_length;
+    pp_field "service-path" Http.Path.pp_dump ppf r.service_path; pp_cut ppf ();
+    pp_field "version" Http.Version.pp ppf r.version; pp_cut ppf ();
+    pp_field "request-target" Format.pp_print_string ppf r.request_target;
     pf ppf "@]"
 
   (* Request responses *)

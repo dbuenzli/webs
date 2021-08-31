@@ -28,7 +28,6 @@ let listener
   let lconv = listener_conv ~default_port in
   Arg.(value & opt lconv default_listener & info opts ?docs ~doc ~docv)
 
-
 let http_path =
   let parse s = Result.map_error (fun e -> `Msg e) (Http.Path.decode s) in
   let print ppf p = Format.pp_print_string ppf (Http.Path.encode p) in
@@ -63,8 +62,7 @@ let max_connections ?(opts = ["c"; "max-connections"]) ?docs () =
 (* Quick service *)
 
 let log fmt = Format.fprintf Format.err_formatter ("@[" ^^ fmt ^^ "@]@.")
-let log_if_error = function
-| Ok () -> 0 | Error e -> log "Error: %s" e; 1
+let log_if_error = function Ok () -> 0 | Error e -> log "Error: %s" e; 1
 
 let conf_docroot () =
   let setup root = match Webs_unix.realpath root with
@@ -81,7 +79,8 @@ let quick_service s listener service_path max_connections conf =
   log_if_error @@
   let* conf = conf in
   let c = Webs_httpc.create ~listener ?service_path ~max_connections () in
-  log "Listening on http://%a" Webs_unix.pp_listener listener;
+  let p = Webs_httpc.service_path c in
+  log "Listening on http://%a%a" Webs_unix.pp_listener listener Http.Path.pp p;
   Webs_httpc.serve c (s conf)
 
 let quick_serve' ?version ?man ?(doc = "Undocumented service") ~name ~conf s =

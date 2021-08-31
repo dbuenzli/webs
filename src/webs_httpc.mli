@@ -27,7 +27,8 @@ type t
 val create :
   ?listener:Webs_unix.listener -> ?log:(Connector.log_msg -> unit) ->
   ?max_connections:int -> ?max_req_body_byte_size:int ->
-  ?max_req_headers_byte_size:int -> ?service_path:Http.path -> unit -> t
+  ?max_req_headers_byte_size:int -> ?service_path:Http.path ->
+  unit -> t
 (** [create ()] is a new connector with following parameters:
     {ul
     {- [listener] specifies the socket to listen to on.
@@ -35,32 +36,36 @@ val create :
     {- [log] logs connector log messages. Defaults to
        {!Webs.Connector.default_log} with trace messages.}
     {- [max_connections] is the maximal number of allowed concurrent
-       connections (defaults to {!default_max_connections}).}
+       connections. Defaults to {!default_max_connections}.}
     {- [max_req_body_byte_size] is the maximal request body size in bytes.
        FIXME not enforced.}
     {- [max_req_headers_byte_size] is the maximal allowed size in bytes for
        to the request line and headers. Defaults to [64Ko].}
     {- [service_path] is the path at which the root of the service is being
-       served. (defaults to [[""]]). This is used to create request
-       values, see {!Req.service_path}.}} *)
+       served. This path is stripped from the
+       path found in request targets to yield the {!Webs.Req.path} of served
+       requests. The connector responds with a {!Webs.Http.bad_request_400}
+       if the strip fails. The value of the service path can be found
+       in the {!Webs.Req.service_path} of the requests to serve.
+       Defaults to [[""]].}} *)
 
 val listener : t -> Webs_unix.listener
-(** [listener c] is the connection listener of [c]. *)
+(** [listener c] is the connection listener of [c]. See {!create}. *)
 
 val log : t -> Connector.log_msg -> unit
-(** [log c] is the log of [c]. *)
+(** [log c] is the log of [c]. See {!create}. *)
 
 val max_connections : t -> int
 (** [max_connection c] is the maximal number of concurrent connections
-    for [c]. *)
+    for [c]. See {!create}. *)
 
 val max_req_body_byte_size : t -> int
 (** [max_connection c] is the maximal body size in bytes for requests
-    handled by [c]. *)
+    handled by [c]. See {!create}. *)
 
 val max_req_headers_byte_size : t -> int
 (** [max_connection c] is the maximal headers size in bytes  for requests
-    handled by [c]. *)
+    handled by [c]. See {!create}. *)
 
 val service_path : t -> Http.path
 (** [service_path c] is the service path of [c]. See {!create}. *)

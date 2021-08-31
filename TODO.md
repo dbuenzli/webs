@@ -1,11 +1,9 @@
 # A laundry list
 
 
-* Connector `service_path`, devise a trailing slash strategy and 
-  normalize. Also for now the docs relies on the gateway to still 
-  chop the prefix, maybe it's more forward looking to make the 
-  connectors chop the prefix.
-  
+* Connector `service_path` strip failure. Maybe we should 
+  rather issue a 404 or 500, in the end it's more a configuration 
+  problem. 
 * Add connector support for 
   https://w3c.github.io/server-timing/#the-server-timing-header-field
 * Make the login example bearable
@@ -16,9 +14,8 @@
 * Keep-alive, we can likely hide that in the connector we just need 
   to fit it in the picture with connection limits.
 * remote peer address, x-forwarded-for and/or sockaddr from accept
-* Look into clone()/chroot isolation
-* With a gateway there are many moving configuration parts e.g. 
-  try to minimise them.
+* Look into clone()/chroot isolation, also systemd provides 
+  tools for that see `systemd-analyze security`. 
 * Make clear that connector log is for connector and unexpected 
   connector errors. Services are supposed to have their own error
   mecanism and/or logging (which may turn out to be the same).

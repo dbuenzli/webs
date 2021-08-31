@@ -7,16 +7,16 @@
 
     This connector serves one request via CGI.
 
-    {b Important.} Reconstructing the raw request target from CGI's
-    [PATH_INFO] and [QUERY_STRING] is not really possible and
-    [PATH_INFO]s easily get confused by requests like
-    ["/s1/s2%2Fha/s3"]. To side step this issue this connector relies
-    on the non-standard [REQUEST_URI] variable in which the raw
-    url-encoded request target should be passed. [nginx] passes that
-    by default with the value of [$request_uri].
-
     See the {{!page-web_service_howto}Web service howto} manual for
     instructions.
+
+    {b Important.} Reconstructing the raw request target from the CGI
+    [PATH_INFO] and [QUERY_STRING] variables is not really
+    possible. Moreover [PATH_INFO] easily get confused by requests
+    like ["/s1/s2%2Fha/s3"]. To side step this issue this connector
+    relies on the non-standard [REQUEST_URI] variable in which the
+    raw, url-encoded, request target should be passed. [nginx] passes
+    that by default with the value of its [$request_uri] variable.
 
     {b References.}
     {ul
@@ -29,43 +29,46 @@ open Webs
 (** {1:connector Connector} *)
 
 type t
-(** The type for CGI connectors. Serves one request by reading
-    headers from the environment and the body from {!Unix.stdin}. *)
+(** The type for CGI connectors. Serves one request by reading headers
+    from the process environment, reading the body from {!Unix.stdin} and
+    writing the response on {!Unix.stdout}. *)
 
 val create :
   ?extra_vars:string list -> ?log:(Connector.log_msg -> unit) ->
   ?max_req_body_byte_size:int -> ?service_path:Http.path -> unit -> t
-(** [create ()] is a new CGI connector with parameters:
+(** [create ()] is a new CGI connector with the following parameters:
     {ul
-    {- [extra_vars] is a list of environment variables whose content is
-       added to the request headers (defaults to [[]]). The header name
-       of a variable is made by lowercasing it, mapping ['_'] to ['-']
-       and prefixing the result with [x-cgi]. For example
-       [SERVER_SOFTWARE] becomes [x-cgi-server-software].}
-    {- [log] logs connector log messages. It defaults
-       {!Webs.Connector.default_log} with trace message disabled.}
+    {- [extra_vars c] is the list of environment variables whose content
+       is added to the request headers of requests handled by [c]. The header
+       name corresponding to a variable is made by lowercasing it,
+       mapping ['_'] to ['-'] and prefixing the result with [x-cgi].
+       For example [SERVER_SOFTWARE] becomes [x-cgi-server-software]. Defaults
+       to [[]]}
+    {- [log] logs connector log messages. Defaults to
+       {!Webs.Connector.default_log} with trace messages.}
     {- [max_req_body_byte_size] is the maximal request body size in bytes.
-       FIXME not enforced, unclear where this is to put the limit on, for
-       streaming bodies, if we cut the line the service might end up
-       being confused (but then it should also cater for that possibility).}
-    {- [service_path] is the path at which the root of the service is being
-       served. (defaults to [[""]]). This is used to create request
-       values, see {!Req.service_path}.}} *)
+       FIXME not enforced.}
+    {- [service_path] the path at which the root of the service of
+       [c] is being served. This path is stripped from the path found in
+       the request's target to yield the {!Webs.Req.path} of the request to
+       serve. The connector responds with a {!Webs.Http.bad_request_400}
+       if the strip fails. The value of the service path can also be
+       found in the {!Webs.Req.service_path} of the request to serve.
+       Defaults to [[""]].}} *)
 
 val extra_vars : t -> string list
-(** [extra_vars c] is the list of environment variables whose content
-    is added to the request headers of requests handled by [c]. See
-    {!create}. *)
+(** [extra_vars c] is the list of additional environment variables
+    of [c]. See {!create}. *)
 
 val log : t -> (Connector.log_msg -> unit)
-(** [log c] is the log of [c]. *)
+(** [log c] is the log of [c]. See {!create}. *)
 
 val max_req_body_byte_size : t -> int
-(** [max_req_body_byte_size c]  is the maximal request body size
-    supported by [c]. *)
+(** [max_req_body_byte_size c] is the maximal request body size
+    in bytes supported by [c]. See {!create}. *)
 
 val service_path : t -> Http.path
-(** [service_path c] is the service path of [c]. *)
+(** [service_path c] is service path of [c]. See {!create}.  *)
 
 (** {1:serving Serving} *)
 
@@ -74,22 +77,17 @@ val serve : t -> Webs.service -> (unit, string) result
     the response of [s] for the request has been served. The error is
     returned in case of connector error, it's a good practice to write
     the message on stderr and exit with a non-zero exit code if that
-    happend. *)
+    happens. See {{!req_derivation}here} to understand how the request
+    value to serve is derived. *)
 
 (** {1:req_derivation Request derivation}
 
 	  The  {!Webs.Req.t} value is constructed from the environment and
     {!Unix.stdin} as follows:
     {ul
-    {- {!Webs.Req.service_path} is the {{!create}connector's [service_path]}.}
-	  {- {!Webs.Req.version} is the value of the
-       {{:http://tools.ietf.org/html/rfc3875#section-4.1.16}[SERVER_PROTOCOL]}
-       variable.}
-	  {- {!Webs.Req.meth} is the value of the
-       {{:http://tools.ietf.org/html/rfc3875#section-4.3}[REQUEST_METHOD]}
-       variable.}
-    {- {!Webs.Req.request_target} is the value of the (non standard)
-       [REQUEST_URI] variable.}
+    {- {!Webs.Req.val-body}, is the result of reading {!Unix.stdin}}
+    {- {!Webs.Req.body_length} is determined from the headers according to
+       {!Webs.Http.Headers.request_body_length}.}
 	  {- {!Webs.Req.headers} has the following headers defined:
        {ul
        {- {!Webs.Http.content_type} if the variable
@@ -111,12 +109,22 @@ val serve : t -> Webs.service -> (unit, string) result
           of a variable is made by lowercasing it, mapping ['_'] to ['-']
           and prefixing the result with [x-cgi]. For example
           [SERVER_SOFTWARE] becomes [x-cgi-server-software].}}}
-    {- {!Webs.Req.body_length} is determined from the headers according to
-       {!Webs.Http.Headers.request_body_length}.}
-    {- {!Webs.Req.val-body}, is the result of reading {!Unix.stdin}}}
+	  {- {!Webs.Req.meth} is the value of the
+       {{:http://tools.ietf.org/html/rfc3875#section-4.3}[REQUEST_METHOD]}
+       variable.}
+    {- {!Webs.Req.path} is the path of the (non standard) [REQUEST_URI]
+       variable, stripped by the connector's {!service_path}.}
+    {- {!Webs.Req.query} is the query (if any) of the (non standard)
+       [REQUEST_URI] variable.}
+    {- {!Webs.Req.service_path} is the connectors's {!service_path}.}
+	  {- {!Webs.Req.version} is the value of the
+       {{:http://tools.ietf.org/html/rfc3875#section-4.1.16}[SERVER_PROTOCOL]}
+       variable.}
+    {- {!Webs.Req.request_target} is the value of the (non standard)
+       [REQUEST_URI] variable.}}
 
-    If the request derivation fails in some way a 500 is returned and
-    an error should be printed on standard error. *)
+    If the request derivation fails in some way an appropriate HTTP error
+    response is written on {!Unix.stdout}.*)
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2015 The webs programmers

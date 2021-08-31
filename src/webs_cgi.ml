@@ -119,18 +119,28 @@ let body_length hs = match Http.Headers.request_body_length hs with
 
 let read_req c env fd_in =
   try
-    let service_path = c.service_path in
-    let extra_vars = c.extra_vars in
-    let version, meth, target, hs = header_section_of_env ~extra_vars env in
+    let version, meth, request_target, headers =
+      header_section_of_env ~extra_vars:c.extra_vars env
+    in
+    let path, query = Http.Path.and_query_of_request_target request_target in
+    let service_path, path =
+      if path = [] (* "*" request line FIXME not sure it's a good idea,
+                      maybe we coud fail *)
+      then [], [] else
+      match Http.Path.strip_prefix ~prefix:c.service_path path with
+      | None -> failwith "Cannot strip service path from requested URI"
+      | Some path -> c.service_path, path
+    in
     let buf = Bytes.create io_buffer_size in
-    let max_req_body_byte_size = c.max_req_body_byte_size in
-    let first_start = 0 and first_len = 0 in
-    let* body_length = body_length hs in
+    let* body_length = body_length headers in
     let body =
+      let first_start = 0 and first_len = 0 in
+      let max_req_body_byte_size = c.max_req_body_byte_size in
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd_in buf ~first_start ~first_len
     in
-    Ok (Req.v ~service_path ~version meth target ~headers:hs ~body_length ~body)
+    Ok (Req.v ~body ~body_length ~headers ~meth ~path ~query ~request_target
+          ~service_path ~version ())
   with
   | Failure e -> Error (`Malformed e)
   (* FIXME maybe for error from header_section we should rather throw
