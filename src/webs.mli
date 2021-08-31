@@ -390,9 +390,12 @@ module Http : sig
 
     val pp : Format.formatter -> path -> unit
     (** [pp] is an unspecified formatter for paths. *)
+
+    val pp_dump : Format.formatter -> path -> unit
+    (** [pp_dump] is an unspecified debugging formatter for paths. *)
   end
 
-    type query
+  type query
   (** The type for queries as key-values maps. Both keys and values
       are properly decoded. Note that keys can map to
       multiple values. *)
@@ -576,7 +579,6 @@ module Http : sig
     (** [is_token s] is [true] iff [s] in an HTTP
         a {{:https://tools.ietf.org/html/rfc7230#section-3.2.6}token}. *)
   end
-
 
   (** {2:cookie Cookies} *)
 
@@ -1412,19 +1414,20 @@ module Req : sig
   val request_target : t -> string
   (** [request_target] is [r]'s
       {{:https://tools.ietf.org/html/rfc7230#section-5.3}request
-      target}.  This should be the raw request, still percent encoded.
+      target}. This should be the raw request, still percent encoded.
       Note that you usually rather want to use the convenience {!path}
       and {!query} which are derived from this value. *)
 
   val service_path : t -> Http.path
-  (** [service_path r] is the root path on which the service is served.
-      Consult the documentation of connectors to understand how this
-      is derived (usually from the gateway via a [x-service-root] header). *)
+  (** [service_path r] is the path on which the root of the service
+      is served. This is usually set by the connector. *)
 
   val path : t -> Http.path
   (** [path r] is the absolute path of {!request_target}. This is as a
       list of path segments or the empty list if the request target
-      has no path. See the {!Http.path} representation for details. *)
+      has no path. See the {!Http.path} representation for details.
+
+      {b FIXME.} Should we automatically chop [service_path] ? *)
 
   val query : t -> string option
   (** [query r] is the query (without the ['?']) of {!request_target}.
@@ -1458,23 +1461,12 @@ module Req : sig
   (** [pp ppf req] prints and unspecified representation of [req]
       on [ppf] but guarantees not to consume the {!val:body}. *)
 
-  (** {1:req_resp Request responses} *)
-
-  (** {2:service_redirect Service redirect} *)
-
-  val service_redirect : ?explain:string -> int -> Http.path -> t -> Resp.t
-  (** [service_redirect status p r] redirects [r] to the service path [p] (this
-      means [r]'s {!service_root} is prefixed to [p]) with status [status].
-      See also {!Resp.redirect}. *)
-
-  (** {2:echo Echo} *)
-
   val echo : ?status:Http.status -> t -> Resp.t
   (** [echo r] returns [r] as a 404 [text/plain] document (and by
       doing so violates numerous HTTP's musts). This includes the
       request body, which is consumed by the service.  *)
 
-  (** {1:deconstruct Request deconstruction}
+  (** {1:deconstruct Request deconstruction and responses}
 
       Request deconstruction helpers. These functions directly
       error with responses that have the right statuses and empty
@@ -1520,6 +1512,12 @@ module Req : sig
     val trace : [> `TRACE] t
   end
 
+  (** {2:cookies Cookies} *)
+
+  val find_cookie : name:string -> t -> (string option, string) result
+  (** [find_cookie ~name r] is the value of cookie [name] or [None] if
+      undefined in [r]. Errors on header or cookie decoding errors. *)
+
   (** {2:service_forwarding Service forwarding}
 
       {b FIXME.}
@@ -1528,6 +1526,11 @@ module Req : sig
       {- Not sure this is a good terminology.}
       {- Introduce a variation where you push [n] segments
          on the service path.}} *)
+
+  val service_redirect : ?explain:string -> int -> Http.path -> t -> Resp.t
+  (** [service_redirect status p r] redirects [r] to the service path [p] (this
+      means [r]'s {!service_root} is prefixed to [p]) with status [status].
+      See also {!Resp.redirect}. *)
 
   val forward_service : strip:Http.path -> t -> (t, Resp.t) result
   (** [forward_service ~strip r] is:
@@ -1544,29 +1547,10 @@ module Req : sig
       concatenates the service root and the path. Would that be an
       argument to let [] also represent the root path ? *)
 
-  (** {3:route Service routing} *)
-
   val to_service : strip:Http.path -> t -> (t, Resp.t) result
   (** [to_service ~strip r] strips [strip] from [r]'s path and
       appends it to the service root. Errors with {!Http.not_found_404}
       if stripping [strip] results in [None]. *)
-
-
-  (** {2:file_path Absolute file paths} *)
-
-  val to_absolute_filepath :
-    ?strip:Http.path -> root:Http.fpath -> t -> (Http.fpath, Resp.t) result
-  (** [absolute_filepath ~strip ~root r] determines an absolute
-      file path strictly rooted in [root] by
-      {{!Http.Path.strip_prefix}stripping} [strip] (defaults to
-      [[""]]) from [r]'s {!path},
-      {{!Http.Path.to_absolute_filepath} converting} the result
-      to an absolute filepath and
-      {{!Http.Path.prefix_filepath}prefixing} it with [docroot].
-
-      Errors with {!Http.not_found_404} if stripping [strip]
-      results in [None] and {!Http.bad_request_400} if the
-      absolute path conversion fails. *)
 
   (** {2:queries Queries}
 
@@ -1587,13 +1571,6 @@ module Req : sig
       {- {!Http.unsupported_media_type_415} response if the content-type
          is unsupported}
       {- {!Http.bad_request_400} reponse on decoding errors.}}}} *)
-
-  (** {2:cookies Cookies} *)
-
-  val find_cookie : name:string -> t -> (string option, string) result
-  (** [find_cookie ~name r] is the value of cookie [name] or
-      [None] if undefined in [r]. Errors on header or
-      cookie decoding errors. *)
 
   (** {2:clean Path cleaning}
 
@@ -1616,6 +1593,22 @@ module Req : sig
       path. You should still use
       {{!Http.Path.to_absolute_filepath}that function} or
       {!to_absolute_filepath} for mapping paths to file paths. *)
+
+  (** {2:file_path Absolute file paths} *)
+
+  val to_absolute_filepath :
+    ?strip:Http.path -> root:Http.fpath -> t -> (Http.fpath, Resp.t) result
+  (** [absolute_filepath ~strip ~root r] determines an absolute
+      file path strictly rooted in [root] by
+      {{!Http.Path.strip_prefix}stripping} [strip] (defaults to
+      [[""]]) from [r]'s {!path},
+      {{!Http.Path.to_absolute_filepath} converting} the result
+      to an absolute filepath and
+      {{!Http.Path.prefix_filepath}prefixing} it with [docroot].
+
+      Errors with {!Http.not_found_404} if stripping [strip]
+      results in [None] and {!Http.bad_request_400} if the
+      absolute path conversion fails. *)
 end
 
 type service = Req.t -> Resp.t

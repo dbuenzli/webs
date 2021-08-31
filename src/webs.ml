@@ -551,7 +551,8 @@ module Http = struct
     let encode segs =
       let b = Buffer.create 255 in buffer_encode_path b segs; Buffer.contents b
 
-    let pp ppf p =
+    let pp ppf p = Format.pp_print_string ppf (String.concat "/" ("" :: p))
+    let pp_dump ppf p =
       let pp_sep ppf () = pf ppf "@ " and pp_seg ppf s = pf ppf "%S" s in
       Format.pp_print_list ~pp_sep pp_seg ppf p
 
@@ -1470,12 +1471,12 @@ module Req = struct
 
   let pp ppf r =
     pf ppf "@[<v>";
-    pp_field "service-path" Http.Path.pp ppf r.service_path; pp_cut ppf ();
+    pp_field "service-path" Http.Path.pp_dump ppf r.service_path; pp_cut ppf ();
     pp_field "version" Http.Version.pp ppf r.version; pp_cut ppf ();
     pp_field "method" Http.Meth.pp ppf r.meth; pp_cut ppf ();
     pp_field "request-target" Format.pp_print_string ppf r.request_target;
     pp_cut ppf ();
-    pp_field "path" Http.Path.pp ppf r.path; pp_cut ppf ();
+    pp_field "path" Http.Path.pp_dump ppf r.path; pp_cut ppf ();
     pp_field "query" pp_query ppf r.query; pp_cut ppf ();
     Http.Headers.pp ppf r.headers; pp_cut ppf ();
     pp_field "body-length" pp_body_length ppf r.body_length;

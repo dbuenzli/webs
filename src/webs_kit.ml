@@ -165,7 +165,7 @@ module Kurl = struct
       let pp_cut = Format.pp_print_cut in
       Format.pp_open_vbox ppf 1;
       pp_field "meth" Http.Meth.pp ppf b.meth; pp_cut ppf ();
-      pp_field "path" Http.Path.pp ppf b.path; pp_cut ppf ();
+      pp_field "path" Http.Path.pp_dump ppf b.path; pp_cut ppf ();
       pp_field "query" Http.Query.pp ppf b.query; pp_cut ppf ();
       pp_field "ext" Format.pp_print_string ppf b.ext;
       Format.pp_close_box ppf ()
