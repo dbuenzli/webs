@@ -234,7 +234,7 @@ module Http : sig
     (** [name n] is {!Http.Header_name.v}. *)
 
     type t = headers
-    (** See {!Http.type-headers}. *)
+    (** See {!type-headers}. *)
 
     val empty : headers
     (** [empty] has no header definition. *)
@@ -491,7 +491,19 @@ module Http : sig
     (** The type for file paths. *)
 
   type path = string list
-  (** See {!Path.t}. *)
+  (** The type for absolute URI paths represented as {e non-empty}
+      lists of {e percent-decoded} path segments. The empty list denotes
+      the absence of a path.
+
+      Path segments can be empty [""]. The root path [/] is
+      represented by the list [[""]] and [/a] by [["a"]], see more
+      examples {{!Path.decode}here}.
+
+      {b WARNING.} You should never concatenate these segments with a
+      separator to get a file path because they may contain stray
+      percent-decoded directory separators. Use the function
+      {!Path.to_absolute_filepath} to interpret paths as file
+      paths. *)
 
   (** Paths. *)
   module Path : sig
@@ -499,19 +511,7 @@ module Http : sig
     (** {1:paths Paths} *)
 
     type t = path
-    (** The type for absolute URI paths represented as {e non-empty}
-        lists of {e percent-decoded} path segments. The empty list denotes
-        the absence of a path.
-
-        Path segments can be empty [""]. The root path [/] is
-        represented by the list [[""]] and [/a] by [["a"]], see more
-        examples {{!Path.decode}here}.
-
-        {b WARNING.} You should never concatenate these segments with a
-        separator to get a file path because they may contain stray
-        percent-decoded directory separators. Use the function
-        {!Path.to_absolute_filepath} to interpret paths as file
-        paths. *)
+    (** See {!type-path}. *)
 
     val undot_and_compress : path -> path
     (** [undot_and_compress p] removes ["."] and [".."]  according to
@@ -608,6 +608,7 @@ module Http : sig
         {- [encode [] = ""]}
         {- [encode [""] = "/"]}
         {- [encode [""; ""] = "//"]}
+        {- [encode [""; "a"] = "//a"]}
         {- [encode ["a";"b";"c"] = "/a/b/c"]}
         {- [encode ["a";"b";"";"c";] = "/a/b//c"]}
         {- [encode ["a";"b";"c";""] = "/a/b/c/"]}
@@ -629,6 +630,7 @@ module Http : sig
         {ul
         {- [decode "/" = Ok [""]]}
         {- [decode "//" = Ok ["";""]]}
+        {- [decode "//a" = Ok ["";"a"]]}
         {- [decode "/a/b/c" = Ok ["a";"b";"c"]]}
         {- [decode "/a/b//c" = Ok ["a";"b";"";"c"]]}
         {- [decode "/a/b/c/" = Ok ["a";"b";"c";""]]}
@@ -647,22 +649,17 @@ module Http : sig
   (** {1:query queries} *)
 
   type query
-  (** The type for queries. See {!Query.t}. *)
+  (** The type for queries as key-values maps. Both keys and values
+      are properly decoded. Note that keys can map to
+      multiple values. *)
 
-  (** URI query and [application/x-www-form-urlencoded] codec.
-
-      Encodes and decodes
-      according to the
-      {{:https://url.spec.whatwg.org/#application/x-www-form-urlencoded}
-      whatwg URL standard}. *)
+  (** Queries and query codecs. *)
   module Query : sig
 
     (** {1:queries Queries} *)
 
     type t = query
-    (** The type for queries as key-values maps. Both keys and values
-        are properly decoded. Note that keys can map to
-        multiple values. *)
+    (** See {!type-query}. *)
 
     val empty : query
     (** [empty] is the empty key-values map. *)
@@ -702,14 +699,18 @@ module Http : sig
     (** {1:conv Converting} *)
 
     val decode : string -> query
-    (** [decode s] decodes the [application/x-www-form-urlencoded]
+    (** [decode s] decodes the
+        {{:https://url.spec.whatwg.org/#application/x-www-form-urlencoded}
+        [application/x-www-form-urlencoded]}
         [s] to a query.  If a key is defined more than once,
         the first definition is returned by {!find} and the
         left-to-right order preserved by {!find_all}'s list. The input
         string is not checked for UTF-8 validity. *)
 
     val encode : query -> string
-    (** [encode q] encodes [q] to an [application/x-www-form-urlencoded]
+    (** [encode q] encodes [q] to an
+        {{:https://url.spec.whatwg.org/#application/x-www-form-urlencoded}
+        [application/x-www-form-urlencoded]}
         string. *)
 
     val pp : Format.formatter -> query -> unit
@@ -721,15 +722,13 @@ module Http : sig
   type mime_type = string
   (** The type for MIME types. *)
 
-  (** A few ubiquitous MIME types.
-
-      See also {!Webs_kit.Mime_type}. *)
+  (** MIME type constants and file extensions. *)
   module Mime_type : sig
 
     (** {1:mime_types MIME types} *)
 
     type t = mime_type
-    (** See {!type:mime_type}. *)
+    (** See {!type-mime_type}. *)
 
     val application_json : mime_type
     (** [application_json] is ["application/json"], JSON text. *)
@@ -802,8 +801,7 @@ module Http : sig
         {{:https://tools.ietf.org/html/rfc7232#section-2.3}etags}. *)
 
     val v : weak:bool -> string -> t
-    (** [v ~weak tag] is the etag [tag]. [weak] indicates if
-        the etag is weak.
+    (** [v ~weak tag] is the etag [tag]. [weak] indicates if the etag is weak.
 
         {b Warning.}  The function does not check that the bytes of
         [tag] are valid; each should be one of [0x21], \[[0x23];[0x7E]\]
@@ -943,12 +941,12 @@ module Http : sig
     val encode : ?atts:atts -> name:string -> string -> string
     (** [encodes ~atts name s] encodes a cookie
         with attributes [atts] (defaults to {!atts_default}) for
-        {!H.set_cookie}. *)
+        {!Headers.add_set_cookie}. *)
 
     val decode_list : string -> ((string * string) list, string) result
     (** [decode_list s] parses the
         {{:https://tools.ietf.org/html/rfc6265#section-4.2.1}cookie string}
-        of a {!H.cookie} header. *)
+        of a {!val-cookie} header value. *)
   end
 
   (** {1:status_codes Status codes} *)
@@ -960,7 +958,7 @@ module Http : sig
   (** Statuses. *)
   module Status : sig
     type t = status
-    (** See {!status}. *)
+    (** See {!type-status}. *)
 
     val reason_phrase : status -> string
     (** [reason_phrase s] is [s]'s reason phrase. *)
@@ -1217,12 +1215,12 @@ module Resp : sig
     ?version:Http.version -> ?explain:string -> ?reason:string -> ?body:body ->
     ?headers:Http.headers -> Http.status -> t
   (** [v status headers body] is a response with given
-      [status], [headers] (defaults to {!Http.H.empty}), [body] (defaults
+      [status], [headers] (defaults to {!Http.Headers.empty}), [body] (defaults
       to {!empty_body}, [reason] (defaults to {!Http.status_reason_phrase})
       and [version] (defaults to [(1,1)]), [explain] is a server side [reason]
       it is not put on the wire.
 
-      {b Note.} If [body] is [body_empty] (default) a {!Http.H.content_length}
+      {b Note.} If [body] is [body_empty] (default) a {!Http.content_length}
       of [0] is automatically added to [headers]. *)
 
   val version : t -> Http.version
@@ -1265,7 +1263,7 @@ module Resp : sig
   (** {1:pre_canned Pre-canned responses}
 
       The optional [headers] argument of the functions below always
-      {!Http.H.override} those the function computed.
+      {!Http.override} those the function computed.
 
       See also {{!Req.deconstruct}request deconstruction} combinators.
 
@@ -1281,8 +1279,8 @@ module Resp : sig
     ?explain:string -> ?headers:Http.headers -> mime_type:Http.mime_type ->
     int -> string -> t
   (** [content ~mime_type st s] responds [s] with content type
-      [mime_type] and status [st]. Sets {!Http.H.content_type} and
-      {!Http.H.content_length} appropriately. *)
+      [mime_type] and status [st]. Sets {!Http.content_type} and
+      {!Http.content_length} appropriately. *)
 
   val text : ?explain:string -> ?headers:Http.headers -> int -> string -> t
   (** [text] responds with UTF-8 encoded plain text, i.e.
@@ -1303,7 +1301,7 @@ module Resp : sig
   (** {2:pre_redirect Redirect responses} *)
 
   val redirect : ?explain:string -> ?headers:Http.headers -> int -> string -> t
-  (** [redirect status loc] redirects to {{!Http.H.location}location} [loc]
+  (** [redirect status loc] redirects to {{!Http.location}location} [loc]
       with status [status] (defaults to {!Http.found_302}). See also
       {!val:Req.service_redirect}. *)
 
@@ -1337,7 +1335,7 @@ module Resp : sig
     ?explain:string -> ?reason:string -> ?headers:Http.headers ->
     allowed:Http.meth list -> unit -> ('a, t) result
   (** [method_not_allowed ~allowed] is an {!empty} response with status
-      {!Http.method_not_allowed_405}. It sets the {!Http.H.allow} header
+      {!Http.method_not_allowed_405}. It sets the {!Http.allow} header
       to the [allow]ed methods (which can be empty). *)
 
   val gone_410 :
@@ -1399,7 +1397,7 @@ module Req : sig
     ?headers:Http.headers -> Http.meth -> string -> t
   (** [v meth request_target] is an HTTP request with method [meth],
       request target [request_target], [headers] (defaults to
-      {!Http.H.empty}), [body] (defaults to {!empty_body}),
+      {!Http.Headers.empty}), [body] (defaults to {!empty_body}),
       [body_length] (defaults to [None] or [Some 0] if body is
       {!empty_body}) and version (defaults to (1,1)). *)
 
@@ -1436,7 +1434,7 @@ module Req : sig
 
   val headers : t -> Http.headers
   (** [headers r] is [r]'s HTTP headers. Includes at least
-      the {!Http.H.host} header. *)
+      the {!Http.host} header. *)
 
   val body_length : t -> int option
   (** [body_length r] is [r]'s request body length (if known). *)

@@ -65,6 +65,7 @@ let test_path () =
   log "Webs.Http.Path.{encode,decode,strip_prefix,filpath_ext}";
   assert (Http.Path.decode "/" = Ok [""]);
   assert (Http.Path.decode "//" = Ok ["";""]);
+  assert (Http.Path.decode "//a" = Ok ["";"a"]);
   assert (Http.Path.decode "/a/b/c" = Ok ["a"; "b"; "c";]);
   assert (Http.Path.decode "/a/b//c" = Ok ["a"; "b"; ""; "c";]);
   assert (Http.Path.decode "/a/b/c/" = Ok ["a"; "b"; "c";""]);

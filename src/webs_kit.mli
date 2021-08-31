@@ -115,7 +115,7 @@ module Res : sig
          {- Otherwise, [Ok res] is returned.}}
 
         [eq] defaults to {!Stdlib.( = )}. [res_url] must return
-        a value suitable for the {!Webs.Http.H.location} header. *)
+        a value suitable for the {!Webs.Http.location} header. *)
 
     (** {1:names Names} *)
 
@@ -1129,17 +1129,17 @@ module Basic_auth : sig
   val enticate :
     ?cancel:(Req.t -> Resp.t) -> (* TODO we want to specify a body. *)
     check:check -> realm:string -> Req.t -> (user * Req.t, Resp.t) result
-    (** [enticate ~check ~realm ~forbidden_body ~cancel req] is:
-        {ul
-        {- [Ok (user, req)] if the basic {{!Webs.Http.H.authorization}
-           authorization header} in [req] passes [check].}
-        {- A {{!Webs.Http.unauthorized_401}401} response
-           [Error (cancel req)] with a challenge for [realm] if there
-           is no authorization header or if [check] failed. The page is only
-           shown if the user cancels, defaults to an english HTML page
-           that entices the  user to try again via a link to self.}
-        {- A {{!Webs.Http.bad_request_400}400} bad request [Error resp]
-           if the basic authentication failed to parse.}} *)
+  (** [enticate ~check ~realm ~forbidden_body ~cancel req] is:
+      {ul
+      {- [Ok (user, req)] if the basic {{!Webs.Http.authorization}
+         authorization header} in [req] passes [check].}
+      {- A {{!Webs.Http.unauthorized_401}401} response
+         [Error (cancel req)] with a challenge for [realm] if there
+         is no authorization header or if [check] failed. The page is only
+         shown if the user cancels, defaults to an english HTML page
+         that entices the  user to try again via a link to self.}
+      {- A {{!Webs.Http.bad_request_400}400} bad request [Error resp]
+         if the basic authentication failed to parse.}} *)
 end
 
 (*---------------------------------------------------------------------------

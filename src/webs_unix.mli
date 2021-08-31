@@ -160,7 +160,7 @@ val send_file :
     The content type of the response is determined using
     {!Webs_kit.Mime_type.of_filepath} with [mime_types] and [file].
 
-    Responses include an {!Http.H.last_modified} header derived from
+    Responses include an {!Http.last_modified} header derived from
     the file modification time. Apparently without this you do not hit
     the browser memory cache in blink based browsers.
 

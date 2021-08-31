@@ -92,16 +92,16 @@ val serve : t -> Webs.service -> (unit, string) result
        [REQUEST_URI] variable.}
 	  {- {!Webs.Req.headers} has the following headers defined:
        {ul
-       {- {!Webs.Http.H.content_type} if the variable
+       {- {!Webs.Http.content_type} if the variable
           {{:http://tools.ietf.org/html/rfc3875#section-4.1.3}[CONTENT_TYPE]}
           is defined and non empty.}
-       {- {!Webs.Http.H.content_length} if the variable
+       {- {!Webs.Http.content_length} if the variable
           {{:http://tools.ietf.org/html/rfc3875#section-4.1.2}[CONTENT_LENGTH]}
           is defined and non empty.}
        {- For any other variable of the form [HTTP_$VAR] there is a
           corresponding [$var] header whose name is made by
           lowercasing [$VAR] and mapping ['_'] to ['-']. For
-          example [HTTP_USER_AGENT] becomes {!Webs.Http.H.user_agent}.
+          example [HTTP_USER_AGENT] becomes {!Webs.Http.user_agent}.
           If defined the variables [HTTP_CONTENT_TYPE] and
           [HTTP_CONTENT_LENGTH] are overriden by the previous two
           definitions.}
@@ -112,7 +112,7 @@ val serve : t -> Webs.service -> (unit, string) result
           and prefixing the result with [x-cgi]. For example
           [SERVER_SOFTWARE] becomes [x-cgi-server-software].}}}
     {- {!Webs.Req.body_length} is determined from the headers according to
-       {!Webs.Http.H.request_body_length}.}
+       {!Webs.Http.Headers.request_body_length}.}
     {- {!Webs.Req.val-body}, is the result of reading {!Unix.stdin}}}
 
     If the request derivation fails in some way a 500 is returned and

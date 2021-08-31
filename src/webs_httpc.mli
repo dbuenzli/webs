@@ -84,7 +84,7 @@ val serve : ?handle_stop_sigs:bool -> t -> Webs.service -> (unit, string) result
     {- If the basics to parse the {!Req} data structure and setup the
        body stream is not there, the server responds with
        {!Webs.Http.bad_request_400}}
-    {- If a {!Webs.Http.H.expect} header is found TODO}}
+    {- If a {!Webs.Http.expect} header is found TODO}}
 
     {b Signals.} When [serve] is entered {!Stdlib.Sys.sigpipe} is made
     to be ignored and a handler for {!Stdlib.Sys.sigint} and
