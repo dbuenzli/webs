@@ -1592,13 +1592,13 @@ module Req = struct
   let clean_path r =
     let not_empty s = not (String.equal s "") in
     match path r with
-    | p when List.for_all not_empty p -> Ok r
     | [] | [""] -> Ok r
+    | p when List.for_all not_empty p -> Ok r
     | p ->
-        let path = match (List.filter not_empty p) with [] -> [""] | p -> p in
-        let path = Http.Path.encode path in
+        let p = match (List.filter not_empty p) with [] -> [""] | p -> p in
+        let loc = Http.Path.(encode @@ concat (service_path r) p) in
         let explain = "path cleaning" in
-        Error (Resp.redirect ~explain Http.moved_permanently_301 path)
+        Error (Resp.redirect ~explain Http.moved_permanently_301 loc)
 end
 
 type service = Req.t -> Resp.t

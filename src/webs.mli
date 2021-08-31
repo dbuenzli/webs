@@ -1566,7 +1566,7 @@ module Req : sig
 
   val service_redirect : ?explain:string -> int -> Http.path -> t -> Resp.t
   (** [service_redirect status p r] redirects [r] to the service path [p] (this
-      means [r]'s {!service_root} is prefixed to [p]) with status [status].
+      means [r]'s {!service_path} is prefixed to [p]) with status [status].
       See also {!Resp.redirect}. *)
 
   val forward_service : strip:Http.path -> t -> (t, Resp.t) result
