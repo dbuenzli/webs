@@ -10,7 +10,7 @@ let ( let* ) = Result.bind
 
 module Gateway = struct
   let send_file ~header _ file =
-    let headers = Http.H.(def header file empty) in
+    let headers = Http.Headers.(def header file empty) in
     Ok (Resp.v Http.ok_200 ~headers ~explain:(header :> string))
 
   let x_accel_redirect = Http.Name.v "x-accel-redirect"
@@ -784,13 +784,13 @@ module Authenticated_cookie = struct
   let set ~private_key ~expire ?atts ~name data resp =
     let value = Authenticatable.encode ~private_key ~expire data in
     let cookie = Http.Cookie.encode ?atts ~name value in
-    let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
+    let hs = Http.Headers.add_set_cookie cookie (Resp.headers resp) in
     Resp.with_headers hs resp
 
   let clear ?atts ~name resp =
     let atts = Http.Cookie.atts ?init:atts ~max_age:(Some ~-1) () in
     let cookie = Http.Cookie.encode ~atts ~name "" in
-    let hs = Http.H.add_set_cookie cookie (Resp.headers resp) in
+    let hs = Http.Headers.add_set_cookie cookie (Resp.headers resp) in
     Resp.with_headers hs resp
 
   (* Getting *)
@@ -897,7 +897,7 @@ module Basic_auth = struct
     user:user -> pass:string -> (unit, [`User_unknown | `Wrong_password]) result
 
   let basic_authentication_of_string creds =
-    match Http.H.values_of_string ~sep:' ' creds with
+    match Http.Headers.values_of_string ~sep:' ' creds with
     | scheme :: cred :: _ ->
         begin match Http.string_lowercase scheme = "basic" with
         | false -> Error (strf "auth-scheme %s: unsupported" scheme)
@@ -926,11 +926,11 @@ module Basic_auth = struct
   let enticate ?(cancel = fun _ -> cancel) ~check ~realm r =
     let error_401 ~explain =
       let auth = Printf.sprintf {|basic realm="%s", charset="utf-8"|} realm in
-      let hs = Http.H.(def www_authenticate auth empty) in
+      let hs = Http.Headers.(def Http.www_authenticate auth empty) in
       let resp = Resp.with_status ~explain Http.unauthorized_401 (cancel r) in
       Error (Resp.override_headers hs resp)
     in
-    match Http.H.(find authorization (Req.headers r)) with
+    match Http.Headers.find Http.authorization (Req.headers r) with
     | None -> error_401 ~explain:"No authorization header"
     | Some creds ->
         let* user, pass = match basic_authentication_of_string creds with

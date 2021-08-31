@@ -38,9 +38,9 @@ let rec event_stream yield =
 
 let x_accel_buffering = Http.Name.v "x-accel-buffering" (* for nginx *)
 let resp_events () =
-  let hs = Http.H.(def x_accel_buffering "no" empty) in
-  let hs = Http.H.(def cache_control "no-cache" hs) in
-  let hs = Http.H.(def content_type "text/event-stream" hs) in
+  let hs = Http.Headers.(def x_accel_buffering "no" empty) in
+  let hs = Http.Headers.(def Http.cache_control "no-cache" hs) in
+  let hs = Http.Headers.(def Http.content_type "text/event-stream" hs) in
   Resp.v Http.ok_200 ~headers:hs ~body:(Resp.stream_body event_stream)
 
 let service req =

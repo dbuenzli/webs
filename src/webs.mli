@@ -195,7 +195,7 @@ module Http : sig
   (** HTTP digits.
 
       These represent non-negative integers. The module
-      handles overflows. *)
+      detects overflows and turns them into errors. *)
   module Digits : sig
     val decode : string -> (int, string) result
     (** [decode s] is the non-empty sequence of
@@ -209,7 +209,7 @@ module Http : sig
         @raise Invalid_argument if [n] is negative. *)
   end
 
-  (** {1:header Headers and header values} *)
+  (** {1:header Headers} *)
 
   type headers
   (** The type for HTTP headers. Maps header names to string values
@@ -217,21 +217,24 @@ module Http : sig
       {ul
       {- Single valued headers, the value is the string.}
       {- Multi-valued headers, the values are comma [','] separated
-         as per specification. Use {!H.values_of_string} on the string.}
-      {- {!H.set_cookie} header, must be treated specially since it
+         as per specification. Use {!Headers.values_of_string} on the string.}
+      {- {!set_cookie} header, must be treated specially since it
          can be repeated but does not follow the syntax of
          multi-valued headers. The values are stored in the string
-         separated by ['\x00'] values, use {!H.set_cookie} and
-         {!H.values_of_set_cookie_value} to handle the field.  On
-         {!H.encode} this results in separate [set-cookie] headers.}} *)
+         separated by ['\x00'] values. Use {!Headers.add_set_cookie} and
+         {!Headers.values_of_set_cookie_value} to handle the field.  On
+         {!Headers.encode} this results in separate [set-cookie] headers.}} *)
 
   (** HTTP headers and values. *)
-  module H : sig
+  module Headers : sig
 
     (** {1:headers Headers} *)
 
     val name : string -> name
     (** [name n] is {!Http.Header_name.v}. *)
+
+    type t = headers
+    (** See {!Http.type-headers}. *)
 
     val empty : headers
     (** [empty] has no header definition. *)
@@ -288,7 +291,7 @@ module Http : sig
     (** [pp ppf hs] prints an unspecified representation of [hs]
         on [ppf]. *)
 
-    (** {1:lookups Header lookups} *)
+    (** {1:lookups Header specific lookups} *)
 
     val request_body_length : headers ->
       ([ `Length of int | `Chunked ], string) result
@@ -320,167 +323,167 @@ module Http : sig
     val is_token : string -> bool
     (** [is_token s] is [true] iff [s] in an HTTP
         a {{:https://tools.ietf.org/html/rfc7230#section-3.2.6}token}. *)
+  end
 
-    (** {1:standard_names Standard header names} *)
+  (** {2:standard_header_names Standard header names} *)
 
-    val accept : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-5.3.2}[accept]} *)
+  val accept : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-5.3.2}[accept]} *)
 
-    val accept_charset : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-5.3.3}
+  val accept_charset : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-5.3.3}
         [accept-charset]} *)
 
-    val accept_encoding : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-5.3.4}
+  val accept_encoding : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-5.3.4}
         [accept-encoding]} *)
 
-    val accept_language : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-5.3.5}
+  val accept_language : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-5.3.5}
         [accept-language]} *)
 
-    val accept_ranges : name
-    (** {{:https://tools.ietf.org/html/rfc7233#section-2.3}[accept-ranges]} *)
+  val accept_ranges : name
+  (** {{:https://tools.ietf.org/html/rfc7233#section-2.3}[accept-ranges]} *)
 
-    val age : name
-    (** {{:https://tools.ietf.org/html/rfc7234#section-5.1}[age]} *)
+  val age : name
+  (** {{:https://tools.ietf.org/html/rfc7234#section-5.1}[age]} *)
 
-    val allow : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-7.4.1}[allow]} *)
+  val allow : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-7.4.1}[allow]} *)
 
-    val authorization : name
-    (** {{:https://tools.ietf.org/html/rfc7235#section-4.2}[authorization]} *)
+  val authorization : name
+  (** {{:https://tools.ietf.org/html/rfc7235#section-4.2}[authorization]} *)
 
-    val cache_control : name
-    (** {{:https://tools.ietf.org/html/rfc7234#section-5.2}[cache-control]} *)
+  val cache_control : name
+  (** {{:https://tools.ietf.org/html/rfc7234#section-5.2}[cache-control]} *)
 
-    val connection : name
-    (** {{:https://tools.ietf.org/html/rfc7230#section-6.1}[connection]} *)
+  val connection : name
+  (** {{:https://tools.ietf.org/html/rfc7230#section-6.1}[connection]} *)
 
-    val content_encoding : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-3.1.2.2}
+  val content_encoding : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-3.1.2.2}
         [content-encoding]}*)
 
-    val content_language : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-3.1.3.2}
+  val content_language : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-3.1.3.2}
         [content-language]}*)
 
-    val content_length : name
-    (** {{:https://tools.ietf.org/html/rfc7230#section-3.3.2}
+  val content_length : name
+  (** {{:https://tools.ietf.org/html/rfc7230#section-3.3.2}
         [content-length]} *)
 
-    val content_location : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-3.1.4.2}
+  val content_location : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-3.1.4.2}
         [content-location]} *)
 
-    val content_range : name
-    (** {{:https://tools.ietf.org/html/rfc7233#section-4.2}[content-range]} *)
+  val content_range : name
+  (** {{:https://tools.ietf.org/html/rfc7233#section-4.2}[content-range]} *)
 
-    val content_type : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-3.1.1.5}
+  val content_type : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-3.1.1.5}
         [content-type]} *)
 
-    val cookie : name
-    (** {{:http://tools.ietf.org/html/rfc6265#section-4.2}[cookie]} *)
+  val cookie : name
+  (** {{:http://tools.ietf.org/html/rfc6265#section-4.2}[cookie]} *)
 
-    val date : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-7.1.1.2}[date]} *)
+  val date : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-7.1.1.2}[date]} *)
 
-    val etag : name
-    (** {{:https://tools.ietf.org/html/rfc7232#section-2.3}[etag]} *)
+  val etag : name
+  (** {{:https://tools.ietf.org/html/rfc7232#section-2.3}[etag]} *)
 
-    val expect : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-5.1.1}[expect]} *)
+  val expect : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-5.1.1}[expect]} *)
 
-    val expires : name
-    (** {{:https://tools.ietf.org/html/rfc7234#section-5.3}[expires]} *)
+  val expires : name
+  (** {{:https://tools.ietf.org/html/rfc7234#section-5.3}[expires]} *)
 
-    val from : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-5.5.1}[from]} *)
+  val from : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-5.5.1}[from]} *)
 
-    val host : name
-    (** {{:https://tools.ietf.org/html/rfc7230#section-5.4}[host]} *)
+  val host : name
+  (** {{:https://tools.ietf.org/html/rfc7230#section-5.4}[host]} *)
 
-    val if_match : name
-    (** {{:https://tools.ietf.org/html/rfc7232#section-3.1}[if-match]} *)
+  val if_match : name
+  (** {{:https://tools.ietf.org/html/rfc7232#section-3.1}[if-match]} *)
 
-    val if_modified_since : name
-    (** {{:https://tools.ietf.org/html/rfc7232#section-3.3}
+  val if_modified_since : name
+  (** {{:https://tools.ietf.org/html/rfc7232#section-3.3}
         [if-modified-since]} *)
 
-    val if_none_match : name
-    (** {{:https://tools.ietf.org/html/rfc7232#section-3.2}[if-none-match]} *)
+  val if_none_match : name
+  (** {{:https://tools.ietf.org/html/rfc7232#section-3.2}[if-none-match]} *)
 
-    val if_range : name
+  val if_range : name
     (** {{:https://tools.ietf.org/html/rfc7233#section-3.2}[if-range]} *)
 
-    val if_unmodified_since : name
-    (** {{:https://tools.ietf.org/html/rfc7232#section-3.4}
+  val if_unmodified_since : name
+  (** {{:https://tools.ietf.org/html/rfc7232#section-3.4}
         [if-unmodified-since]} *)
 
-    val last_modified : name
-    (** {{:https://tools.ietf.org/html/rfc7232#section-2.2}[last-modified]} *)
+  val last_modified : name
+  (** {{:https://tools.ietf.org/html/rfc7232#section-2.2}[last-modified]} *)
 
-    val location : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-7.1.2}[location]} *)
+  val location : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-7.1.2}[location]} *)
 
-    val max_forwards : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-5.1.2}[max-forwards]} *)
+  val max_forwards : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-5.1.2}[max-forwards]} *)
 
-    val pragma : name
-    (** {{:https://tools.ietf.org/html/rfc7234#section-5.4}[pragma]} *)
+  val pragma : name
+  (** {{:https://tools.ietf.org/html/rfc7234#section-5.4}[pragma]} *)
 
-    val proxy_authenticate : name
-    (** {{:https://tools.ietf.org/html/rfc7235#section-4.3}
+  val proxy_authenticate : name
+  (** {{:https://tools.ietf.org/html/rfc7235#section-4.3}
         [proxy-authenticate]} *)
 
-    val proxy_authorization : name
-    (** {{:https://tools.ietf.org/html/rfc7235#section-4.4}
+  val proxy_authorization : name
+  (** {{:https://tools.ietf.org/html/rfc7235#section-4.4}
         [proxy-authorization]} *)
 
-    val range : name
-    (** {{:https://tools.ietf.org/html/rfc7233#section-3.1}[range]} *)
+  val range : name
+  (** {{:https://tools.ietf.org/html/rfc7233#section-3.1}[range]} *)
 
-    val referer : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-5.5.2}[referer]} *)
+  val referer : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-5.5.2}[referer]} *)
 
-    val retry_after : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-7.1.3}[retry-after]} *)
+  val retry_after : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-7.1.3}[retry-after]} *)
 
-    val server : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-7.4.2}[server]} *)
+  val server : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-7.4.2}[server]} *)
 
-    val set_cookie : name
-    (** {{:http://tools.ietf.org/html/rfc6265#section-4.1}[set-cookie]} *)
+  val set_cookie : name
+  (** {{:http://tools.ietf.org/html/rfc6265#section-4.1}[set-cookie]} *)
 
-    val te : name
-    (** {{:https://tools.ietf.org/html/rfc7230#section-4.3}[te]} *)
+  val te : name
+  (** {{:https://tools.ietf.org/html/rfc7230#section-4.3}[te]} *)
 
-    val trailer : name
-    (** {{:https://tools.ietf.org/html/rfc7230#section-4.4}[trailer]} *)
+  val trailer : name
+  (** {{:https://tools.ietf.org/html/rfc7230#section-4.4}[trailer]} *)
 
-    val transfer_encoding : name
-    (** {{:https://tools.ietf.org/html/rfc7230#section-3.3.1}
+  val transfer_encoding : name
+  (** {{:https://tools.ietf.org/html/rfc7230#section-3.3.1}
         [transfer-encoding]} *)
 
-    val upgrade : name
-    (** {{:https://tools.ietf.org/html/rfc7230#section-6.7}[upgrade]} *)
+  val upgrade : name
+  (** {{:https://tools.ietf.org/html/rfc7230#section-6.7}[upgrade]} *)
 
-    val user_agent : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-5.5.3}[user-agent]} *)
+  val user_agent : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-5.5.3}[user-agent]} *)
 
-    val vary : name
-    (** {{:https://tools.ietf.org/html/rfc7231#section-7.1.4}[vary]} *)
+  val vary : name
+  (** {{:https://tools.ietf.org/html/rfc7231#section-7.1.4}[vary]} *)
 
-    val via : name
-    (** {{:https://tools.ietf.org/html/rfc7230#section-5.7.1}[via]} *)
+  val via : name
+  (** {{:https://tools.ietf.org/html/rfc7230#section-5.7.1}[via]} *)
 
-    val warning : name
-    (** {{:https://tools.ietf.org/html/rfc7234#section-5.5}[warning]} *)
+  val warning : name
+  (** {{:https://tools.ietf.org/html/rfc7234#section-5.5}[warning]} *)
 
-    val www_authenticate : name
-    (** {{:https://tools.ietf.org/html/rfc7235#section-4.1}
+  val www_authenticate : name
+  (** {{:https://tools.ietf.org/html/rfc7235#section-4.1}
         [www-authenticate]} *)
-  end
 
   (** {1:paths Paths} *)
 

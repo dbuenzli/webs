@@ -380,12 +380,64 @@ module Http = struct
 
     let pp ppf m = Format.pp_print_string ppf (encode m)
   end
+    (* Header name constants *)
+
+  let accept = "accept"
+  let accept_charset = "accept-charset"
+  let accept_encoding = "accept-encoding"
+  let accept_language = "accept-language"
+  let accept_ranges = "accept-ranges"
+  let age = "age"
+  let allow = "allow"
+  let authorization = "authorization"
+  let cache_control = "cache-control"
+  let connection = "connection"
+  let content_encoding = "content-encoding"
+  let content_language = "content-languyage"
+  let content_length = "content-length"
+  let content_location = "content-location"
+  let content_range = "content-range"
+  let content_type = "content-type"
+  let cookie = "cookie"
+  let date = "date"
+  let etag = "etag"
+  let expect = "expect"
+  let expires = "expires"
+  let from = "from"
+  let host = "host"
+  let if_match = "if-match"
+  let if_modified_since = "if-modified-since"
+  let if_none_match = "if-none-match"
+  let if_range = "if-range"
+  let if_unmodified_since = "if-unmodified-since"
+  let last_modified = "last-modified"
+  let location = "location"
+  let max_forwards = "max-forwards"
+  let pragma = "pragma"
+  let proxy_authenticate = "proxy-authenticate"
+  let proxy_authorization = "proxy-authorization"
+  let range = "range"
+  let referer = "referer"
+  let retry_after = "retry-after"
+  let server = "server"
+  let set_cookie = "set-cookie"
+  let te = "te"
+  let trailer = "trailer"
+  let transfer_encoding = "transfer-encoding"
+  let upgrade = "upgrade"
+  let user_agent = "user-agent"
+  let vary = "vary"
+  let via = "via"
+  let warning = "warning"
+  let www_authenticate = "www-authenticate"
 
   (* Headers *)
 
   type headers = string Smap.t (* always lowercased by header_name *)
 
-  module H = struct
+  module Headers = struct
+    type t = headers
+
     let name = Name.v
 
     (* Header values *)
@@ -437,57 +489,6 @@ module Http = struct
         List.iter (pp_field "set-cookie" pp_qstring ppf) cs
       in
       Format.pp_print_list pp_header ppf (Smap.bindings hs)
-
-    (* Header name constants *)
-
-    let accept = "accept"
-    let accept_charset = "accept-charset"
-    let accept_encoding = "accept-encoding"
-    let accept_language = "accept-language"
-    let accept_ranges = "accept-ranges"
-    let age = "age"
-    let allow = "allow"
-    let authorization = "authorization"
-    let cache_control = "cache-control"
-    let connection = "connection"
-    let content_encoding = "content-encoding"
-    let content_language = "content-languyage"
-    let content_length = "content-length"
-    let content_location = "content-location"
-    let content_range = "content-range"
-    let content_type = "content-type"
-    let cookie = "cookie"
-    let date = "date"
-    let etag = "etag"
-    let expect = "expect"
-    let expires = "expires"
-    let from = "from"
-    let host = "host"
-    let if_match = "if-match"
-    let if_modified_since = "if-modified-since"
-    let if_none_match = "if-none-match"
-    let if_range = "if-range"
-    let if_unmodified_since = "if-unmodified-since"
-    let last_modified = "last-modified"
-    let location = "location"
-    let max_forwards = "max-forwards"
-    let pragma = "pragma"
-    let proxy_authenticate = "proxy-authenticate"
-    let proxy_authorization = "proxy-authorization"
-    let range = "range"
-    let referer = "referer"
-    let retry_after = "retry-after"
-    let server = "server"
-    let set_cookie = "set-cookie"
-    let te = "te"
-    let trailer = "trailer"
-    let transfer_encoding = "transfer-encoding"
-    let upgrade = "upgrade"
-    let user_agent = "user-agent"
-    let vary = "vary"
-    let via = "via"
-    let warning = "warning"
-    let www_authenticate = "www-authenticate"
 
     (* Header lookups *)
 
@@ -1060,7 +1061,7 @@ module Http = struct
               in
               loop ((n, v) :: acc) cs
       in
-      loop [] (H.values_of_string ~sep:';' s)
+      loop [] (Headers.values_of_string ~sep:';' s)
   end
 
   (* Status *)
@@ -1243,12 +1244,13 @@ module Http = struct
   let encode_resp_header_section (maj, min) st reason hs =
     let enc_header n v acc =
       let encode n acc v = n :: ": " :: v :: crlf :: acc in
-      if not (String.equal n H.set_cookie) then encode n acc v else
-      List.fold_left (encode H.set_cookie) acc (H.values_of_set_cookie_value v)
+      if not (String.equal n set_cookie) then encode n acc v else
+      let vs = Headers.values_of_set_cookie_value v in
+      List.fold_left (encode set_cookie) acc vs
     in
     let maj = str_digit_of_int maj and min = str_digit_of_int min in
     let st = string_of_int st in
-    let hs = H.fold enc_header hs [crlf] in
+    let hs = Headers.fold enc_header hs [crlf] in
     String.concat "" @@
     "HTTP/" :: maj :: "." :: min :: " " :: st :: " " :: reason :: crlf :: hs
 
@@ -1302,11 +1304,11 @@ module Resp = struct
 
   let v
       ?(version = (1,1)) ?(explain = "") ?reason ?(body = empty_body)
-      ?headers:(hs = Http.H.empty) status
+      ?headers:(hs = Http.Headers.empty) status
     =
     let reason = get_reason status reason in
     let headers = match body with
-    | Empty -> Http.H.(def content_length "0" hs)
+    | Empty -> Http.Headers.def Http.content_length "0" hs
     | _ -> hs
     in
     { version; status; reason; headers; body; explain }
@@ -1324,7 +1326,7 @@ module Resp = struct
 
   let with_headers headers r = { r with headers }
   let override_headers ~by:headers r =
-    { r with headers = Http.H.override r.headers ~by:headers }
+    { r with headers = Http.Headers.override r.headers ~by:headers }
 
   let with_body body r = { r with body }
   let pp ppf r =
@@ -1333,7 +1335,7 @@ module Resp = struct
     pp_field "version" Http.Version.pp ppf r.version; sep ppf ();
     pp_field "status" Http.Status.pp ppf r.status; sep ppf ();
     pp_field "reason" Format.pp_print_string ppf r.reason; sep ppf ();
-    Http.H.pp ppf r.headers;
+    Http.Headers.pp ppf r.headers;
     pp_field "body" pp_body ppf r.body;
     Format.pp_close_box ppf ()
 
@@ -1341,11 +1343,14 @@ module Resp = struct
 
   let result = function Ok v | Error v -> v
 
-  let content ?explain ?(headers = Http.H.empty) ~mime_type:t st s =
+  let content ?explain ?(headers = Http.Headers.empty) ~mime_type:t st s =
     let l = string_of_int (String.length s) in
-    let hs = Http.H.empty in
-    let hs = Http.H.(hs |> def content_length l |> def content_type t) in
-    let hs = Http.H.override hs ~by:headers in
+    let hs =
+      Http.Headers.(empty
+                    |> def Http.content_length l
+                    |> def Http.content_type t)
+    in
+    let hs = Http.Headers.override hs ~by:headers in
     v ?explain st ~headers:hs ~body:(body_of_string s)
 
   let text ?explain ?headers st s =
@@ -1360,9 +1365,9 @@ module Resp = struct
   let octets ?explain ?headers st s =
     content ?headers ~mime_type:Http.Mime_type.application_octet_stream st s
 
-  let redirect ?explain ?(headers = Http.H.empty) st loc =
-    let hs = Http.H.(empty |> def location loc) in
-    let hs = Http.H.override hs ~by:headers in
+  let redirect ?explain ?(headers = Http.Headers.empty) st loc =
+    let hs = Http.Headers.(empty |> def Http.location loc) in
+    let hs = Http.Headers.override hs ~by:headers in
     v ?explain st ~headers:hs
 
   let bad_request_400 ?explain ?reason ?headers () =
@@ -1378,11 +1383,11 @@ module Resp = struct
     Error (v ?explain ?reason ?headers Http.not_found_404)
 
   let method_not_allowed_405
-      ?explain ?reason ?(headers = Http.H.empty) ~allowed ()
+      ?explain ?reason ?(headers = Http.Headers.empty) ~allowed ()
     =
     let ms = String.concat ", " (List.map Http.Meth.encode allowed) in
-    let hs = Http.H.(empty |> def allow ms) in
-    let hs = Http.H.override hs ~by:headers in
+    let hs = Http.Headers.(empty |> def Http.allow ms) in
+    let hs = Http.Headers.override hs ~by:headers in
     Error (v ?explain ?reason ~headers:hs Http.method_not_allowed_405)
 
   let gone_410 ?explain ?reason ?headers () =
@@ -1433,7 +1438,7 @@ module Req = struct
 
   let v
       ?(service_path = [""]) ?(version = (1,1)) ?body_length
-      ?(body = empty_body) ?(headers = Http.H.empty) meth request_target
+      ?(body = empty_body) ?(headers = Http.Headers.empty) meth request_target
     =
     let path, query =
       Http.Path.and_query_of_request_target request_target
@@ -1471,7 +1476,7 @@ module Req = struct
     pp_cut ppf ();
     pp_field "path" Http.Path.pp ppf r.path; pp_cut ppf ();
     pp_field "query" pp_query ppf r.query; pp_cut ppf ();
-    Http.H.pp ppf r.headers; pp_cut ppf ();
+    Http.Headers.pp ppf r.headers; pp_cut ppf ();
     pp_field "body-length" pp_body_length ppf r.body_length;
     pf ppf "@]"
 
@@ -1511,7 +1516,7 @@ module Req = struct
     let trace = `TRACE, `TRACE
   end
 
-  let decode_header h dec req = match Http.H.find h (headers req) with
+  let decode_header h dec req = match Http.Headers.find h (headers req) with
   | None -> Ok None
   | Some v ->
       match dec v with
@@ -1543,7 +1548,8 @@ module Req = struct
     | None -> Ok Http.Query.empty | Some q -> Ok (Http.Query.decode q)
     in
     let body_query r =
-      match Http.H.(find ~lowervalue:true content_type (headers r)) with
+      match Http.Headers.(find ~lowervalue:true Http.content_type (headers r))
+      with
       | None ->
           Error (Resp.v ~reason:"missing content type" Http.bad_request_400)
       | Some t ->
@@ -1569,7 +1575,7 @@ module Req = struct
 
   let find_cookie ~name r =
     (* XXX maybe we could lazily cache the decode in [r] *)
-    let cs = match Http.H.(find cookie (headers r)) with
+    let cs = match Http.Headers.(find Http.cookie (headers r)) with
     | None -> Ok []
     | Some s -> Http.Cookie.decode_list  s
     in

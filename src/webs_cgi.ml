@@ -64,13 +64,13 @@ let[@inline] is_http_var s =
   s.[0] = 'H' && s.[1] = 'T' && s.[2] = 'T' && s.[3] = 'P' && s.[4] = '_'
 
 let content_vars =
-  [ "CONTENT_TYPE", Http.H.content_type;
-    "CONTENT_LENGTH", Http.H.content_length ]
+  [ "CONTENT_TYPE", Http.content_type;
+    "CONTENT_LENGTH", Http.content_length ]
 
 let headers_of_env ~extra_vars env =
   let add_var ~add_empty env hs (var, name) = match Smap.find_opt var env with
   | Some v when add_empty || v <> "" ->
-      Http.H.def name (Http.Private.trim_ows v) hs
+      Http.Headers.def name (Http.Private.trim_ows v) hs
   | _ -> hs
   in
   let rec loop i max env hs others =
@@ -87,10 +87,11 @@ let headers_of_env ~extra_vars env =
             match http_var_to_header_name var with
             | Error e -> failwith e
             | Ok v ->
-                let hs = Http.H.def v (Http.Private.trim_ows value) hs in
+                let hs = Http.Headers.def v (Http.Private.trim_ows value) hs in
                 loop (i + 1) max env hs others
   in
-  let hs, env = loop 0 (Array.length env - 1) env Http.H.empty Smap.empty in
+  let max = Array.length env - 1 in
+  let hs, env = loop 0 max env Http.Headers.empty Smap.empty in
   let hs = List.fold_left (add_var ~add_empty:true env) hs extra_vars in
   let hs = List.fold_left (add_var ~add_empty:false env) hs content_vars in
   hs, env
@@ -111,7 +112,7 @@ let header_section_of_env ~extra_vars env =
   let request_target = get_var "REQUEST_URI" Result.ok env in
   version, meth, request_target, hs
 
-let body_length hs = match Http.H.request_body_length hs with
+let body_length hs = match Http.Headers.request_body_length hs with
 | Error e -> Error (`Malformed e)
 | Ok (`Length l) -> Ok (Some l)
 | Ok `Chunked -> Error (`Not_implemented "chunked bodies") (* TODO *)
@@ -141,18 +142,20 @@ let encode_resp_header_section st reason hs =
   let crlf = "\r\n" in
   let enc_header n v acc =
     let encode n acc v = Http.Name.encode n :: ": " :: v :: crlf :: acc in
-    if not (Http.Name.equal n Http.H.set_cookie) then encode n acc v else
-    let cookies = Http.H.values_of_set_cookie_value v in
-    List.fold_left (encode Http.H.set_cookie) acc cookies
+    if not (Http.Name.equal n Http.set_cookie) then encode n acc v else
+    let cookies = Http.Headers.values_of_set_cookie_value v in
+    List.fold_left (encode Http.set_cookie) acc cookies
   in
   String.concat "" @@
   "Status:" :: string_of_int st :: " " :: reason :: crlf ::
-  Http.H.fold enc_header hs [crlf]
+  Http.Headers.fold enc_header hs [crlf]
 
 let write_resp c fd resp =
   let resp, write_body = Webs_unix.Connector.resp_body_writer resp in
   (* TODO check what to do with the connection in case of upgrade *)
-  let hs = Http.H.(Resp.headers resp |> def_if_undef connection "close") in
+  let hs =
+    Http.Headers.(Resp.headers resp |> def_if_undef Http.connection "close")
+  in
   let st = Resp.status resp and reason = Resp.reason resp in
   let sec = encode_resp_header_section st reason hs in
   let sec = Bytes.unsafe_of_string sec in

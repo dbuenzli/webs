@@ -119,12 +119,12 @@ let accept_key key = Http.Base64.encode (sha_1 (key ^ accept_uuid))
 (* Upgrading *)
 
 let upgradable hs =
-  let connection = Http.H.(find ~lowervalue:true connection hs) in
-  let upgrade = Http.H.(find ~lowervalue:true upgrade hs) in
+  let connection = Http.Headers.find ~lowervalue:true Http.connection hs in
+  let upgrade = Http.Headers.find ~lowervalue:true Http.upgrade hs in
   match connection, upgrade with
   | Some cn, Some up ->
-      let upgrade = List.mem "upgrade" (Http.H.values_of_string cn) in
-      let websocket = List.mem "websocket" (Http.H.values_of_string up) in
+      let upgrade = List.mem "upgrade" (Http.Headers.values_of_string cn) in
+      let websocket = List.mem "websocket" (Http.Headers.values_of_string up) in
       websocket && upgrade
   | _, _ -> false
 
@@ -133,7 +133,9 @@ let err_no_version = "No sec-websocket-version header"
 let err_unsupported_version v = "unsupported sec-websocket-version: " ^  v
 
 let websocket_headers () =
-  Http.H.(empty |> def connection "Upgrade" |> def upgrade "websocket")
+  Http.Headers.(empty
+          |> def Http.connection "Upgrade"
+          |> def Http.upgrade "websocket")
 
 let err_require_upgrade () =
   Resp.v Http.upgrade_required_426 ~headers:(websocket_headers ())
@@ -141,23 +143,25 @@ let err_require_upgrade () =
 let resp_websocket ?protocol key =
   let a = accept_key key in
   let hs = websocket_headers () in
-  let hs = Http.H.def sec_websocket_accept a hs in
+  let hs = Http.Headers.def sec_websocket_accept a hs in
   let hs = match protocol with
-  | None -> hs | Some p -> Http.H.def sec_websocket_protocol p hs
+  | None -> hs | Some p -> Http.Headers.def sec_websocket_protocol p hs
   in
   Resp.v Http.switching_protocols_101 ~headers:hs
 
 let upgrade req =
   let hs = Req.headers req in
   if not (upgradable hs) then err_require_upgrade () else
-  let key = Http.H.find sec_websocket_key hs in
-  let protocols = Http.H.find ~lowervalue:true sec_websocket_protocol hs in
-  let version = Http.H.find sec_websocket_version hs in
+  let key = Http.Headers.find sec_websocket_key hs in
+  let protocols =
+    Http.Headers.find ~lowervalue:true sec_websocket_protocol hs
+  in
+  let version = Http.Headers.find sec_websocket_version hs in
   match version with
   | None -> Resp.v Http.bad_request_400 ~reason:err_no_version
   | Some s when s <> "13" ->
       (* RFC 6455 §4.2.2. 4 *)
-      let hs = Http.H.(def sec_websocket_version "13" empty) in
+      let hs = Http.Headers.(def sec_websocket_version "13" empty) in
       let reason = err_unsupported_version s in
       Resp.v Http.upgrade_required_426 ~headers:hs ~reason
   | Some _ ->

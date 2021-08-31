@@ -205,7 +205,8 @@ let dir_404 ~etagger ~mime_types _ fpath =
   Ok (Resp.v Http.not_found_404 ~explain)
 
 let range_full ~file_size hs =
-  let hs = Http.H.(hs |> def content_length (Http.Digits.encode file_size)) in
+  let file_size' = Http.Digits.encode file_size in
+  let hs = Http.Headers.(hs |> def Http.content_length file_size') in
   0, file_size - 1, hs, Http.ok_200
 
 let range_partial ~file_size ~first ~last hs =
@@ -215,17 +216,17 @@ let range_partial ~file_size ~first ~last hs =
     let first, last = Http.Digits.encode first, Http.Digits.encode last in
     String.concat "" ["bytes "; first; "-"; last; "/"; file_size]
   in
-  let hs = Http.H.(hs |> def content_range crange) in
-  let hs = Http.H.(hs |> def content_length range_len) in
+  let hs = Http.Headers.(hs |> def Http.content_range crange) in
+  let hs = Http.Headers.(hs |> def Http.content_length range_len) in
   first, last, hs , Http.partial_content_206
 
 let find_range req file etag ~file_size hs =
-  let* r = Req.decode_header Http.H.range Http.Range.decode req in
+  let* r = Req.decode_header Http.range Http.Range.decode req in
   match r with
   | None -> Ok (range_full ~file_size hs)
   | Some (`Other _) (* ignore *) -> Ok (range_full ~file_size hs)
   | Some (`Bytes rs as r) ->
-      let* iftag = Req.decode_header Http.H.if_range Http.Etag.decode req in
+      let* iftag = Req.decode_header Http.if_range Http.Etag.decode req in
       let full = match iftag with
       | None -> false
       | Some t -> not (Http.Etag.eval_if_range t (Some etag))
@@ -250,7 +251,7 @@ let eval_etag_cond ~eval h req etag =
 
 let check_if_match_cond r file etag =
   let eval = Http.Etag.eval_if_match in
-  let* test = eval_etag_cond ~eval Http.H.if_match r etag in
+  let* test = eval_etag_cond ~eval Http.if_match r etag in
   if test then Ok () else
   let explain =
     strf "%s: etag: %s, if-match failed" file (Http.Etag.encode etag)
@@ -259,7 +260,7 @@ let check_if_match_cond r file etag =
 
 let eval_if_none_match r file etag =
   let eval = Http.Etag.eval_if_none_match in
-  eval_etag_cond ~eval Http.H.if_none_match r etag
+  eval_etag_cond ~eval Http.if_none_match r etag
 
 let send_file
     ?(dir_resp = dir_404) ?(etagger = default_etagger) ?mime_types req file
@@ -286,17 +287,17 @@ let send_file
           let file_type = Http.Mime_type.of_filepath ?map:mime_types file in
           let mtime = http_date_of_ptime stat.Unix.st_mtime in
           let hs =
-            Http.H.(empty
-                    |> def content_type file_type
-                    (* The following header affects memory cache in blink
-                       based browsers, without it, it doesn't get hit. *)
-                    |> def last_modified mtime
-                    |> def etag (Http.Etag.encode tag)
-                    |> def accept_ranges "bytes")
+            Http.Headers.(empty
+                          |> def Http.content_type file_type
+                          (* The following header affects memory cache in blink
+                             based browsers, without it, it doesn't get hit. *)
+                          |> def Http.last_modified mtime
+                          |> def Http.etag (Http.Etag.encode tag)
+                          |> def Http.accept_ranges "bytes")
           in
           if is_head then
             let len = Http.Digits.encode file_size in
-            let headers = Http.H.(hs |> def content_length len) in
+            let headers = Http.Headers.(hs |> def Http.content_length len) in
             let body = Resp.empty_body in
             Ok (Resp.v Http.ok_200 ~headers ~body ~explain)
           else
