@@ -28,33 +28,37 @@ let set_signal sg sg_behaviour = try Ok (Sys.signal sg sg_behaviour) with
 let set_signal_noerr sg sg_behaviour = try Sys.set_signal sg sg_behaviour with
 | Sys_error _ -> ()
 
-(* Servers *)
+(* Connector *)
 
 let default_max_connections = 100
 
 type t =
-  { mutable serving : bool;
-    service_path : Http.path;
+  { listener : Webs_unix.listener;
+    log : Connector.log_msg -> unit;
     max_connections : int;
-    max_req_headers_byte_size : int;
     max_req_body_byte_size : int;
-    listener : Webs_unix.listener;
-    log : Connector.log_msg -> unit; }
-
-let service_path c = c.service_path
-let max_connections c = c.max_connections
-let listener c = c.listener
+    max_req_headers_byte_size : int;
+    service_path : Http.path;
+    mutable serving : bool; }
 
 let create
+    ?(listener = Webs_unix.listener_localhost)
     ?(log = Connector.default_log ~trace:true ())
-    ?(service_path = [""])
     ?(max_connections = default_max_connections)
-    ?(max_req_headers_byte_size = 64 * 1024)
     ?(max_req_body_byte_size = 10 * 1024 * 1024)
-    ?(listener = Webs_unix.listener_localhost) ()
+    ?(max_req_headers_byte_size = 64 * 1024)
+    ?(service_path = [""]) ()
   =
-  { serving = false; service_path; max_connections; max_req_headers_byte_size;
-    max_req_body_byte_size; listener; log }
+  { listener; log; max_connections; max_req_body_byte_size;
+    max_req_headers_byte_size; service_path; serving = false; }
+
+let listener c = c.listener
+let log c = c.log
+let max_connections c = c.max_connections
+let max_req_body_byte_size c = c.max_req_body_byte_size
+let max_req_headers_byte_size c = c.max_req_headers_byte_size
+let service_path c = c.service_path
+let serving c = c.serving
 
 (* Requests *)
 
@@ -113,14 +117,14 @@ let read_req c fd =
     let buf = Bytes.create (max io_buffer_size max_bytes) in
     let crlfs, first_start, first_len = read_clrfs c ~max_bytes buf fd in
     let meth, target, version = decode_request_line buf (List.hd crlfs) in
-    let hs = decode_headers buf crlfs in
+    let headers = decode_headers buf crlfs in
     let max_req_body_byte_size = c.max_req_body_byte_size in
-    let* body_length = body_length hs in
+    let* body_length = body_length headers in
     let body =
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd buf ~first_start ~first_len
     in
-    Ok (Req.v ~service_path ~version meth target ~headers:hs ~body_length ~body)
+    Ok (Req.v ~service_path ~version meth target ~headers ~body_length ~body)
   with
   | Failure e -> Error (`Malformed e)
 

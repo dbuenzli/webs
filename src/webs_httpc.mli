@@ -25,46 +25,56 @@ type t
     one {!Thread} drawn from a pool. *)
 
 val create :
-  ?log:(Connector.log_msg -> unit) -> ?service_path:Http.path ->
-  ?max_connections:int -> ?max_req_headers_byte_size:int ->
-  ?max_req_body_byte_size:int -> ?listener:Webs_unix.listener -> unit -> t
+  ?listener:Webs_unix.listener -> ?log:(Connector.log_msg -> unit) ->
+  ?max_connections:int -> ?max_req_body_byte_size:int ->
+  ?max_req_headers_byte_size:int -> ?service_path:Http.path -> unit -> t
 (** [create ()] is a new connector with following parameters:
     {ul
+    {- [listener] specifies the socket to listen to on.
+       Defaults to {!Webs_unix.listener_localhost}}
     {- [log] logs connector log messages. Defaults to
        {!Webs.Connector.default_log} with trace messages.}
-    {- [service_path] is the path at which the root of the service is being
-       served. (defaults to [[""]]). This is used to create request
-       values, see {!Req.service_path}.}
     {- [max_connections] is the maximal number of allowed concurrent
        connections (defaults to {!default_max_connections}).}
+    {- [max_req_body_byte_size] is the maximal request body size in bytes.
+       FIXME not enforced.}
     {- [max_req_headers_byte_size] is the maximal allowed size in bytes for
        to the request line and headers. Defaults to [64Ko].}
-    {- [max_req_body_byte_size] is the maximal request body size in bytes.
-       FIXME not enforced, unclear where this is to put the limit on, for
-       streaming bodies, if we cut the line the service might end up
-       being confused (but then it should also cater for that possibility).}
-    {- [listener] specifies the socket to listen to on.
-       Defaults to {!Webs_unix.listener_localhost}}}
-*)
+    {- [service_path] is the path at which the root of the service is being
+       served. (defaults to [[""]]). This is used to create request
+       values, see {!Req.service_path}.}} *)
+
+val listener : t -> Webs_unix.listener
+(** [listener c] is the connection listener of [c]. *)
+
+val log : t -> Connector.log_msg -> unit
+(** [log c] is the log of [c]. *)
+
+val max_connections : t -> int
+(** [max_connection c] is the maximal number of concurrent connections
+    for [c]. *)
+
+val max_req_body_byte_size : t -> int
+(** [max_connection c] is the maximal body size in bytes for requests
+    handled by [c]. *)
+
+val max_req_headers_byte_size : t -> int
+(** [max_connection c] is the maximal headers size in bytes  for requests
+    handled by [c]. *)
 
 val service_path : t -> Http.path
 (** [service_path c] is the service path of [c]. See {!create}. *)
 
-val max_connections : t -> int
-(** [max_connection c] is the maximal number of concurrent connections. *)
+val serving : t -> bool
+(** [serving c] is [true] iff [c] a {!serve} is going on. *)
 
-val listener : t -> Webs_unix.listener
-(** [listener c] is the connector connection listener. *)
+(** {1:serving Serving} *)
 
 val serve : ?handle_stop_sigs:bool -> t -> Webs.service -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks,
     serving requests with [s] until {!stop} is called on [c] or
     a [SIGINT] or [SIGTERM] signal is received if [handle_stop_sigs] is [true]
-    (default).
-
-    The {!Webs.Req.service_root} of requests is decoded from the
-    custom HTTP header [x-service-root] this should be set
-    appropriately by your gateway.
+    (default). If [serving c] is [true] this returns immedialy with [Ok ()].
 
     Note that the server may respond before the request hits [service], notably:
     {ul

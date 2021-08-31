@@ -1,5 +1,11 @@
 # A laundry list
 
+
+* Connector `service_path`, devise a trailing slash strategy and 
+  normalize. Also for now the docs relies on the gateway to still 
+  chop the prefix, maybe it's more forward looking to make the 
+  connectors chop the prefix.
+  
 * Add connector support for 
   https://w3c.github.io/server-timing/#the-server-timing-header-field
 * Make the login example bearable

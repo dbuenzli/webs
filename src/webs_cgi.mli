@@ -33,24 +33,41 @@ type t
     headers from the environment and the body from {!Unix.stdin}. *)
 
 val create :
-  ?log:(Connector.log_msg -> unit) -> ?service_path:Http.path ->
-  ?max_req_body_byte_size:int -> ?extra_vars:string list -> unit -> t
+  ?extra_vars:string list -> ?log:(Connector.log_msg -> unit) ->
+  ?max_req_body_byte_size:int -> ?service_path:Http.path -> unit -> t
 (** [create ()] is a new CGI connector with parameters:
     {ul
-    {- [log] logs connector log messages. It defaults
-       {!Webs.Connector.default_log} with trace message disabled.}
-    {- [service_path] is the path at which the root of the service is being
-       served. (defaults to [[""]]). This is used to create request
-       values, see {!Req.service_path}.}
-    {- [max_req_body_byte_size] is the maximal request body size in bytes.
-       FIXME not enforced, unclear where this is to put the limit on, for
-       streaming bodies, if we cut the line the service might end up
-       being confused (but then it should also cater for that possibility).}
     {- [extra_vars] is a list of environment variables whose content is
        added to the request headers (defaults to [[]]). The header name
        of a variable is made by lowercasing it, mapping ['_'] to ['-']
        and prefixing the result with [x-cgi]. For example
-       [SERVER_SOFTWARE] becomes [x-cgi-server-software].}} *)
+       [SERVER_SOFTWARE] becomes [x-cgi-server-software].}
+    {- [log] logs connector log messages. It defaults
+       {!Webs.Connector.default_log} with trace message disabled.}
+    {- [max_req_body_byte_size] is the maximal request body size in bytes.
+       FIXME not enforced, unclear where this is to put the limit on, for
+       streaming bodies, if we cut the line the service might end up
+       being confused (but then it should also cater for that possibility).}
+    {- [service_path] is the path at which the root of the service is being
+       served. (defaults to [[""]]). This is used to create request
+       values, see {!Req.service_path}.}} *)
+
+val extra_vars : t -> string list
+(** [extra_vars c] is the list of environment variables whose content
+    is added to the request headers of requests handled by [c]. See
+    {!create}. *)
+
+val log : t -> (Connector.log_msg -> unit)
+(** [log c] is the log of [c]. *)
+
+val max_req_body_byte_size : t -> int
+(** [max_req_body_byte_size c]  is the maximal request body size
+    supported by [c]. *)
+
+val service_path : t -> Http.path
+(** [service_path c] is the service path of [c]. *)
+
+(** {1:serving Serving} *)
 
 val serve : t -> Webs.service -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks until
@@ -96,9 +113,9 @@ val serve : t -> Webs.service -> (unit, string) result
           [SERVER_SOFTWARE] becomes [x-cgi-server-software].}}}
     {- {!Webs.Req.body_length} is determined from the headers according to
        {!Webs.Http.H.request_body_length}.}
-    {- {!val:Webs.Req.body}, is the result of reading {!Unix.stdin}}}
+    {- {!Webs.Req.val-body}, is the result of reading {!Unix.stdin}}}
 
-    If the request derivation fails in some way an 500 is returned and
+    If the request derivation fails in some way a 500 is returned and
     an error should be printed on standard error. *)
 
 (*---------------------------------------------------------------------------

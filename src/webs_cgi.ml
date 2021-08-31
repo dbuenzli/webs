@@ -35,18 +35,23 @@ let extra_var_to_header_name var =
 (* Connectors *)
 
 type t =
-  { service_path : Http.path;
-    extra_vars : (string * Http.name) list;
+  { extra_vars : (string * Http.name) list;
+    log : Connector.log_msg -> unit;
     max_req_body_byte_size : int;
-    log : Connector.log_msg -> unit; }
+    service_path : Http.path; }
 
 let create
-    ?(log = Connector.default_log ~trace:false ()) ?(service_path = [""])
-    ?(max_req_body_byte_size = 10 * 1024 * 1024) ?(extra_vars = []) ()
+    ?(extra_vars = []) ?(log = Connector.default_log ~trace:false ())
+    ?(max_req_body_byte_size = 10 * 1024 * 1024) ?(service_path = [""]) ()
   =
   let with_header_name v = v, extra_var_to_header_name v in
   let extra_vars = List.map with_header_name extra_vars in
-  { service_path; extra_vars; max_req_body_byte_size; log }
+  { extra_vars; log; max_req_body_byte_size; service_path; }
+
+let extra_vars c = List.map fst c.extra_vars
+let log c = c.log
+let max_req_body_byte_size c = c.max_req_body_byte_size
+let service_path c = c.service_path
 
 (* Request *)
 
