@@ -1344,6 +1344,8 @@ module Resp = struct
 
   let result = function Ok v | Error v -> v
 
+  let empty ?explain ?reason ?headers st = v ?explain ?reason ?headers st
+
   let content ?explain ?(headers = Http.Headers.empty) ~mime_type:t st s =
     let l = string_of_int (String.length s) in
     let hs =

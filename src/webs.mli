@@ -1237,6 +1237,9 @@ module Resp : sig
       and [version] (defaults to [(1,1)]), [explain] is a server side [reason]
       it is not put on the wire.
 
+      {b FIXME.} Maybe make [body] non-optional to encourage use
+      of {!empty} which is clearer in code.
+
       {b Note.} If [body] is [body_empty] (default) a {!Http.content_length}
       of [0] is automatically added to [headers]. *)
 
@@ -1291,6 +1294,11 @@ module Resp : sig
   (** [result r] is [Result.fold ~ok:Fun.id ~error:Fun.id]. *)
 
   (** {2:pre_canned_content Content responses} *)
+
+  val empty :
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int -> t
+  (** [empty ?explain ?reason ?headers st] is
+      [v ?explain ?reason ?headers st]. *)
 
   val content :
     ?explain:string -> ?headers:Http.headers -> mime_type:Http.mime_type ->
