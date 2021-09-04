@@ -233,6 +233,7 @@ module Kurl = struct
 
   type 'a service = Service : 'b kind * ('b -> 'a) -> 'a service
   let service k f = Service (k, f)
+  let map_service g (Service (k, f)) = Service (k, fun v -> g (f v))
 
   (* Service trees *)
 

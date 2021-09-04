@@ -435,6 +435,9 @@ module Kurl : sig
       effectively handles the request. The service type simply hides the
       first, request kind specific, argument of these functions. *)
 
+  val map_service : ('a -> 'b) -> 'a service -> 'b service
+  (** [map_service f s] applies [f] to the service of [s]. *)
+
   (** {1:trees Service trees} *)
 
   type 'a tree
