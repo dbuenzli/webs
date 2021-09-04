@@ -1387,10 +1387,10 @@ module Resp : sig
 
   (** {1:error_map Error mapper} *)
 
-  val map_errors : ?only_empty:bool -> (t -> t) -> t -> t
-  (** [map_errors f r] maps [r] with [f] if [r]'s status
-      is a 4XX or 5XX. If [only_empty] is [true]
-      (defaults to [false]) it does so only on empty body responses. *)
+  val map_errors : only_empty:bool -> (t -> t) -> t -> t
+  (** [map_errors ~only_empty f r] maps [r] with [f] if [r]'s status
+      is a 4XX or 5XX. If [only_empty] is [true] (defaults to [false])
+      it does so only on empty body responses. *)
 end
 
 (** HTTP requests. *)

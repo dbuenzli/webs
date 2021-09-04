@@ -1402,7 +1402,7 @@ module Resp = struct
   let not_implemented_501 ?explain ?reason ?headers () =
     Error (v ?explain ?reason ?headers Http.not_implemented_501)
 
-  let map_errors ?(only_empty = false) f r =
+  let map_errors ~only_empty f r =
     let st = status r in
     if 400 <= st && st <= 599
     then (if only_empty && body r <> Empty then r else f r)
