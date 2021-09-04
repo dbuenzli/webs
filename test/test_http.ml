@@ -164,7 +164,7 @@ let test_path () =
       | _ :: r -> List.rev_append r rel | r -> List.rev_append r rel
   in
   let test ?(trace = false) root path expect =
-    let rel = Http.Path.relativize ~root path in
+    let rel = Http.Path.relative ~src:root ~dst:path in
     let cat = Http.Path.undot_and_compress (concat_rel root rel) in
     if rel = expect && path = cat then begin
       if trace then

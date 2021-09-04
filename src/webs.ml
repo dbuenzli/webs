@@ -455,24 +455,24 @@ module Http = struct
         | "" :: r -> List.rev_append r p1
         | r -> List.rev_append r p1
 
-    let relativize ~root path =
+    let relative ~src ~dst =
       let rec dotdots segs ~on:acc = match segs with
       | _ :: segs -> dotdots segs ~on:(".." :: acc) | [] -> acc
       in
-      match root, path with (* Simpler if root paths are handled separately *)
+      match src, dst with (* Simpler if root paths are handled separately *)
       | [_], [""] -> ["."]
-      | path, [""] -> dotdots (List.tl path) ~on:[]
-      | [_], path -> path
-      | root, path ->
-          let rec loop last root path = match root, path with
-          | r :: root, p :: path when String.equal r p -> loop r root path
+      | src, [""] -> dotdots (List.tl src) ~on:[]
+      | [_], dst -> dst
+      | src, dst ->
+          let rec loop last src dst = match src, dst with
+          | r :: src, p :: dst when String.equal r p -> loop r src dst
           | [], [] -> [if last = "" then "." else last] (* root = path *)
           | [], q -> last :: q (* root = r and path = r/q *)
           | p, [] -> dotdots p ~on:[last] (* root = r/q and path = r *)
           | p, [""] -> dotdots p ~on:[last; ""] (* root = r/q and path = r/ *)
           | p, q -> dotdots (List.tl p) ~on:q (* root = r/p  path = r/q *)
           in
-          loop "" root path
+          loop "" src dst
 
     (* File paths *)
 

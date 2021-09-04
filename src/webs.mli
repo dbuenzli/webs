@@ -310,9 +310,11 @@ module Http : sig
         {- [concat ["a"; "b"; ""] [""] = ["a"; "b"]]}
         {- [concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]]}} *)
 
-    val relativize : root:path -> path -> path
-    (** [relativise ~root p] is the relative path [r] that goes from
-        [root] to [p]. *)
+    val relative : src:path -> dst:path -> path
+    (** [relative ~src ~dst] is the relative path [rel] that goes from
+        absolute [src] to absolute [dst]. This means that
+        [undot_and_compress (concat src rel)] should yield
+        [dst]. *)
 
     (** {1:filepath File paths} *)
 

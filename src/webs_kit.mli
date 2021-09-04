@@ -493,7 +493,13 @@ module Kurl : sig
   type fmt
   (** The type for URL request formatters. *)
 
-  (** URL request formatters. *)
+  (** URL request formatters.
+
+      {b TODO}
+      {ul
+      {- Add functions for untyped formatting.}
+      {- Move out of [Kurl] as [Fmt_url] or [Urlf] or
+         [Urlfmt] or [Url_fmt] ?}} *)
   module Fmt : sig
 
     type kurl = t
@@ -542,7 +548,9 @@ module Kurl : sig
     (** [use_exts uf] is [true] if bare URL extensions are appended to
         formatted URLs. *)
 
-    (** {1:bind Binding} *)
+    (** {1:fmt Typed formatting} *)
+
+    (** {2:bind Binding} *)
 
     val bind : Http.path -> 'a kind -> fmt -> fmt
     (** [bind p k uf] is [uf] with URL requests of kind [k] bound to
@@ -554,8 +562,6 @@ module Kurl : sig
     val bind_tree : 'a tree -> fmt -> fmt
     (** [bind_tree t uf] is [uf] with URL request kinds in [t] bound to their
         path in [t]. *)
-
-    (** {1:fmt Formatting} *)
 
     (** {2:abs Absolute} *)
 
@@ -586,21 +592,39 @@ module Kurl : sig
 
     (** {2:rel Relative} *)
 
-    val rel_bare : fmt -> root:kurl -> kurl -> bare
-    (** [rel_bare rf ~root sub s] is [sub]'s relative raw request for [s]
-        to the root path of [root]'s request. Compared to {!Fmt.val-bare} this
-        only changes the path of the result.
+    val rel_bare : fmt -> src:kurl -> dst:kurl -> bare
+    (** [rel_bare rf ~src ~dst s] is a relative raw request from [src]
+        to [dst]. Compared to {!Fmt.val-bare} this only changes the
+        path of the result which is the relative path from [src] to [dst].
 
         Note this assumes both paths do not have dot or non-final empty
         segments.
 
         Raises [Invalid_arg] if [root] or [sub] is not part of [fmt]'s tree. *)
 
-    val rel_req : fmt -> root:kurl -> kurl -> Http.meth * string
+    val rel_req : fmt -> src:kurl -> dst:kurl -> Http.meth * string
     (** [rel_req] is like {!rel_bare} but returns an encoded URL {e path},
         including the query (if any). *)
 
-    val rel_url : fmt -> root:kurl -> kurl -> string
+    val rel_url : fmt -> src:kurl -> dst:kurl -> string
+    (** [rel_url] is {!rel_req} without the method. *)
+
+
+    (** {2:path_rel Path Relative}
+
+        Sometimes it's more convenient to use a path. For example on 404
+        where the root may not exist as a kind but the service relative
+        path is available from the request. *)
+
+    val path_rel_bare : fmt -> src:Http.path -> dst:kurl -> bare
+    (** [path_rel_bare] is like {!rel_bare} but [src] is
+        an path expressed relative to the formatter's {!root}. *)
+
+    val path_rel_req : fmt -> src:Http.path -> dst:kurl -> Http.meth * string
+    (** [rel_req] is like {!rel_bare} but returns an encoded URL {e path},
+        including the query (if any). *)
+
+    val path_rel_url : fmt -> src:Http.path -> dst:kurl -> string
     (** [rel_url] is {!rel_req} without the method. *)
   end
 

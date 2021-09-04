@@ -133,7 +133,6 @@ module Res = struct
 end
 
 module Kurl = struct
-
   let strf = Printf.sprintf
   module Imap = Map.Make (Int)
 
@@ -525,21 +524,43 @@ module Kurl = struct
 
     (* Relative *)
 
-    let rel_bare uf ~root u =
-      if uf.disable_rel then bare uf u else
-      let root = bare uf root in
-      let u = bare uf u in
-      let path = Http.Path.relativize ~root:root.path u.path in
-      Bare.v u.meth path ~query:u.query ~ext:u.ext
+    let rel_bare uf ~src ~dst =
+      if uf.disable_rel then bare uf dst else
+      let src = bare uf src in
+      let dst = bare uf dst in
+      let path = Http.Path.relative ~src:src.path ~dst:dst.path in
+      Bare.v dst.meth path ~query:dst.query ~ext:dst.ext
 
-    let rel_req uf ~root u =
-      if uf.disable_rel then req uf u else
-      let u = rel_bare uf ~root u in
-      u.meth, encode_rel_url uf u
+    let rel_req uf ~src ~dst =
+      if uf.disable_rel then req uf dst else
+      let dst = rel_bare uf ~src ~dst in
+      dst.meth, encode_rel_url uf dst
 
-    let rel_url uf ~root u =
-      if uf.disable_rel then url uf u else
-      encode_rel_url uf (rel_bare uf ~root u)
+    let rel_url uf ~src ~dst =
+      if uf.disable_rel then url uf dst else
+      encode_rel_url uf (rel_bare uf ~src ~dst)
+
+    (* Path relative *)
+
+    let src_path uf ~src =
+      let src = Http.Path.concat uf.root src in
+      if src = [] then [""] else src
+
+    let path_rel_bare uf ~src ~dst =
+      if uf.disable_rel then bare uf dst else
+      let src = src_path uf ~src in
+      let dst = bare uf dst in
+      let path = Http.Path.relative ~src ~dst:dst.path in
+      Bare.v dst.meth path ~query:dst.query ~ext:dst.ext
+
+    let path_rel_req uf ~src ~dst =
+      if uf.disable_rel then req uf dst else
+      let dst = path_rel_bare uf ~src ~dst in
+      dst.meth, encode_rel_url uf dst
+
+    let path_rel_url uf ~src ~dst =
+      if uf.disable_rel then url uf dst else
+      encode_rel_url uf (path_rel_bare uf ~src ~dst)
   end
 end
 
