@@ -501,8 +501,9 @@ module Kurl : sig
       {b TODO}
       {ul
       {- Add functions for untyped formatting. Actually no
-         {!Kind.bare} does the trick remove {!path_rel} functions.
-        Document how to go about it via a bare url kind.}
+         {!Kind.bare} does the trick. Document how to go about it via a
+         bare url kind, especially if you need relative info for out of
+         space urls.}
       {- Move out of [Kurl] as [Fmt_url] or [Urlf] or
          [Urlfmt] or [Url_fmt] ?}} *)
   module Fmt : sig
@@ -612,24 +613,6 @@ module Kurl : sig
         including the query (if any). *)
 
     val rel_url : fmt -> src:kurl -> dst:kurl -> string
-    (** [rel_url] is {!rel_req} without the method. *)
-
-
-    (** {2:path_rel Path Relative}
-
-        Sometimes it's more convenient to use a path. For example on 404
-        where the root may not exist as a kind but the service relative
-        path is available from the request. *)
-
-    val path_rel_bare : fmt -> src:Http.path -> dst:kurl -> bare
-    (** [path_rel_bare] is like {!rel_bare} but [src] is
-        an path expressed relative to the formatter's {!root}. *)
-
-    val path_rel_req : fmt -> src:Http.path -> dst:kurl -> Http.meth * string
-    (** [rel_req] is like {!rel_bare} but returns an encoded URL {e path},
-        including the query (if any). *)
-
-    val path_rel_url : fmt -> src:Http.path -> dst:kurl -> string
     (** [rel_url] is {!rel_req} without the method. *)
   end
 
