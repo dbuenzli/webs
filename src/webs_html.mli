@@ -78,6 +78,13 @@ module At : sig
   val int : name -> int -> t
   (** [int n i] is [v n (string_of_int i)]. *)
 
+  val if' : bool -> t -> t
+  (** [if' b a] is [a] if [b] is [true] and {!void} otherwise. *)
+
+  val if_some : name -> string option -> t
+  (** [if_some n o] is [v n value] if [o] is [Some value] and {!void}
+      if [o] is [None]. *)
+
   (** FIXME if void works well remove the add_if's. There are a bit unconvient
       to use. *)
 
