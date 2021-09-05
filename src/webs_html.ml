@@ -44,6 +44,7 @@ module At = struct
   end
   type t = name * string
   let v n v = (n, v)
+  let void = ("", "")
   let true' n = (n, "")
   let int n i = (n, string_of_int i)
   let add_if b at l = if b then at :: l else l
@@ -147,6 +148,7 @@ module El = struct
     let add_at b n v = adds b n; adds b "=\""; adds_esc b v; addc b '\"' in
     match atts with
     | ("class", c) :: atts -> add_ats b (c :: cs) atts
+    | at :: atts when at == At.void -> add_ats b cs atts
     | (n, v) :: atts -> addc b ' '; add_at b n v; add_ats b cs atts
     | [] when cs = [] -> ()
     | [] -> addc b ' '; add_at b "class" (String.concat " " (List.rev cs))

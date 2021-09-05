@@ -500,7 +500,9 @@ module Kurl : sig
 
       {b TODO}
       {ul
-      {- Add functions for untyped formatting.}
+      {- Add functions for untyped formatting. Actually no
+         {!Kind.bare} does the trick remove {!path_rel} functions.
+        Document how to go about it via a bare url kind.}
       {- Move out of [Kurl] as [Fmt_url] or [Urlf] or
          [Urlfmt] or [Url_fmt] ?}} *)
   module Fmt : sig

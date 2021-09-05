@@ -5,7 +5,7 @@ homepage: "https://erratique.ch/software/webs"
 doc: "https://erratique.ch/software/webs/doc"
 dev-repo: "git+https://erratique.ch/repos/webs.git"
 bug-reports: "https://github.com/dbuenzli/webs/issues"
-tags: [ "www" "webserver" "org:erratique" ]
+tags: [ "web" "www" "webserver" "org:erratique" ]
 license: "ISC"
 depends: [
   "ocaml" {>= "4.08.0"}

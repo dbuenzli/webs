@@ -67,6 +67,9 @@ module At : sig
 
       See also (and favor) {{!section-cons}attribute constructors}. *)
 
+  val void : t
+  (** [void] is an attribute that doesn't get rendered. *)
+
   val true' : name -> t
   (** [true' n] is [v n ""]. This sets the
       {{:https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#boolean-attributes}boolean attribute}
@@ -74,6 +77,9 @@ module At : sig
 
   val int : name -> int -> t
   (** [int n i] is [v n (string_of_int i)]. *)
+
+  (** FIXME if void works well remove the add_if's. There are a bit unconvient
+      to use. *)
 
   val add_if : bool -> t -> t list -> t list
   (** [add_if c att atts] is [att :: atts] if [c] is [true] and [atts]
