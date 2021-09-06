@@ -314,7 +314,11 @@ module Http : sig
     (** [relative ~src ~dst] is the relative path [rel] that goes from
         absolute [src] to absolute [dst]. This means that
         [undot_and_compress (concat src rel)] should yield
-        [dst]. *)
+        [dst].
+
+        {b Warning.} This function assumes both [src] and [dst] have
+        no relative or empty path components. If needed use
+        {!undot_and_compress} to ensure that. *)
 
     (** {1:filepath File paths} *)
 
@@ -434,15 +438,15 @@ module Http : sig
     val mem : string -> query -> bool
     (** [mem k q] is true [iff] key [k] is bound in [q]. *)
 
-    val def : string -> string -> query -> query
-    (** [def k v q] is [q] with [k] bound only to value [v]. *)
-
     val add : string -> string -> query -> query
-    (** [add k v q] is [q] with value [v] appended to
-        [k]'s values (or {!set} if there was no binding for [k]). *)
+    (** [add k v q] is [q] with [k] bound only to value [v]. *)
 
-    val undef : string -> query -> query
-    (** [undef k q] is [q] with [k] unbound. *)
+    val append_to_list : string -> string -> query -> query
+    (** [append_to_list k v q] is [q] with [k] bound to [find_all k q
+        @ [v]]. *)
+
+    val remove : string -> query -> query
+    (** [remove k q] is [q] with [k] unbound. *)
 
     val find : string -> query -> string option
     (** [find k q] is the value of [k]'s first binding in [q], if any. *)
@@ -454,11 +458,7 @@ module Http : sig
     val fold : (string -> string -> 'a -> 'a) -> query -> 'a -> 'a
     (** [fold f q acc] folds over all the key-value bindings. For keys
         with multiple values folds over them in the same order
-        as {!find_all}. *)
-
-    val keep_only_first : query -> query
-    (** [keep_only_first q] is [q] with only the first value kept in bindings
-        with multiple values. *)
+        as given by {!find_all}. *)
 
     (** {1:conv Converting} *)
 

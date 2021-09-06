@@ -144,7 +144,7 @@ module Http = struct
 
   module Pct = struct
     let is_non_pct_pchar = function
-    (* see http://tools.ietf.org/html/rfc3986#section-3.3 *)
+    (* see https://tools.ietf.org/html/rfc3986#section-3.3 *)
     (* unreserved *)
     | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '-' | '.' | '_' | '~'
     (* sub-delims *)
@@ -604,12 +604,12 @@ module Http = struct
     let empty = Smap.empty
     let is_empty = Smap.is_empty
     let mem = Smap.mem
-    let def k v q = Smap.add k [v] q
-    let add k v q =
+    let add k v q = Smap.add k [v] q
+    let append_to_list k v q =
       let vs = match Smap.find_opt k q with None -> [v] | Some vs -> vs @ [v] in
       Smap.add k vs q
 
-    let undef = Smap.remove
+    let remove = Smap.remove
     let find k q = match Smap.find_opt k q with
     | None -> None | Some vs -> Some (List.hd vs)
 
@@ -617,8 +617,6 @@ module Http = struct
     let fold f q acc =
       let bindings k vs acc = List.fold_left (fun acc v -> f k v acc) acc vs in
       Smap.fold bindings q acc
-
-    let keep_only_first q = Smap.map (fun vs -> [List.hd vs]) q
 
     (* https://url.spec.whatwg.org/\
        #application-x-www-form-urlencoded-percent-encode-set *)
