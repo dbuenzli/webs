@@ -674,8 +674,7 @@ module Authenticatable = struct
 
   type private_key = [ `Hs256 of string ]
 
-  let random_private_key_hs256 () =
-    let r = Random.State.make_self_init () in
+  let random_private_key_hs256 ?(r = Random.State.make_self_init ()) () =
     let b = Bytes.create 64 in
     for i = 0 to 63 do Bytes.set_uint8 b i (Random.State.int r 256) done;
     `Hs256 (Bytes.unsafe_to_string b)

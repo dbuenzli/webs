@@ -772,9 +772,10 @@ module Authenticatable : sig
       bytes. *) ]
   (** The type for private keys.  *)
 
-  val random_private_key_hs256 : unit -> private_key
+  val random_private_key_hs256 : ?r:Random.State.t -> unit -> private_key
   (** [random_private_key_hs256 ()] are 64 random bytes sourced from
-      a {!Stdlib.Random.make_self_init} initialized PRNG. *)
+      the PRNG [r] (defaults to {!Stdlib.Random.make_self_init}) initialized
+      PRNG. *)
 
   val private_key_to_ascii_string : private_key -> string
   (** [private_key_to_ascii_string k] encodes [k] to an URL safe US-ASCII
