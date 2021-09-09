@@ -35,7 +35,7 @@ let http_path =
 
 let service_path ?(opts = ["service-path"]) ?docs () =
   let doc =
-    "$(PATH) is the path at which the root of the service is being served."
+    "$(docv) is the path at which the root of the service is being served."
   in
   let arg_info = Arg.info opts ?docs ~doc ~docv:"PATH" in
   Arg.(value & opt (some ~none:"/" http_path) None & arg_info)
