@@ -271,6 +271,9 @@ module El : sig
   val txt : string -> html
   (** [txt d] is character data [d]. *)
 
+  val txt_of : ('a -> string) -> 'a -> html
+  (** [txt_of f v] is [txt (f v)]. Cuts a bit on delimiter orgies. *)
+
   val sp : html
   (** [sp] is [El.txt " "]. *)
 

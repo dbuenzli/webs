@@ -43,7 +43,7 @@ module At = struct
     let wrap = "wrap"
   end
   type t = name * string
-  let v n v = (n, v)
+  let[@inline] v n v = (n, v)
   let void = ("", "")
   let if' b at = if b then at else void
   let if_some n o = match o with None -> void | Some value -> (n, value)
@@ -99,13 +99,14 @@ module El = struct
   | Splice of html option * html list
   | Raw of string
 
-  let el ?(at = []) n cs = El (n, at, cs)
-  let txt v = Txt v
-  let sp = Txt " "
-  let nbsp = Txt "\u{00A0}"
-  let splice ?sep cs = Splice (sep, cs)
-  let void = Splice (None, [])
-  let raw f = Raw f
+  let[@inline] el ?(at = []) n cs = El (n, at, cs)
+  let[@inline] txt v = Txt v
+  let[@inline] txt_of f v = Txt (f v)
+  let[@inline] sp = Txt " "
+  let[@inline] nbsp = Txt "\u{00A0}"
+  let[@inline] splice ?sep cs = Splice (sep, cs)
+  let[@inline] void = Splice (None, [])
+  let[@inline] raw f = Raw f
 
   (* Output *)
 

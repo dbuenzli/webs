@@ -501,7 +501,7 @@ module Kurl : sig
       {b TODO}
       {ul
       {- Add functions for untyped formatting. Actually no
-         {!Kind.bare} does the trick. Document how to go about it via a
+         {!Kind.val-bare} does the trick. Document how to go about it via a
          bare url kind, especially if you need relative info for out of
          space urls.}
       {- Move out of [Kurl] as [Fmt_url] or [Urlf] or
