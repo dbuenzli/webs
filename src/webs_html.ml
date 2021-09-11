@@ -46,6 +46,7 @@ module At = struct
   type t = name * string
   let[@inline] v n v = (n, v)
   let void = ("", "")
+  let is_void (n, v) = n = "" && v = ""
   let if' b at = if b then at else void
   let if_some n o = match o with None -> void | Some value -> (n, value)
   let true' n = (n, "")
@@ -104,10 +105,11 @@ module El = struct
   let[@inline] el ?(at = []) n cs = El (n, at, cs)
   let[@inline] txt v = Txt v
   let[@inline] txt_of f v = Txt (f v)
-  let[@inline] sp = Txt " "
-  let[@inline] nbsp = Txt "\u{00A0}"
+  let sp = Txt " "
+  let nbsp = Txt "\u{00A0}"
   let[@inline] splice ?sep cs = Splice (sep, cs)
-  let[@inline] void = Splice (None, [])
+  let void = Splice (None, [])
+  let is_void = function Splice (_, []) | Txt "" | Raw "" -> true | _ -> false
   let[@inline] raw f = Raw f
 
   (* Output *)

@@ -69,7 +69,11 @@ module At : sig
       See also (and favor) {{!section-cons}attribute constructors}. *)
 
   val void : t
-  (** [void] is an attribute that doesn't get rendered. *)
+  (** [void] is an attribute that doesn't get rendered. This is
+      [v "" ""]. *)
+
+  val is_void : t -> bool
+  (** [is_void a] is [true] iff [a] is void. *)
 
   val true' : name -> t
   (** [true' n] is [v n ""]. This sets the
@@ -293,6 +297,10 @@ module El : sig
 
   val void : html
   (** [void] is [splice []]. *)
+
+  val is_void : html -> bool
+  (** [is_void h] is [true] iff [h] is void. This can be either an
+      empty {!splice}, and empty {!txt} or an empty {!raw}. *)
 
   (** {2:raw_data Raw data} *)
 
