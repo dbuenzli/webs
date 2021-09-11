@@ -500,6 +500,9 @@ module Kurl : sig
 
       {b TODO}
       {ul
+      {- Should we allow to attach a default bare url to the
+         the formatter w.r.t. relative urls are rendered. In hyperbib
+         it would allow to get rid of quite a bit of the [self] stuff.}
       {- Add functions for untyped formatting. Actually no
          {!Kind.val-bare} does the trick. Document how to go about it via a
          bare url kind, especially if you need relative info for out of

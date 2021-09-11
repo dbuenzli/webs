@@ -48,6 +48,7 @@ module At : sig
     val placeholder : name
     val rel : name
     val required : name
+    val selected : name
     val src : name
     val tabindex : name
     val title : name
@@ -211,6 +212,9 @@ module At : sig
 
   val spellcheck : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/spellcheck}spellcheck} *)
+
+  val selected : t
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/option#attr-selected}selected} *)
 
   val src : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/src}
