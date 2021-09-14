@@ -1682,7 +1682,7 @@ module Connector = struct
         let data =
           String.concat "" @@
           "???" :: " [" :: status resp :: dur :: "] " ::
-          "???" :: " (" :: Resp.reason resp :: ")" ::
+          "Can't decode request" :: " (" :: Resp.reason resp :: ")" ::
           (if Resp.explain resp = "" then [] else [ " "; Resp.explain resp])
         in
         Format.pp_print_string ppf data
