@@ -42,6 +42,7 @@ module At : sig
     val href : name
     val id : name
     val lang : name
+    val list : name
     val media : name
     val method' : name
     val name : name
@@ -54,8 +55,8 @@ module At : sig
     val title : name
     val type' : name
     val value : name
-    val wrap : name
     val width : name
+    val wrap : name
   end
 
   (** {1:atts Attributes} *)
@@ -187,6 +188,9 @@ module At : sig
   val lang : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/lang}
       lang} *)
+
+  val list : string cons
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#attr-list}list} *)
 
   val media : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/media}
