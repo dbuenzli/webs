@@ -604,8 +604,8 @@ module Http = struct
     let empty = Smap.empty
     let is_empty = Smap.is_empty
     let mem = Smap.mem
-    let add k v q = Smap.add k [v] q
-    let append_to_list k v q =
+    let def k v q = Smap.add k [v] q
+    let add k v q =
       let vs = match Smap.find_opt k q with None -> [v] | Some vs -> vs @ [v] in
       Smap.add k vs q
 

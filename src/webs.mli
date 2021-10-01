@@ -438,12 +438,11 @@ module Http : sig
     val mem : string -> query -> bool
     (** [mem k q] is true [iff] key [k] is bound in [q]. *)
 
-    val add : string -> string -> query -> query
-    (** [add k v q] is [q] with [k] bound only to value [v]. *)
+    val def : string -> string -> query -> query
+    (** [def k v q] is [q] with [k] bound only to value [v]. *)
 
-    val append_to_list : string -> string -> query -> query
-    (** [append_to_list k v q] is [q] with [k] bound to [find_all k q
-        @ [v]]. *)
+    val add : string -> string -> query -> query
+    (** [add k v q] is [q] with [k] bound to [find_all k q @ [v]]. *)
 
     val remove : string -> query -> query
     (** [remove k q] is [q] with [k] unbound. *)
