@@ -404,10 +404,11 @@ module Http : sig
         {- [decode "" = Error _]}
         {- [decode "a/b/c" = Error _]}} *)
 
-    (**/**)
-    val and_query_of_request_target : string -> string list * string option
-    (** raises [Failure] *)
-    (**/**)
+    val and_query_string_of_request_target :
+      string -> (path * string option, string) result
+    (** [and_query_string_of_request_target s] parses a path and a
+        query string (without the '?') form the request target [s]
+        (which can be an URL). *)
 
     val pp : Format.formatter -> path -> unit
     (** [pp] is an unspecified formatter for paths. *)

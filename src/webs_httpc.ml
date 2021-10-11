@@ -117,7 +117,10 @@ let read_req c fd =
     let crlfs, first_start, first_len = read_clrfs c ~max_bytes buf fd in
     let req_line = List.hd crlfs in
     let meth, request_target, version = decode_request_line buf req_line in
-    let path, query = Http.Path.and_query_of_request_target request_target in
+    let path, query =
+      match Http.Path.and_query_string_of_request_target request_target with
+      | Ok v -> v | Error e -> failwith e
+    in
     let service_path, path =
       if path = [] (* "*" request line FIXME not sure it's a good idea,
                       maybe we coud fail *)

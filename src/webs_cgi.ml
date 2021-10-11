@@ -122,7 +122,10 @@ let read_req c env fd_in =
     let version, meth, request_target, headers =
       header_section_of_env ~extra_vars:c.extra_vars env
     in
-    let path, query = Http.Path.and_query_of_request_target request_target in
+    let path, query =
+      match Http.Path.and_query_string_of_request_target request_target with
+      | Ok v -> v | Error e -> failwith e
+    in
     let service_path, path =
       if path = [] (* "*" request line FIXME not sure it's a good idea,
                       maybe we coud fail *)

@@ -557,7 +557,7 @@ module Http = struct
       let pp_sep ppf () = pf ppf "@ " and pp_seg ppf s = pf ppf "%S" s in
       Format.pp_print_list ~pp_sep pp_seg ppf p
 
-    let and_query_of_request_target s =
+    let and_query_string_of_request_target s =
       let subrange ?first ?last s = Some (string_subrange ?first ?last s) in
       let find_query ~first s = String.index_from_opt s first '?' in
       let none = None, None in
@@ -591,9 +591,9 @@ module Http = struct
                      subrange ~first:(l + 1) s)
       in
       match p with
-      | None -> [], q
+      | None -> Ok ([], q)
       | Some p ->
-          match decode p with Error s -> failwith s | Ok segs -> segs, q
+          match decode p with Error _ as e -> e | Ok segs -> Ok (segs, q)
   end
 
   (* Queries *)
