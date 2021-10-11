@@ -304,17 +304,19 @@ module El : sig
 
   val is_void : html -> bool
   (** [is_void h] is [true] iff [h] is void. This can be either an
-      empty {!splice}, and empty {!txt} or an empty {!raw}. *)
+      empty {!splice}, and empty {!txt} or an empty {!unsafe_raw}. *)
 
   (** {2:raw_data Raw data} *)
 
-  val raw : string -> html
-  (** [raw s] is the raw string [s] without escaping markup delimiters.
+  val unsafe_raw : string -> html
+  (** [unsafe_raw s] is the raw string [s] without escaping markup delimiters.
       [s] must be well-formed HTML otherwise invalid markup will be generated.
       This can be used to:
       {ul
-      {- include foreign markup.}
-      {- avoid unpleasant surprises with the {!style} element.}} *)
+      {- Include foreign markup.}
+      {- Avoid unpleasant surprises with the {!style} element.}
+      {- Let user generated content create
+         {{:https://owasp.org/www-community/attacks/xss/}XSS attacks}}} *)
 
   (** {2:page Page}
 

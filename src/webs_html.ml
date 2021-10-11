@@ -112,7 +112,7 @@ module El = struct
   let[@inline] splice ?sep cs = Splice (sep, cs)
   let void = Splice (None, [])
   let is_void = function Splice (_, []) | Txt "" | Raw "" -> true | _ -> false
-  let[@inline] raw f = Raw f
+  let[@inline] unsafe_raw f = Raw f
 
   (* Output *)
 
