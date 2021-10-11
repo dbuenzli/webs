@@ -277,6 +277,13 @@ module Kurl : sig
         {!Req.meth}, {!Bare.path} is {!Req.path}, {!Bare.query} is parsed
         {!Req.query}, [ext] defaults to [""]. *)
 
+    val of_req_referer :
+      ?ext:string -> ?meth:Http.meth -> Req.t -> (bare, string) result
+    (** [of_req_referer ~ext r] is a bare URL request from [r]. {!Bare.meth}
+        is [meth] (defaults to {!Req.meth r}),
+        {!Bare.path} and {!Bare.query} are derived from the {!Http.referer}
+        header. Errors if [r] has no such header or if its parsing fails. *)
+
     val pp : Format.formatter -> bare -> unit
     (** [pp ppf b] formats an unspecified representation of [b] on
         [ppf]. *)

@@ -157,6 +157,18 @@ module Kurl = struct
       let query = Option.fold ~none ~some:Http.Query.decode (Req.query r) in
       bare ?ext ~query (Req.meth r) (Req.path r)
 
+    let of_req_referer ?ext ?meth r =
+      match Http.Headers.find Http.referer (Req.headers r) with
+      | None -> Error ("referer: not found in request")
+      | Some ref ->
+          match Http.Path.and_query_string_of_request_target ref with
+          | Error e -> Error (strf "referer: %s" e)
+          | Ok (p, q) ->
+              let none = Http.Query.empty in
+              let query = Option.fold ~none ~some:Http.Query.decode q in
+              let meth = Option.value ~default:(Req.meth r) meth in
+              Ok (bare ?ext ~query meth p)
+
     let pp ppf b =
       let pp_field f pp_v ppf v =
         Format.fprintf ppf "@[<h>(%s %a)@]" f pp_v v
