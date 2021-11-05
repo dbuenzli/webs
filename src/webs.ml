@@ -1344,7 +1344,9 @@ module Resp = struct
 
   let empty ?explain ?reason ?headers st = v ?explain ?reason ?headers st
 
-  let content ?explain ?(headers = Http.Headers.empty) ~mime_type:t st s =
+  let content
+      ?explain ?reason ?(headers = Http.Headers.empty) ~mime_type:t st s
+    =
     let l = string_of_int (String.length s) in
     let hs =
       Http.Headers.(empty
@@ -1352,24 +1354,26 @@ module Resp = struct
                     |> def Http.content_type t)
     in
     let hs = Http.Headers.override hs ~by:headers in
-    v ?explain st ~headers:hs ~body:(body_of_string s)
+    v ?explain ?reason st ~headers:hs ~body:(body_of_string s)
 
-  let text ?explain ?headers st s =
-    content ?explain ?headers ~mime_type:Http.Mime_type.text_plain st s
+  let text ?explain ?reason ?headers st s =
+    content ?explain ?reason ?headers ~mime_type:Http.Mime_type.text_plain st s
 
-  let html ?explain ?headers st s =
-    content ?explain ?headers ~mime_type:Http.Mime_type.text_html st s
+  let html ?explain ?reason ?headers st s =
+    content ?explain ?reason ?headers ~mime_type:Http.Mime_type.text_html st s
 
-  let json ?explain ?headers st s =
-    content ?explain ?headers ~mime_type:Http.Mime_type.application_json st s
+  let json ?explain ?reason ?headers st s =
+    content
+      ?explain ?reason ?headers ~mime_type:Http.Mime_type.application_json st s
 
-  let octets ?explain ?headers st s =
-    content ?headers ~mime_type:Http.Mime_type.application_octet_stream st s
+  let octets ?explain ?reason ?headers st s =
+    content
+      ?headers ?reason ~mime_type:Http.Mime_type.application_octet_stream st s
 
-  let redirect ?explain ?(headers = Http.Headers.empty) st loc =
+  let redirect ?explain ?reason ?(headers = Http.Headers.empty) st loc =
     let hs = Http.Headers.(empty |> def Http.location loc) in
     let hs = Http.Headers.override hs ~by:headers in
-    v ?explain st ~headers:hs
+    v ?explain ?reason st ~headers:hs
 
   let bad_request_400 ?explain ?reason ?headers () =
     Error (v ?explain ?reason ?headers Http.bad_request_400)

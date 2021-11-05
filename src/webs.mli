@@ -1303,31 +1303,41 @@ module Resp : sig
       [v ?explain ?reason ?headers st]. *)
 
   val content :
-    ?explain:string -> ?headers:Http.headers -> mime_type:Http.mime_type ->
-    int -> string -> t
+    ?explain:string -> ?reason:string -> ?headers:Http.headers ->
+    mime_type:Http.mime_type -> int -> string -> t
   (** [content ~mime_type st s] responds [s] with content type
       [mime_type] and status [st]. Sets {!Http.content_type} and
       {!Http.content_length} appropriately. *)
 
-  val text : ?explain:string -> ?headers:Http.headers -> int -> string -> t
+  val text :
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
+    string -> t
   (** [text] responds with UTF-8 encoded plain text, i.e.
       {!content} with {!Http.Mime_type.text_plain}. *)
 
-  val html : ?explain:string -> ?headers:Http.headers -> int -> string -> t
+  val html :
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
+    string -> t
   (** [html] responds with UTF-8 encoded HTML text, i.e.
       {!content} with {!Http.Mime_type.text_html}.  *)
 
-  val json : ?explain:string -> ?headers:Http.headers -> int -> string -> t
+  val json :
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
+    string -> t
   (** [json] responds with JSON text, i.e. {!content} with
       {!Http.Mime_type.application_json}. *)
 
-  val octets : ?explain:string -> ?headers:Http.headers -> int -> string -> t
+  val octets :
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
+    string -> t
   (** [octets] responds with octets, i.e. {!content} with
       {!Http.Mime_type.application_octet_stream}. *)
 
   (** {2:pre_redirect Redirect responses} *)
 
-  val redirect : ?explain:string -> ?headers:Http.headers -> int -> string -> t
+  val redirect :
+    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
+    string -> t
   (** [redirect status loc] redirects to {{!Http.location}location} [loc]
       with status [status] (defaults to {!Http.found_302}). See also
       {!val:Req.service_redirect}. *)
