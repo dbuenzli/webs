@@ -34,7 +34,7 @@ Now run the service and check it works correctly. By default
 {v
 ./min --service-path /myservice/ &
 curl -i http://localhost:8000/myservice/
-V}
+v}
 
 You should get a response like:
 
