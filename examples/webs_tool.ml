@@ -79,7 +79,7 @@ let cmd =
     Term.exit_info ~doc:"on indiscriminate error reported on stderr." 2 ::
     Term.default_exits
   in
-  Term.(pure webs $ quiet $ listener $ docroot $ dir_index),
+  Term.(const webs $ quiet $ listener $ docroot $ dir_index),
   Term.info "webs" ~version:"%%VERSION%%" ~doc ~man ~exits
 
 let () = if !Sys.interactive then () else Term.exit_status @@ Term.eval cmd
