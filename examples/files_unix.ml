@@ -8,13 +8,13 @@ open Webs_kit
 let ( let* ) = Result.bind
 
 let service root req =
-  Resp.result @@ match Req.path req with
+  Http.Resp.result @@ match Http.Req.path req with
   | "assets" as pre :: _ ->
-      let* _m = Req.Allow.(meths [get] req) in
-      let* file = Req.to_absolute_filepath ~strip:[pre] ~root req in
+      let* `GET = Http.Req.Allow.(meths [get] req) in
+      let* file = Http.Req.to_absolute_filepath ~strip:[pre] ~root req in
       Webs_unix.send_file req file
   | _ ->
-      Resp.not_found_404 ()
+      Http.Resp.not_found_404 ()
 
 let main () =
   let conf = Webs_cli.conf_docroot () in

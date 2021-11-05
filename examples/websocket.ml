@@ -36,15 +36,15 @@ let index = {|
 |}
 
 let service req =
-  Resp.result @@ match Req.path req with
+  Http.Resp.result @@ match Http.Req.path req with
   | [""] ->
-      let* _m = Req.Allow.(meths [get] req) in
-      Ok (Resp.html Http.ok_200 index)
+      let* `GET = Http.Req.Allow.(meths [get] req) in
+      Ok (Http.Resp.html Http.ok_200 index)
   | ["websocket"] ->
-      let* _m = Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.Allow.(meths [get] req) in
       Ok (Webs_websocket.upgrade req)
   | _ ->
-      Resp.not_found_404 ()
+      Http.Resp.not_found_404 ()
 
 let main () = Webs_cli.quick_serve ~name:"websocket" service
 let () = if !Sys.interactive then () else main ()

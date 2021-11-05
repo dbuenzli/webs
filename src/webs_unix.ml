@@ -64,7 +64,7 @@ let really_really_send_file ~src ~off ~len dst =
 
 (* Connection *)
 
-type Resp.connection += Fd of Unix.file_descr
+type Http.Resp.connection += Fd of Unix.file_descr
 
 (* Connection listeners *)
 
@@ -166,10 +166,10 @@ module Connector = struct
   let rec write_stream_chunk fd = function
   | None -> () | Some (b, start, len) -> write fd b ~start ~len
 
-  let resp_body_writer resp = match Resp.body resp with
-  | Resp.Empty -> resp, fun fd -> ()
-  | Resp.Stream f -> resp, fun fd -> f (write_stream_chunk fd)
-  | Resp.Direct f -> resp, fun fd -> f (Fd fd)
+  let resp_body_writer resp = match Http.Resp.body resp with
+  | Empty -> resp, fun fd -> ()
+  | Stream f -> resp, fun fd -> f (write_stream_chunk fd)
+  | Direct f -> resp, fun fd -> f (Fd fd)
 end
 
 (* Sending files *)
@@ -198,11 +198,11 @@ let default_etagger file fd stats =
 
 type dir_resp =
   etagger:etagger -> mime_types:Http.Mime_type.file_ext_map option ->
-  Req.t -> Http.fpath -> (Resp.t, Resp.t) result
+  Http.req -> Http.fpath -> (Http.Resp.t, Http.Resp.t) result
 
 let dir_404 ~etagger ~mime_types _ fpath =
   let explain = strf "%s: is a directory" fpath in
-  Ok (Resp.v Http.not_found_404 ~explain)
+  Ok (Http.Resp.v Http.not_found_404 ~explain)
 
 let range_full ~file_size hs =
   let file_size' = Http.Digits.encode file_size in
@@ -221,12 +221,12 @@ let range_partial ~file_size ~first ~last hs =
   first, last, hs , Http.partial_content_206
 
 let find_range req file etag ~file_size hs =
-  let* r = Req.decode_header Http.range Http.Range.decode req in
+  let* r = Http.Req.decode_header Http.range Http.Range.decode req in
   match r with
   | None -> Ok (range_full ~file_size hs)
   | Some (`Other _) (* ignore *) -> Ok (range_full ~file_size hs)
   | Some (`Bytes rs as r) ->
-      let* iftag = Req.decode_header Http.if_range Http.Etag.decode req in
+      let* iftag = Http.Req.decode_header Http.if_range Http.Etag.decode req in
       let full = match iftag with
       | None -> false
       | Some t -> not (Http.Etag.eval_if_range t (Some etag))
@@ -235,7 +235,7 @@ let find_range req file etag ~file_size hs =
       let rec loop = function
       | [] ->
           let reason = Http.Range.encode r and explain = file in
-          Error (Resp.v Http.range_not_satisfiable_416 ~reason ~explain)
+          Error (Http.Resp.v Http.range_not_satisfiable_416 ~reason ~explain)
       | r :: rs ->
           match Http.Range.eval_bytes ~len:file_size r with
           | None -> loop rs
@@ -244,7 +244,7 @@ let find_range req file etag ~file_size hs =
       loop rs
 
 let eval_etag_cond ~eval h req etag =
-  let* c = Req.decode_header h Http.Etag.decode_cond req in
+  let* c = Http.Req.decode_header h Http.Etag.decode_cond req in
   match c with
   | None -> Ok true
   | Some c -> Ok (eval c (Some etag))
@@ -256,7 +256,7 @@ let check_if_match_cond r file etag =
   let explain =
     strf "%s: etag: %s, if-match failed" file (Http.Etag.encode etag)
   in
-  Error (Resp.v Http.precondition_failed_412 ~explain)
+  Error (Http.Resp.v Http.precondition_failed_412 ~explain)
 
 let eval_if_none_match r file etag =
   let eval = Http.Etag.eval_if_none_match in
@@ -265,11 +265,13 @@ let eval_if_none_match r file etag =
 let send_file
     ?(dir_resp = dir_404) ?(etagger = default_etagger) ?mime_types req file
   =
-  let* is_head = match Req.meth req with
+  let* is_head = match Http.Req.meth req with
   | `GET -> Ok false | `HEAD -> Ok true
-  | _ -> Resp.method_not_allowed_405 ~allowed:[`GET; `HEAD] ()
+  | _ -> Http.Resp.method_not_allowed_405 ~allowed:[`GET; `HEAD] ()
   in
-  let error e = Resp.v Http.not_found_404 ~explain:(strf "%s: %s" file e) in
+  let error e =
+    Http.Resp.v Http.not_found_404 ~explain:(strf "%s: %s" file e)
+  in
   try
     let file_fd = openfile file Unix.[O_RDONLY] 0 in
     try
@@ -282,7 +284,7 @@ let send_file
           let* tag = Result.map_error error (etagger file file_fd stat) in
           let* () = check_if_match_cond req file tag in
           let* cond = eval_if_none_match req file tag in
-          if not cond then Ok (Resp.v Http.not_modified_304 ~explain) else
+          if not cond then Ok (Http.Resp.v Http.not_modified_304 ~explain) else
           let file_size = stat.Unix.st_size in
           let file_type = Http.Mime_type.of_filepath ?map:mime_types file in
           let mtime = http_date_of_ptime stat.Unix.st_mtime in
@@ -298,8 +300,8 @@ let send_file
           if is_head then
             let len = Http.Digits.encode file_size in
             let headers = Http.Headers.(hs |> def Http.content_length len) in
-            let body = Resp.empty_body in
-            Ok (Resp.v Http.ok_200 ~headers ~body ~explain)
+            let body = Http.Resp.empty_body in
+            Ok (Http.Resp.v Http.ok_200 ~headers ~body ~explain)
           else
           let* first, last, headers, status =
             find_range req file tag ~file_size hs
@@ -317,9 +319,9 @@ let send_file
                 invalid_arg
                   "Webs_unix.send_file needs a Webs_unix.Fd connection"
             in
-            Resp.direct_body send_file
+            Http.Resp.direct_body send_file
           in
-          Ok (Resp.v status ~headers ~body ~explain)
+          Ok (Http.Resp.v status ~headers ~body ~explain)
     with
     | Unix.Unix_error (e, _, _) -> close_noerr file_fd; Error (error (uerror e))
   with

@@ -3,7 +3,7 @@
 Webs is a toolkit for programming web services in OCaml.  It provides:
 
 {ul
-{- A generic low-level {{!Webs.service}interface} for defining web services
+{- A generic low-level {{!Webs.Http.service}interface} for defining web services
    in terms of HTTP request-responses cycles.}
 {- Optional service building blocks.
    {{!page-web_service_howto.serving_files}File serving},

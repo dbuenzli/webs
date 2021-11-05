@@ -43,7 +43,7 @@ val pp_listener : Format.formatter -> listener -> unit
 
 (** {1:connection Connections} *)
 
-type Resp.connection += Fd of Unix.file_descr (** *)
+type Http.Resp.connection += Fd of Unix.file_descr (** *)
 (** The type for Unix response connections. The file descriptor on which
     the response is written. *)
 
@@ -70,7 +70,7 @@ module Connector : sig
   (** [write fd b ~start ~len] writes [len] byte of [b] starting at [start]
       on [fd]. Raises [Unix.Unix_error] but handles [Unix.EINTR]. *)
 
-  val resp_body_writer : Webs.Resp.t -> Webs.Resp.t * (Unix.file_descr -> unit)
+  val resp_body_writer : Http.resp -> Http.resp * (Unix.file_descr -> unit)
   (** [resp_body_writer r] is a body writer for [r] along with an upated
       response [r] in case the response is a file. *)
 end
@@ -98,8 +98,8 @@ val default_etagger : etagger
 (** {2:dir_resp Directory responses} *)
 
 type dir_resp =
-  etagger:etagger -> mime_types:Http.Mime_type.file_ext_map option -> Req.t ->
-  Http.fpath -> (Resp.t, Resp.t) result
+  etagger:etagger -> mime_types:Http.Mime_type.file_ext_map option ->
+  Http.req -> Http.fpath -> (Http.resp, Http.resp) result
 (** The type for functions for directory responses. Given an
     [etagger], [mime_types], the request and the file path to
     (existing) directory, the function should follow up with the
@@ -120,8 +120,8 @@ val dir_index_file : string -> (dir_resp, string) result
 
 val send_file :
   ?dir_resp:dir_resp -> ?etagger:etagger ->
-  ?mime_types:Http.Mime_type.file_ext_map -> Req.t -> Http.fpath ->
-  (Resp.t, Resp.t) result
+  ?mime_types:Http.Mime_type.file_ext_map -> Http.req -> Http.fpath ->
+  (Http.resp, Http.resp) result
 (** [send_file ~dir_resp ~etagger ~mime_types r file] responds to [r] by
     sending file [file], use {!Webs.Req.to_absolute_filepath} to
     determine one from [r] safely.

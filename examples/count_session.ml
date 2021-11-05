@@ -33,20 +33,20 @@ let state =
 let count c req =
   let c = Option.join @@ Result.to_option c (* drop session on errors *) in
   let c = Option.value ~default:0 c in
-  let c' = match (Req.query req) with
+  let c' = match (Http.Req.query req) with
   | Some "next" -> c + 1
   | Some "prev" -> c - 1
   | Some _ | None -> c
   in
-  Some c', Resp.html Http.ok_200 (count c')
+  Some c', Http.Resp.html Http.ok_200 (count c')
 
 let service ~private_key req =
-  Resp.result @@ match Req.path req with
+  Http.Resp.result @@ match Http.Req.path req with
   | [""] ->
-      let* `GET = Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.Allow.(meths [get] req) in
       Ok (Session.setup state (session ~private_key) count req)
   | _ ->
-      Resp.not_found_404 ()
+      Http.Resp.not_found_404 ()
 
 let main () =
   let private_key = Authenticatable.random_private_key_hs256 () in

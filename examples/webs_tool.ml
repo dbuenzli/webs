@@ -30,11 +30,11 @@ let absolute_docroot = function
 (* Service *)
 
 let service ~docroot ~dir_resp req =
-  Resp.result @@ match docroot with
-  | None -> Resp.not_found_404 ()
+  Http.Resp.result @@ match docroot with
+  | None -> Http.Resp.not_found_404 ()
   | Some docroot ->
-      let* _m = Req.Allow.(meths [get] req) in
-      let* file = Req.to_absolute_filepath ~root:docroot req in
+      let* _m = Http.Req.Allow.(meths [get] req) in
+      let* file = Http.Req.to_absolute_filepath ~root:docroot req in
       Webs_unix.send_file ~dir_resp req file
 
 (* Server *)

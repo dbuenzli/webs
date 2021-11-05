@@ -10,14 +10,15 @@
     and gateway connectors to run services can be found
     {{!page-index.connectors}here}.
 
-    Open the module to use it. It defines only modules and types in
-    your scope. *)
+    Open the module to use it. It defines only modules in your
+    scope. *)
 
-(** {1:services Services} *)
+(** {1:http HTTP} *)
 
 (** HTTP nuts and bolts.
 
-    Just types, values, codecs and protocol logic fragments.
+    HTTP {{!Http.Resp}responses} and {{!Http.Req}requests} and
+    associated types, values, codecs and protocol logic fragments.
 
     {b References.}
     {ul
@@ -38,8 +39,6 @@ module Http : sig
   val string_starts_with : prefix:string -> string -> bool
   val string_lowercase : string -> string
   (**/**)
-
-  (** {2:encs Encodings} *)
 
   (** [base64] and [base64url] codecs.
 
@@ -123,7 +122,7 @@ module Http : sig
         @raise Invalid_argument if [n] is negative. *)
   end
 
-  (** {2:names Names}
+  (** {1:names Names}
 
       HTTP often requires to perform US-ASCII case insensitive
       comparisons on HTTP tokens.  Values of type {!name} represent
@@ -163,7 +162,7 @@ module Http : sig
     (** [pp] is an unspecified formatter for header names. *)
   end
 
-  (** {2:versions Versions} *)
+  (** {1:versions Versions} *)
 
   type version = int * int
   (** The type for {{:https://tools.ietf.org/html/rfc7230#section-2.6}HTTP
@@ -183,7 +182,6 @@ module Http : sig
     val pp : Format.formatter -> version -> unit
     (** [pp] is an unspecified formatter for versions. *)
   end
-
 
   (** {1:methods Methods} *)
 
@@ -1078,7 +1076,7 @@ module Http : sig
   val http_version_not_supported_505 : status
   (** {{:https://tools.ietf.org/html/rfc7231#section-6.6.6}[505]} *)
 
-    (** {1:mime_type MIME types} *)
+  (** {1:mime_type MIME types} *)
 
   type mime_type = string
   (** The type for MIME types. *)
@@ -1143,7 +1141,517 @@ module Http : sig
     (** [of_filepath ~map f] is [of_file_ext ~map (Http.filepath_ext f)]. *)
   end
 
-  (** {1:codecs Low-level codecs} *)
+
+  (** {1:resp Responses} *)
+
+  type resp
+  (** The type for HTTP responses. *)
+
+  (** HTTP responses. *)
+  module Resp : sig
+
+    (** {1:body Response bodies} *)
+
+    type connection = ..
+    (** The type for direct response connection. This is connector
+        dependent. *)
+
+    type consumer = (bytes * int * int) option -> unit
+    (** The type for response consumers.
+
+        Services call consumers with [Some (byte, first len)] to
+        output the corresponding data and [None] when they are
+        finished.
+
+        Response consumers are provided by the connector to pull the
+        body produced by a response.  If you are writing a consumer, the
+        bytes MUST NOT be modified by the consumer and only read from
+        [first] to [first+len]. *)
+
+    type body =
+    | Empty
+    | Stream of (consumer -> unit)
+    | Direct of (connection -> unit) (** *)
+    (** The type for response bodies. This is either:
+        {ul
+        {- An empty body.}
+        {- A stream to which a consumer will be passed by the connector.}
+        {- A direct connection handler, the connector will pass it's
+         connection representation.}} *)
+
+    val empty_body : body
+    (** [empty_body s] is an empty body. *)
+
+    val stream_body : (consumer -> unit) -> body
+    (** [stream_body producer] is a response body stream produced by
+        [producer] on the consumer it will be given to. *)
+
+    val direct_body : (connection -> unit) -> body
+    (** [direct_body producer] is a response body produced by
+        [producer] on the given (backend specific) [connection]. *)
+
+    val body_of_string : string -> body
+    (** [body_of_string s] is a reponse body made of string [s]. *)
+
+    val pp_body : Format.formatter -> body -> unit
+    (** [pp_body ppf b] prints an unspecified representation of [b]'s
+        specification on [ppf] but guarantees not to consume the body. *)
+
+    (** {1:resp Response} *)
+
+    type t = resp
+    (** The type for responses. *)
+
+    val v :
+      ?version:version -> ?explain:string -> ?reason:string ->
+      ?body:body -> ?headers:headers -> status -> resp
+    (** [v status headers body] is a response with given
+        [status], [headers] (defaults to {!Http.Headers.empty}), [body]
+        (defaults to {!empty_body}, [reason] (defaults to
+        {!Http.status_reason_phrase}) and [version] (defaults to [(1,1)]),
+        [explain] is a server side [reason] it is not put on the wire.
+
+        {b FIXME.} Maybe make [body] non-optional to encourage use
+        of {!empty} which is clearer in code.
+
+        {b Note.} If [body] is [body_empty] (default) a {!Http.content_length}
+        of [0] is automatically added to [headers]. *)
+
+    val version : resp -> version
+    (** [version r] is [r]'s version. *)
+
+    val status : resp -> status
+    (** [status r] is [r]'s status. *)
+
+    val reason : resp -> string
+    (** [reason r] is [r]'s reason phrase. *)
+
+    val headers : resp -> headers
+    (** [headers r] is [r]'s headers. *)
+
+    val body : resp -> body
+    (** [body r] is [r]'s body. *)
+
+    val explain : resp -> string
+    (** [explain r] is [r]'s explanation. In contrast to [reason] this
+        remains on the server and can be, for example logged. *)
+
+    val with_status :
+      ?explain:string -> ?reason:string -> status -> resp -> resp
+    (** [with_status st r] is [r] with status [st] and reason phrase
+        [reason] (defaults to {!Http.status_reason_phrase}. *)
+
+    val with_headers : headers -> resp -> resp
+    (** [with_headers hs r] is [r] with headers [hs]. *)
+
+    val override_headers : by:headers -> resp -> resp
+    (** [override_headers by r] is [r] with headers
+        [H.override (headers r) ~by]. *)
+
+    val with_body : body -> t -> t
+    (** [with_body b r] is [r] with body [b]. *)
+
+    val pp : Format.formatter -> t -> unit
+    (** [pp ppf t] prints an unspecified representation of [r] on [ppf] but
+        guarantees not to consume the {!val:body}. *)
+
+    (** {1:pre_canned Pre-canned responses}
+
+        The optional [headers] argument of the functions below always
+        {!Http.override} those the function computed.
+
+        See also {{!Req.deconstruct}request deconstruction} combinators.
+
+        {b FIXME.} Do a better compositional design, e.g. easily
+        use the error responses with content responses. * *)
+
+    val result : ('a, 'a) result -> 'a
+    (** [result r] is [Result.fold ~ok:Fun.id ~error:Fun.id]. *)
+
+    (** {2:pre_canned_content Content responses} *)
+
+    val empty :
+      ?explain:string -> ?reason:string -> ?headers:headers -> int -> resp
+    (** [empty ?explain ?reason ?headers st] is
+        [v ?explain ?reason ?headers st]. *)
+
+    val content :
+      ?explain:string -> ?reason:string -> ?headers:headers ->
+      mime_type:mime_type -> int -> string -> resp
+    (** [content ~mime_type st s] responds [s] with content type
+        [mime_type] and status [st]. Sets {!Http.content_type} and
+        {!Http.content_length} appropriately. *)
+
+    val text :
+      ?explain:string -> ?reason:string -> ?headers:headers -> int ->
+      string -> resp
+    (** [text] responds with UTF-8 encoded plain text, i.e.
+        {!content} with {!Http.Mime_type.text_plain}. *)
+
+    val html :
+      ?explain:string -> ?reason:string -> ?headers:headers -> int ->
+      string -> resp
+    (** [html] responds with UTF-8 encoded HTML text, i.e.
+        {!content} with {!Http.Mime_type.text_html}.  *)
+
+    val json :
+      ?explain:string -> ?reason:string -> ?headers:headers -> int ->
+      string -> resp
+    (** [json] responds with JSON text, i.e. {!content} with
+        {!Http.Mime_type.application_json}. *)
+
+    val octets :
+      ?explain:string -> ?reason:string -> ?headers:headers -> int ->
+      string -> resp
+    (** [octets] responds with octets, i.e. {!content} with
+        {!Http.Mime_type.application_octet_stream}. *)
+
+    (** {2:pre_redirect Redirect responses} *)
+
+    val redirect :
+      ?explain:string -> ?reason:string -> ?headers:headers -> int ->
+      string -> resp
+    (** [redirect status loc] redirects to {{!Http.location}location} [loc]
+        with status [status] (defaults to {!Http.found_302}). See also
+        {!val:Req.service_redirect}. *)
+
+    (** {2:pre_client_errors Client error responses} *)
+
+    val bad_request_400 :
+      ?explain:string -> ?reason:string -> ?headers:headers -> unit ->
+      ('a, resp) result
+    (** [bad_request ?explain ?reason ()] is an {!empty} response with
+        status {!Http.bad_request_400}. *)
+
+    val unauthorized_401 :
+      ?explain:string -> ?reason:string -> ?headers:headers -> unit ->
+      ('a, resp) result
+    (** [unauthorized ?explain ?reason ()] is an {!empty} response with
+        status {!Http.unauthorized_401}. *)
+
+    val forbidden_403 :
+      ?explain:string -> ?reason:string -> ?headers:headers -> unit ->
+      ('a, resp) result
+    (** [forbidden ?explain ?reason] is an {!empty} response with
+        status {!Http.forbidden_403}. *)
+
+    val not_found_404 :
+      ?explain:string -> ?reason:string -> ?headers:headers -> unit ->
+      ('a, resp) result
+    (** [not_found ?explain ?reason] is an {!empty} response with
+        status {!Http.not_found_404}. *)
+
+    val method_not_allowed_405 :
+      ?explain:string -> ?reason:string -> ?headers:headers ->
+      allowed:meth list -> unit -> ('a, t) result
+    (** [method_not_allowed ~allowed] is an {!empty} response with status
+        {!Http.method_not_allowed_405}. It sets the {!Http.allow} header
+        to the [allow]ed methods (which can be empty). *)
+
+    val gone_410 :
+      ?explain:string -> ?reason:string -> ?headers:headers -> unit ->
+      ('a, resp) result
+    (** [not_found ?explain ?reason] is an {!empty} response with
+        status {!Http.gone_410}. *)
+
+    (** {2:pre_server_errors Server error responses} *)
+
+    val server_error_500 :
+      ?explain:string -> ?reason:string -> ?headers:headers -> unit ->
+      ('a, resp) result
+    (** [server_error ?explain ?reason] is an {!empty} response with
+        status {!Http.server_error_500}. *)
+
+    val not_implemented_501 :
+      ?explain:string -> ?reason:string -> ?headers:headers -> unit ->
+      ('a, resp) result
+    (** [server_error ?explain ?reason] is an {!empty} response with
+        status {!Http.not_implemented_501}. *)
+
+    (** {1:error_map Error mapper} *)
+
+    val map_errors : only_empty:bool -> (t -> t) -> t -> t
+    (** [map_errors ~only_empty f r] maps [r] with [f] if [r]'s status
+        is a 4XX or 5XX. If [only_empty] is [true] (defaults to [false])
+        it does so only on empty body responses. *)
+  end
+
+  (** {1:req Requests} *)
+
+  type req
+  (** The type for HTTP requests. *)
+
+  (** HTTP requests. *)
+  module Req : sig
+
+    (** {1:body Request bodies} *)
+
+    type body = unit -> (bytes * int * int) option
+    (** The type for request bodies.
+
+        Bodies are blocking functions pulled by services to yield byte
+        chunks of data of the request body as [Some (bytes, first, len)]
+        values. The bytes value must not be modified and is readable
+        from [first] to [first+len] until the next call to the
+        function. The function returns [None] at the end of stream. *)
+
+    val empty_body : body
+    (** [empty_body] is an empty body. *)
+
+    val body_to_string : body -> string
+    (** [body_to_string b] accumulates the body to a string. *)
+
+    (** {1:req HTTP Requests} *)
+
+    type t = req
+    (** The type for HTTP requests. *)
+
+    val v :
+      ?init:req -> ?body:body -> ?body_length:int option ->
+      ?headers:headers -> ?meth:meth -> ?path:path ->
+      ?query:string option -> ?request_target:string ->
+      ?service_path:path -> ?version:version -> unit -> req
+    (** [v ~init ()] is an HTTP request with given attributes and for those
+        that are unspecified the ones of [init] (defaults
+        to {!default}).
+
+        {b Important.} This is not checked by the module but clients of
+        this function, at least connectors, should maintain these
+        invariant:
+        {ul
+        {- [request_target] is the raw request target, still percent
+         encoded.}
+        {- [Path.concat service_path path] should represent the path of
+         [request_target].}
+        {- [query] (if any) should correspond to the query of
+           [request_target].}}
+        Routing function may tweak paths but it's a good idea to keep
+        [request_target] unchanged. *)
+
+    val default : req
+    (** [default] is a request whose [body] is
+        {!empty_body}, [body_length] is [None], [headers] is
+        {!Http.Headers.empty}, [meth] is [`GET], [path] is [[""]],
+        [query] is [None], [request_target] is ["/"], [sevice_path] is [[""]],
+        version is [(1,1)]. *)
+
+    val body : req -> body
+    (** [body r] is [r]'s body. *)
+
+    val body_length : req -> int option
+    (** [body_length r] is [r]'s request body length (if known). *)
+
+    val headers : req -> headers
+    (** [headers r] is [r]'s HTTP headers. Includes at least
+        the {!Http.host} header. *)
+
+    val meth : req -> meth
+    (** [meth r] is [r]'s
+        {{:https://tools.ietf.org/html/rfc7231#section-4}HTTP method}. *)
+
+    val path : req -> path
+    (** [path r] {b should} be (see {!v}) the absolute path of
+        {!request_target}, {{!Http.Path.strip_prefix}stripped}
+        by {!service_path}. *)
+
+    val query : req -> string option
+    (** [query r] {b should} be (see {!v}) the query (without the ['?'])
+        of {!request_target}. Note that query string may be the empty string
+        which is different from [None] (no ['?'] in the request target).
+        To decode the query (and handle those that are [POST]ed)
+        see {!to_query}. *)
+
+    val request_target : req -> string
+    (** [request_target] is [r]'s
+        {{:https://tools.ietf.org/html/rfc7230#section-5.3}request
+        target}. This should be the raw request, still percent encoded.
+        Note that you usually rather want to use the convenience {!val-path}
+        and {!val-query} which {b should} (see {!v}) derived from this value. *)
+
+    val service_path : req -> path
+    (** [service_path r] is the path on which the root of the service
+        is served. This is usually set by the connector. The {!val-path} value
+        of [r] is usually the path mentioned in {!request_target} stripped
+        by the service path. *)
+
+    val version : req -> version
+    (** [version r] is [r]'s
+        {{:https://tools.ietf.org/html/rfc7230#section-2.6}HTTP version}. *)
+
+    (** {b FIXME.} now that we have [init] in [v] consider removing those. *)
+
+    val with_headers : headers -> req -> req
+    (** [with_headers hs r] is [r] with headers [hs]. *)
+
+    val with_body : body_length:int option -> body -> req -> req
+    (** [with_body blen b r] is [r] with body length [blen] and body [b]. *)
+
+    val with_path : path -> req -> req
+    (** [with_path p r] is [r] with path [p]. *)
+
+    val with_service_path : path -> req -> req
+    (** [with_service_path p r] is [r] with service path [r]. *)
+
+    val pp : Format.formatter -> req -> unit
+    (** [pp ppf req] prints and unspecified representation of [req]
+        on [ppf] but guarantees not to consume the {!val:body}. *)
+
+    val echo : ?status:status -> req -> resp
+    (** [echo r] returns [r] as a 404 [text/plain] document (and by
+        doing so violates numerous HTTP's musts). This includes the
+        request body, which is consumed by the service.  *)
+
+    (** {1:deconstruct Request deconstruction and responses}
+
+        Request deconstruction helpers. These functions directly
+        error with responses that have the right statuses and empty
+        bodies. *)
+
+    (** {2:header_decoding Header decoding} *)
+
+    val decode_header :
+      name -> (string -> ('a, string) result) -> req ->
+      ('a option, resp) result
+    (** [decode_header h dec r] decodes header [h] (if any) in [r].
+        Errors with {!Http.bad_request_400} in case of decoding errors. *)
+
+    (** {2:method_constraints Method constraints} *)
+
+    (** Method constraints. *)
+    module Allow : sig
+
+      type 'a t = meth * 'a
+      (** The type for method constraints. *)
+
+      val meths : 'a t list -> req -> ('a, resp) result
+      (** [allow ms r] is:
+          {ul
+          {- [Ok (Req.meth r)] if [List.mem (Req.meth r, Req.meth r) ms]}
+          {- [Error _] with a {!Http.method_not_allowed_405}
+             response otherwise.}} *)
+
+      (** {1:constraint Constraints} *)
+
+      val connect : [> `CONNECT] t
+      val delete : [> `DELETE] t
+      val get : [> `GET] t
+      val head : [> `HEAD] t
+      val options : [> `OPTIONS] t
+      val other : string -> 'a ->  'a t
+      val patch : [> `PATCH] t
+      val post : [> `POST] t
+      val put : [> `PUT] t
+      val trace : [> `TRACE] t
+    end
+
+    (** {2:cookies Cookies} *)
+
+    val find_cookie : name:string -> req -> (string option, string) result
+    (** [find_cookie ~name r] is the value of cookie [name] or [None] if
+        undefined in [r]. Errors on header or cookie decoding errors. *)
+
+    (** {2:service_forwarding Service forwarding}
+
+        {b FIXME.}
+        {ul
+        {- LIKELY REMOVE ALL THAT, leave these things to {!Webs_kit.Kurl}}
+        {- Not sure this is a good terminology.}
+        {- Introduce a variation where you push [n] segments
+         on the service path.}} *)
+
+    val service_redirect : ?explain:string -> int -> path -> req -> resp
+    (** [service_redirect status p r] redirects [r] to the service path [p]
+        (this
+        means [r]'s {!service_path} is prefixed to [p]) with status [status].
+        See also {!Resp.redirect}. *)
+
+    val forward_service : strip:path -> req -> (req, resp) result
+    (** [forward_service ~strip r] is:
+        {ul
+        {- [Ok r'] with [r'] the request [r] with a {!val-path} made
+         of [r]'s path stripped by [strip] and a {!service_path}
+         made of [r]'s service root concatenated with [strip].}
+        {- [Error _] with a {!Http.not_found_404} if
+         {{!Http.Path.strip_prefix}stripping} results in [None].}}
+
+        {b FIXME.} Because of the new behaviour of
+        {!Http.Path.strip_prefix} on root. This may introduce empty path
+        segments that did not exist originally in the request when one
+        concatenates the service root and the path. Would that be an
+        argument to let [] also represent the root path ? *)
+
+    val to_service : strip:path -> req -> (req, resp) result
+    (** [to_service ~strip r] strips [strip] from [r]'s path and
+        appends it to the service root. Errors with {!Http.not_found_404}
+        if stripping [strip] results in [None]. *)
+
+    (** {2:queries Queries}
+
+        {b Warning.} {!Http.type-query} values are untrusted,
+        you need to properly validate their data. *)
+
+    val to_query : req -> (query, resp) result
+    (** [to_query r] extracts a query from [r]. This is
+        {ul
+        {- [Ok q] with [q] parsed from [Req.query r] if [r]'s
+           method is [`GET] or [`HEAD].}
+        {- [Ok q] with [q] parsed from the request body on
+           other methods and the content type is
+           {!Http.Mime_type.application_x_www_form_urlencoded} or
+           TODO multipart. In this case the {!Req.query} is ignored.}
+        {- [Error _] with a:
+        {ul
+        {- {!Http.unsupported_media_type_415} response if the content-type
+         is unsupported}
+        {- {!Http.bad_request_400} reponse on decoding errors.}}}} *)
+
+    (** {2:clean Path cleaning}
+
+        There's more than one way to handle empty segments and trailing
+        slashes in request paths. The scheme proposed here simply always
+        redirects to paths in which all empty segments, and thus
+        trailing slashes, are removed; except on the root path. The
+        advantage is that no elaborate file extension logic on the final
+        segment is needed to route file serving. *)
+
+    val clean_path : req -> (req, resp) result
+    (** [clean_path r] is:
+        {ul
+        {- [Ok r] if [r]'s path is [[]], [[""]] or if it has no empty segment.}
+        {- [Error _] with a {!Http.moved_permanently_301} to [r]'s path without
+         empty segments or the root if that results in the empty path.}}
+
+        {b Warning.} This cleaning does not touch dot segments or
+        percent-encoded directory separators that may be present in the
+        path. You should still use
+        {{!Http.Path.to_absolute_filepath}that function} or
+        {!to_absolute_filepath} for mapping paths to file paths. *)
+
+    (** {2:file_path Absolute file paths} *)
+
+    val to_absolute_filepath :
+      ?strip:path -> root:fpath -> req -> (fpath, resp) result
+      (** [absolute_filepath ~strip ~root r] determines an absolute
+          file path strictly rooted in [root] by
+          {{!Http.Path.strip_prefix}stripping} [strip] (defaults to
+          [[""]]) from [r]'s {!val-path},
+          {{!Http.Path.to_absolute_filepath} converting} the result
+          to an absolute filepath and
+          {{!Http.Path.prefix_filepath}prefixing} it with [docroot].
+
+          Errors with {!Http.not_found_404} if stripping [strip]
+          results in [None] and {!Http.bad_request_400} if the
+          absolute path conversion fails. *)
+  end
+
+  (** {1:service Service} *)
+
+  type service = req -> resp
+  (** The type for services. Maps requests to responses. Note that
+      services should not raise exceptions (but connectors should be
+      prepared to handle spurious ones). *)
+
+  (** {1:low_level_codecs Low-level codecs} *)
 
   (** Low-level codecs
 
@@ -1175,504 +1683,6 @@ module Http : sig
   end
 end
 
-(** HTTP responses. *)
-module Resp : sig
-
-  (** {1:body Response bodies} *)
-
-  type connection = ..
-  (** The type for direct response connection. This is connector
-      dependent. *)
-
-  type consumer = (bytes * int * int) option -> unit
-  (** The type for response consumers.
-
-      Services call consumers with [Some (byte, first len)] to
-      output the corresponding data and [None] when they are
-      finished.
-
-      Response consumers are provided by the connector to pull the
-      body produced by a response.  If you are writing a consumer, the
-      bytes MUST NOT be modified by the consumer and only read from
-      [first] to [first+len]. *)
-
-  type body =
-  | Empty
-  | Stream of (consumer -> unit)
-  | Direct of (connection -> unit) (** *)
-  (** The type for response bodies. This is either:
-      {ul
-      {- An empty body.}
-      {- A stream to which a consumer will be passed by the connector.}
-      {- A direct connection handler, the connector will pass it's
-         connection representation.}} *)
-
-  val empty_body : body
-  (** [empty_body s] is an empty body. *)
-
-  val stream_body : (consumer -> unit) -> body
-  (** [stream_body producer] is a response body stream produced by
-      [producer] on the consumer it will be given to. *)
-
-  val direct_body : (connection -> unit) -> body
-  (** [direct_body producer] is a response body produced by
-      [producer] on the given (backend specific) [connection]. *)
-
-  val body_of_string : string -> body
-  (** [body_of_string s] is a reponse body made of string [s]. *)
-
-  val pp_body : Format.formatter -> body -> unit
-  (** [pp_body ppf b] prints an unspecified representation of [b]'s
-      specification on [ppf] but guarantees not to consume the body. *)
-
-  (** {1:resp Response} *)
-
-  type t
-  (** The type for responses. *)
-
-  val v :
-    ?version:Http.version -> ?explain:string -> ?reason:string -> ?body:body ->
-    ?headers:Http.headers -> Http.status -> t
-  (** [v status headers body] is a response with given
-      [status], [headers] (defaults to {!Http.Headers.empty}), [body] (defaults
-      to {!empty_body}, [reason] (defaults to {!Http.status_reason_phrase})
-      and [version] (defaults to [(1,1)]), [explain] is a server side [reason]
-      it is not put on the wire.
-
-      {b FIXME.} Maybe make [body] non-optional to encourage use
-      of {!empty} which is clearer in code.
-
-      {b Note.} If [body] is [body_empty] (default) a {!Http.content_length}
-      of [0] is automatically added to [headers]. *)
-
-  val version : t -> Http.version
-  (** [version r] is [r]'s version. *)
-
-  val status : t -> Http.status
-  (** [status r] is [r]'s status. *)
-
-  val reason : t -> string
-  (** [reason r] is [r]'s reason phrase. *)
-
-  val headers : t -> Http.headers
-  (** [headers r] is [r]'s headers. *)
-
-  val body : t -> body
-  (** [body r] is [r]'s body. *)
-
-  val explain : t -> string
-  (** [explain r] is [r]'s explanation. In contrast to [reason] this
-      remains on the server and can be, for example logged. *)
-
-  val with_status : ?explain:string -> ?reason:string -> Http.status -> t -> t
-  (** [with_status st r] is [r] with status [st] and reason phrase
-      [reason] (defaults to {!Http.status_reason_phrase}. *)
-
-  val with_headers : Http.headers -> t -> t
-  (** [with_headers hs r] is [r] with headers [hs]. *)
-
-  val override_headers : by:Http.headers -> t -> t
-  (** [override_headers by r] is [r] with headers
-      [H.override (headers r) ~by]. *)
-
-  val with_body : body -> t -> t
-  (** [with_body b r] is [r] with body [b]. *)
-
-  val pp : Format.formatter -> t -> unit
-  (** [pp ppf t] prints an unspecified representation of [r] on [ppf] but
-      guarantees not to consume the {!val:body}. *)
-
-  (** {1:pre_canned Pre-canned responses}
-
-      The optional [headers] argument of the functions below always
-      {!Http.override} those the function computed.
-
-      See also {{!Req.deconstruct}request deconstruction} combinators.
-
-      {b FIXME.} Do a better compositional design, e.g. easily
-      use the error responses with content responses. * *)
-
-  val result : ('a, 'a) result -> 'a
-  (** [result r] is [Result.fold ~ok:Fun.id ~error:Fun.id]. *)
-
-  (** {2:pre_canned_content Content responses} *)
-
-  val empty :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int -> t
-  (** [empty ?explain ?reason ?headers st] is
-      [v ?explain ?reason ?headers st]. *)
-
-  val content :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers ->
-    mime_type:Http.mime_type -> int -> string -> t
-  (** [content ~mime_type st s] responds [s] with content type
-      [mime_type] and status [st]. Sets {!Http.content_type} and
-      {!Http.content_length} appropriately. *)
-
-  val text :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
-    string -> t
-  (** [text] responds with UTF-8 encoded plain text, i.e.
-      {!content} with {!Http.Mime_type.text_plain}. *)
-
-  val html :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
-    string -> t
-  (** [html] responds with UTF-8 encoded HTML text, i.e.
-      {!content} with {!Http.Mime_type.text_html}.  *)
-
-  val json :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
-    string -> t
-  (** [json] responds with JSON text, i.e. {!content} with
-      {!Http.Mime_type.application_json}. *)
-
-  val octets :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
-    string -> t
-  (** [octets] responds with octets, i.e. {!content} with
-      {!Http.Mime_type.application_octet_stream}. *)
-
-  (** {2:pre_redirect Redirect responses} *)
-
-  val redirect :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> int ->
-    string -> t
-  (** [redirect status loc] redirects to {{!Http.location}location} [loc]
-      with status [status] (defaults to {!Http.found_302}). See also
-      {!val:Req.service_redirect}. *)
-
-  (** {2:pre_client_errors Client error responses} *)
-
-  val bad_request_400 :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
-    ('a, t) result
-  (** [bad_request ?explain ?reason ()] is an {!empty} response with
-      status {!Http.bad_request_400}. *)
-
-  val unauthorized_401 :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
-    ('a, t) result
-  (** [unauthorized ?explain ?reason ()] is an {!empty} response with
-      status {!Http.unauthorized_401}. *)
-
-  val forbidden_403 :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
-    ('a, t) result
-  (** [forbidden ?explain ?reason] is an {!empty} response with
-      status {!Http.forbidden_403}. *)
-
-  val not_found_404 :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
-    ('a, t) result
-  (** [not_found ?explain ?reason] is an {!empty} response with
-      status {!Http.not_found_404}. *)
-
-  val method_not_allowed_405 :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers ->
-    allowed:Http.meth list -> unit -> ('a, t) result
-  (** [method_not_allowed ~allowed] is an {!empty} response with status
-      {!Http.method_not_allowed_405}. It sets the {!Http.allow} header
-      to the [allow]ed methods (which can be empty). *)
-
-  val gone_410 :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
-    ('a, t) result
-  (** [not_found ?explain ?reason] is an {!empty} response with
-      status {!Http.gone_410}. *)
-
-  (** {2:pre_server_errors Server error responses} *)
-
-  val server_error_500 :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
-    ('a, t) result
-    (** [server_error ?explain ?reason] is an {!empty} response with
-        status {!Http.server_error_500}. *)
-
-  val not_implemented_501 :
-    ?explain:string -> ?reason:string -> ?headers:Http.headers -> unit ->
-    ('a, t) result
-    (** [server_error ?explain ?reason] is an {!empty} response with
-        status {!Http.not_implemented_501}. *)
-
-  (** {1:error_map Error mapper} *)
-
-  val map_errors : only_empty:bool -> (t -> t) -> t -> t
-  (** [map_errors ~only_empty f r] maps [r] with [f] if [r]'s status
-      is a 4XX or 5XX. If [only_empty] is [true] (defaults to [false])
-      it does so only on empty body responses. *)
-end
-
-(** HTTP requests. *)
-module Req : sig
-
-  (** {1:body Request bodies} *)
-
-  type body = unit -> (bytes * int * int) option
-  (** The type for request bodies.
-
-      Bodies are blocking functions pulled by services to yield byte
-      chunks of data of the request body as [Some (bytes, first, len)]
-      values. The bytes value must not be modified and is readable
-      from [first] to [first+len] until the next call to the
-      function. The function returns [None] at the end of stream. *)
-
-  val empty_body : body
-  (** [empty_body] is an empty body. *)
-
-  val body_to_string : body -> string
-  (** [body_to_string b] accumulates the body to a string. *)
-
-  (** {1:req HTTP Requests} *)
-
-  type t
-  (** The type for HTTP requests. *)
-
-  val v :
-    ?init:t -> ?body:body -> ?body_length:int option -> ?headers:Http.headers ->
-    ?meth:Http.meth -> ?path:Http.path -> ?query:string option ->
-    ?request_target:string -> ?service_path:Http.path ->
-    ?version:Http.version -> unit -> t
-  (** [v ~init ()] is an HTTP request with given attributes and for those
-      that are unspecified the ones of [init] (defaults
-      to {!default}).
-
-      {b Important.} This is not checked by the module but clients of
-      this function, at least connectors, should maintain these
-      invariant:
-      {ul
-      {- [request_target] is the raw request target, still percent
-         encoded.}
-      {- [Path.concat service_path path] should represent the path of
-         [request_target].}
-      {- [query] (if any) should correspond to the query of [request_target].}}
-
-      Routing function may tweak paths but it's a good idea to keep
-      [request_target] unchanged. *)
-
-  val default : t
-  (** [default] is a request whose [body] is
-      {!empty_body}, [body_length] is [None], [headers] is
-      {!Http.Headers.empty}, [meth] is [`GET], [path] is [[""]],
-      [query] is [None], [request_target] is ["/"], [sevice_path] is [[""]],
-      version is [(1,1)]. *)
-
-  val body : t -> body
-  (** [body r] is [r]'s body. *)
-
-  val body_length : t -> int option
-  (** [body_length r] is [r]'s request body length (if known). *)
-
-  val headers : t -> Http.headers
-  (** [headers r] is [r]'s HTTP headers. Includes at least
-      the {!Http.host} header. *)
-
-  val meth : t -> Http.meth
-  (** [meth r] is [r]'s
-      {{:https://tools.ietf.org/html/rfc7231#section-4}HTTP method}. *)
-
-  val path : t -> Http.path
-  (** [path r] {b should} be (see {!v}) the absolute path of
-      {!request_target}, {{!Http.Path.strip_prefix}stripped}
-      by {!service_path}. *)
-
-  val query : t -> string option
-  (** [query r] {b should} be (see {!v}) the query (without the ['?'])
-      of {!request_target}. Note that query string may be the empty string
-      which is different from [None] (no ['?'] in the request target).
-      To decode the query (and handle those that are [POST]ed)
-      see {!to_query}. *)
-
-  val request_target : t -> string
-  (** [request_target] is [r]'s
-      {{:https://tools.ietf.org/html/rfc7230#section-5.3}request
-      target}. This should be the raw request, still percent encoded.
-      Note that you usually rather want to use the convenience {!path}
-      and {!query} which {b should} (see {!v}) derived from this value. *)
-
-  val service_path : t -> Http.path
-  (** [service_path r] is the path on which the root of the service
-      is served. This is usually set by the connector. The {!path} value
-      of [r] is usually the path mentioned in {!request_target} stripped
-      by the service path. *)
-
-  val version : t -> Http.version
-  (** [version r] is [r]'s
-      {{:https://tools.ietf.org/html/rfc7230#section-2.6}HTTP version}. *)
-
-  (** {b FIXME.} now that we have [init] in [v] consider removing those. *)
-
-  val with_headers : Http.headers -> t -> t
-  (** [with_headers hs r] is [r] with headers [hs]. *)
-
-  val with_body : body_length:int option -> body -> t -> t
-  (** [with_body blen b r] is [r] with body length [blen] and body [b]. *)
-
-  val with_path : Http.path -> t -> t
-  (** [with_path p r] is [r] with path [p]. *)
-
-  val with_service_path : Http.path -> t -> t
-  (** [with_service_path p r] is [r] with service path [r]. *)
-
-  val pp : Format.formatter -> t -> unit
-  (** [pp ppf req] prints and unspecified representation of [req]
-      on [ppf] but guarantees not to consume the {!val:body}. *)
-
-  val echo : ?status:Http.status -> t -> Resp.t
-  (** [echo r] returns [r] as a 404 [text/plain] document (and by
-      doing so violates numerous HTTP's musts). This includes the
-      request body, which is consumed by the service.  *)
-
-  (** {1:deconstruct Request deconstruction and responses}
-
-      Request deconstruction helpers. These functions directly
-      error with responses that have the right statuses and empty
-      bodies. *)
-
-  (** {2:header_decoding Header decoding} *)
-
-  val decode_header :
-    Http.name -> (string -> ('a, string) result) -> t ->
-    ('a option, Resp.t) result
-  (** [decode_header h dec r] decodes header [h] (if any) in [r].
-      Errors with {!Http.bad_request_400} in case of decoding errors. *)
-
-  (** {2:method_constraints Method constraints} *)
-
-  (** Method constraints. *)
-  module Allow : sig
-
-    type req = t
-    (** See {!Req.t}. *)
-
-    type 'a t = Http.meth * 'a
-    (** The type for method constraints. *)
-
-    val meths : 'a t list -> req -> ('a, Resp.t) result
-    (** [allow ms r] is:
-        {ul
-        {- [Ok (Req.meth r)] if [List.mem (Req.meth r, Req.meth r) ms]}
-        {- [Error _] with a {!Http.method_not_allowed_405}
-           response otherwise.}} *)
-
-    (** {1:constraint Constraints} *)
-
-    val connect : [> `CONNECT] t
-    val delete : [> `DELETE] t
-    val get : [> `GET] t
-    val head : [> `HEAD] t
-    val options : [> `OPTIONS] t
-    val other : string -> 'a ->  'a t
-    val patch : [> `PATCH] t
-    val post : [> `POST] t
-    val put : [> `PUT] t
-    val trace : [> `TRACE] t
-  end
-
-  (** {2:cookies Cookies} *)
-
-  val find_cookie : name:string -> t -> (string option, string) result
-  (** [find_cookie ~name r] is the value of cookie [name] or [None] if
-      undefined in [r]. Errors on header or cookie decoding errors. *)
-
-  (** {2:service_forwarding Service forwarding}
-
-      {b FIXME.}
-      {ul
-      {- LIKELY REMOVE ALL THAT, leave these things to {!Kurl}}
-      {- Not sure this is a good terminology.}
-      {- Introduce a variation where you push [n] segments
-         on the service path.}} *)
-
-  val service_redirect : ?explain:string -> int -> Http.path -> t -> Resp.t
-  (** [service_redirect status p r] redirects [r] to the service path [p] (this
-      means [r]'s {!service_path} is prefixed to [p]) with status [status].
-      See also {!Resp.redirect}. *)
-
-  val forward_service : strip:Http.path -> t -> (t, Resp.t) result
-  (** [forward_service ~strip r] is:
-      {ul
-      {- [Ok r'] with [r'] the request [r] with a {!path} made
-         of [r]'s path stripped by [strip] and a {!service_root}
-         made of [r]'s service root concatenated with [strip].}
-      {- [Error _] with a {!Http.not_found_404} if
-         {{!Http.Path.strip_prefix}stripping} results in [None].}}
-
-      {b FIXME.} Because of the new behaviour of
-      {!Http.Path.strip_prefix} on root. This may introduce empty path
-      segments that did not exist originally in the request when one
-      concatenates the service root and the path. Would that be an
-      argument to let [] also represent the root path ? *)
-
-  val to_service : strip:Http.path -> t -> (t, Resp.t) result
-  (** [to_service ~strip r] strips [strip] from [r]'s path and
-      appends it to the service root. Errors with {!Http.not_found_404}
-      if stripping [strip] results in [None]. *)
-
-  (** {2:queries Queries}
-
-      {b Warning.} {!Http.type-query} values are untrusted,
-      you need to properly validate their data. *)
-
-  val to_query : t -> (Http.query, Resp.t) result
-  (** [to_query r] extracts a query from [r]. This is
-      {ul
-      {- [Ok q] with [q] parsed from [Req.query r] if [r]'s
-         method is [`GET] or [`HEAD].}
-      {- [Ok q] with [q] parsed from the request body on
-         other methods and the content type is
-         {!Http.Mime_type.application_x_www_form_urlencoded} or
-         TODO multipart. In this case the {!Req.query} is ignored.}
-      {- [Error _] with a:
-      {ul
-      {- {!Http.unsupported_media_type_415} response if the content-type
-         is unsupported}
-      {- {!Http.bad_request_400} reponse on decoding errors.}}}} *)
-
-  (** {2:clean Path cleaning}
-
-      There's more than one way to handle empty segments and trailing
-      slashes in request paths. The scheme proposed here simply always
-      redirects to paths in which all empty segments, and thus
-      trailing slashes, are removed; except on the root path. The
-      advantage is that no elaborate file extension logic on the final
-      segment is needed to route file serving. *)
-
-  val clean_path : t -> (t, Resp.t) result
-  (** [clean_path r] is:
-      {ul
-      {- [Ok r] if [r]'s path is [[]], [[""]] or if it has no empty segment.}
-      {- [Error _] with a {!Http.moved_permanently_301} to [r]'s path without
-         empty segments or the root if that results in the empty path.}}
-
-      {b Warning.} This cleaning does not touch dot segments or
-      percent-encoded directory separators that may be present in the
-      path. You should still use
-      {{!Http.Path.to_absolute_filepath}that function} or
-      {!to_absolute_filepath} for mapping paths to file paths. *)
-
-  (** {2:file_path Absolute file paths} *)
-
-  val to_absolute_filepath :
-    ?strip:Http.path -> root:Http.fpath -> t -> (Http.fpath, Resp.t) result
-  (** [absolute_filepath ~strip ~root r] determines an absolute
-      file path strictly rooted in [root] by
-      {{!Http.Path.strip_prefix}stripping} [strip] (defaults to
-      [[""]]) from [r]'s {!path},
-      {{!Http.Path.to_absolute_filepath} converting} the result
-      to an absolute filepath and
-      {{!Http.Path.prefix_filepath}prefixing} it with [docroot].
-
-      Errors with {!Http.not_found_404} if stripping [strip]
-      results in [None] and {!Http.bad_request_400} if the
-      absolute path conversion fails. *)
-end
-
-type service = Req.t -> Resp.t
-(** The type for services. Maps requests to responses. Note that
-    services should not raise exceptions (but connectors should be
-    prepared to handle spurious ones). *)
-
 (** {1:connector Connector} *)
 
 (** Connector commonalities. *)
@@ -1690,7 +1700,7 @@ module Connector : sig
   [ `Service_exn of exn * Stdlib.Printexc.raw_backtrace
   | `Connector_exn of exn * Stdlib.Printexc.raw_backtrace
   | `Connection_reset
-  | `Trace of dur_ns * Req.t option * Resp.t option ]
+  | `Trace of dur_ns * Http.req option * Http.resp option ]
   (** The type for connector log messages. These *)
 
   val no_log : log_msg -> unit

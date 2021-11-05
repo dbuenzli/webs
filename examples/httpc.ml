@@ -5,7 +5,7 @@
 
 open Webs
 
-let service = Req.echo
+let service = Http.Req.echo
 let main () =
   let s = Webs_httpc.create () in
   prerr_endline "Listening on http://localhost:8000";

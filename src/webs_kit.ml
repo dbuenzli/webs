@@ -11,7 +11,7 @@ let ( let* ) = Result.bind
 module Gateway = struct
   let send_file ~header _ file =
     let headers = Http.Headers.(def header file empty) in
-    Ok (Resp.v Http.ok_200 ~headers ~explain:(header :> string))
+    Ok (Http.Resp.v Http.ok_200 ~headers ~explain:(header :> string))
 
   let x_accel_redirect = Http.Name.v "x-accel-redirect"
   let x_sendfile = Http.Name.v "x-sendfile"
@@ -28,7 +28,7 @@ module Res = struct
       let redirect name id =
         let url = res_url name id in
         let explain = "to " ^ url in
-        Error (Resp.redirect ~explain Http.moved_permanently_301 url)
+        Error (Http.Resp.redirect ~explain Http.moved_permanently_301 url)
       in
       match get_res req_id with
       | Error _ as e -> e
@@ -96,7 +96,8 @@ module Res = struct
     | `Overflow -> "id overflow"
     | `Syntax -> "id syntax error"
 
-    let error_to_resp e = Resp.v ~reason:(error_message e) Http.bad_request_400
+    let error_to_resp e =
+      Http.Resp.v ~reason:(error_message e) Http.bad_request_400
 
     (* Identifiers *)
 
@@ -154,11 +155,11 @@ module Kurl = struct
     let with_path path u = { u with path }
     let of_req ?ext r =
       let none = Http.Query.empty in
-      let query = Option.fold ~none ~some:Http.Query.decode (Req.query r) in
-      bare ?ext ~query (Req.meth r) (Req.path r)
+      let query = Option.fold ~none ~some:Http.Query.decode (Http.Req.query r)in
+      bare ?ext ~query (Http.Req.meth r) (Http.Req.path r)
 
     let of_req_referer ?ext ?meth r =
-      match Http.Headers.find Http.referer (Req.headers r) with
+      match Http.Headers.find Http.referer (Http.Req.headers r) with
       | None -> Error ("referer: not found in request")
       | Some ref ->
           match Http.Path.and_query_string_of_request_target ref with
@@ -166,7 +167,7 @@ module Kurl = struct
           | Ok (p, q) ->
               let none = Http.Query.empty in
               let query = Option.fold ~none ~some:Http.Query.decode q in
-              let meth = Option.value ~default:(Req.meth r) meth in
+              let meth = Option.value ~default:(Http.Req.meth r) meth in
               Ok (bare ?ext ~query meth p)
 
     let pp ppf b =
@@ -189,7 +190,8 @@ module Kurl = struct
     let meths allowed u =
       let rec loop mr = function
       | m :: ms -> if (fst m) = mr then Ok (snd m) else loop mr ms
-      | [] -> Resp.method_not_allowed_405 ~allowed:(List.map fst allowed) ()
+      | [] ->
+          Http.Resp.method_not_allowed_405 ~allowed:(List.map fst allowed) ()
       in
       loop (Bare.meth u) allowed
 
@@ -208,7 +210,7 @@ module Kurl = struct
   (* URL request kind *)
 
   type 'a enc = 'a -> bare
-  type 'a dec = bare -> ('a option, Resp.t) result
+  type 'a dec = bare -> ('a option, Http.resp) result
   let ok v = Ok (Some v)
   let no_match = Ok None
 
@@ -795,14 +797,14 @@ module Authenticated_cookie = struct
   let set ~private_key ~expire ?atts ~name data resp =
     let value = Authenticatable.encode ~private_key ~expire data in
     let cookie = Http.Cookie.encode ?atts ~name value in
-    let hs = Http.Headers.add_set_cookie cookie (Resp.headers resp) in
-    Resp.with_headers hs resp
+    let hs = Http.Headers.add_set_cookie cookie (Http.Resp.headers resp) in
+    Http.Resp.with_headers hs resp
 
   let clear ?atts ~name resp =
     let atts = Http.Cookie.atts ?init:atts ~max_age:(Some ~-1) () in
     let cookie = Http.Cookie.encode ~atts ~name "" in
-    let hs = Http.Headers.add_set_cookie cookie (Resp.headers resp) in
-    Resp.with_headers hs resp
+    let hs = Http.Headers.add_set_cookie cookie (Http.Resp.headers resp) in
+    Http.Resp.with_headers hs resp
 
   (* Getting *)
 
@@ -814,7 +816,7 @@ module Authenticated_cookie = struct
 
   let error_string r = Result.map_error error_message r
 
-  let find ~private_key ~now ~name r  = match Req.find_cookie ~name r with
+  let find ~private_key ~now ~name r  = match Http.Req.find_cookie ~name r with
   | Error e -> Error (`Cookie e)
   | Ok (None | Some "") -> Ok None
   | Ok (Some c) ->
@@ -843,8 +845,8 @@ module Session = struct
   (* Handler *)
 
   type ('a, 'e) handler =
-    { load : 'a state -> Req.t -> ('a option, 'e) result;
-      save : 'a state -> 'a option -> Resp.t -> Resp.t }
+    { load : 'a state -> Http.req -> ('a option, 'e) result;
+      save : 'a state -> 'a option -> Http.resp -> Http.resp }
 
   module Handler = struct
     type ('a, 'e) t = ('a, 'e) handler
@@ -853,7 +855,7 @@ module Session = struct
     let save h = h.save
   end
 
-  type 'a resp = 'a option * Resp.t
+  type 'a resp = 'a option * Http.resp
   type nonrec 'a result = ('a resp, 'a resp) result
 
   let setup sd h service = fun req ->
@@ -927,7 +929,7 @@ module Basic_auth = struct
     | _ -> Error ("Not a basic auth-scheme")
 
 
-  let cancel = Resp.html Http.unauthorized_401 @@
+  let cancel = Http.Resp.html Http.unauthorized_401 @@
 {|<!DOCTYPE html>
 <html lang="en">
   <head><meta charset="utf-8"><title>Login cancelled</title></head>
@@ -938,15 +940,17 @@ module Basic_auth = struct
     let error_401 ~explain =
       let auth = Printf.sprintf {|basic realm="%s", charset="utf-8"|} realm in
       let hs = Http.Headers.(def Http.www_authenticate auth empty) in
-      let resp = Resp.with_status ~explain Http.unauthorized_401 (cancel r) in
-      Error (Resp.override_headers hs resp)
+      let resp =
+        Http.Resp.with_status ~explain Http.unauthorized_401 (cancel r)
+      in
+      Error (Http.Resp.override_headers hs resp)
     in
-    match Http.Headers.find Http.authorization (Req.headers r) with
+    match Http.Headers.find Http.authorization (Http.Req.headers r) with
     | None -> error_401 ~explain:"No authorization header"
     | Some creds ->
         let* user, pass = match basic_authentication_of_string creds with
         | Ok _ as v -> v
-        | Error explain -> Error (Resp.v ~explain Http.bad_request_400)
+        | Error explain -> Error (Http.Resp.v ~explain Http.bad_request_400)
         in
         let* () = match check ~user ~pass with
         | Ok _ as v -> v

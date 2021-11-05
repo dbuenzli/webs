@@ -304,7 +304,7 @@ module El : sig
 
   val is_void : html -> bool
   (** [is_void h] is [true] iff [h] is void. This can be either an
-      empty {!splice}, and empty {!txt} or an empty {!unsafe_raw}. *)
+      empty {!val-splice}, and empty {!txt} or an empty {!unsafe_raw}. *)
 
   (** {2:raw_data Raw data} *)
 
@@ -394,7 +394,7 @@ module El : sig
       keyword we prime it, see for example {!object'}. *)
 
   type cons = ?at:At.t list -> html list -> html
-  (** The type for element constructors. This is simply {!v} with a
+  (** The type for element constructors. This is simply {!At.v} with a
       pre-applied element name. *)
 
   type void_cons = ?at:At.t list -> unit -> html
@@ -727,8 +727,8 @@ module El : sig
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/style}
       style}
 
-      {b Warning.} If your style element holds CSS use {!raw} content,
-      otherwise the CSS selector [>] gets escaped. *)
+      {b Warning.} If your style element holds CSS use {!unsafe_raw}
+      content, otherwise the CSS selector [>] gets escaped. *)
 
   val sub : cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/sub}

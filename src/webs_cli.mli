@@ -48,7 +48,7 @@ val conf_docroot : unit -> (string, string) result Term.t
 
 val quick_serve :
   ?version:string -> ?man:Cmdliner.Manpage.block list ->
-  ?doc:string -> name:string -> Webs.service -> unit
+  ?doc:string -> name:string -> Webs.Http.service -> unit
 (** [quick_serve ~name (Ok s)] runs [s] with the {!Webs_httpc} and handles
     a few default command line options. If you want to be able to specify
     a docroot on the command line you need to specify [with_docroot:true].
@@ -58,7 +58,7 @@ val quick_serve :
 val quick_serve' :
   ?version:string -> ?man:Cmdliner.Manpage.block list ->
   ?doc:string -> name:string -> conf:('a, string) result Term.t ->
-  ('a -> Webs.service) -> unit
+  ('a -> Webs.Http.service) -> unit
 (** [quick_serve'] is like {!quick_serve} but additional configuration
     parameters can be parsed from the command line and be checked
     before installing the service. *)

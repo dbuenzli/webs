@@ -72,7 +72,7 @@ val service_path : t -> Http.path
 
 (** {1:serving Serving} *)
 
-val serve : t -> Webs.service -> (unit, string) result
+val serve : t -> Http.service -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks until
     the response of [s] for the request has been served. The error is
     returned in case of connector error, it's a good practice to write
@@ -82,13 +82,13 @@ val serve : t -> Webs.service -> (unit, string) result
 
 (** {1:req_derivation Request derivation}
 
-	  The  {!Webs.Req.t} value is constructed from the environment and
+	  The  {!Webs.Http.Req.t} value is constructed from the environment and
     {!Unix.stdin} as follows:
     {ul
-    {- {!Webs.Req.val-body}, is the result of reading {!Unix.stdin}}
-    {- {!Webs.Req.body_length} is determined from the headers according to
+    {- {!Webs.Http.Req.val-body}, is the result of reading {!Unix.stdin}}
+    {- {!Webs.Http.Req.body_length} is determined from the headers according to
        {!Webs.Http.Headers.request_body_length}.}
-	  {- {!Webs.Req.headers} has the following headers defined:
+	  {- {!Webs.Http.Req.headers} has the following headers defined:
        {ul
        {- {!Webs.Http.content_type} if the variable
           {{:http://tools.ietf.org/html/rfc3875#section-4.1.3}[CONTENT_TYPE]}
@@ -109,18 +109,18 @@ val serve : t -> Webs.service -> (unit, string) result
           of a variable is made by lowercasing it, mapping ['_'] to ['-']
           and prefixing the result with [x-cgi]. For example
           [SERVER_SOFTWARE] becomes [x-cgi-server-software].}}}
-	  {- {!Webs.Req.meth} is the value of the
+	  {- {!Webs.Http.Req.meth} is the value of the
        {{:http://tools.ietf.org/html/rfc3875#section-4.3}[REQUEST_METHOD]}
        variable.}
-    {- {!Webs.Req.path} is the path of the (non standard) [REQUEST_URI]
+    {- {!Webs.Http.Req.path} is the path of the (non standard) [REQUEST_URI]
        variable, stripped by the connector's {!service_path}.}
-    {- {!Webs.Req.query} is the query (if any) of the (non standard)
+    {- {!Webs.Http.Req.query} is the query (if any) of the (non standard)
        [REQUEST_URI] variable.}
-    {- {!Webs.Req.service_path} is the connectors's {!service_path}.}
-	  {- {!Webs.Req.version} is the value of the
+    {- {!Webs.Http.Req.service_path} is the connectors's {!service_path}.}
+	  {- {!Webs.Http.Req.version} is the value of the
        {{:http://tools.ietf.org/html/rfc3875#section-4.1.16}[SERVER_PROTOCOL]}
        variable.}
-    {- {!Webs.Req.request_target} is the value of the (non standard)
+    {- {!Webs.Http.Req.request_target} is the value of the (non standard)
        [REQUEST_URI] variable.}}
 
     If the request derivation fails in some way an appropriate HTTP error

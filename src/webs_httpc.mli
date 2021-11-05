@@ -75,7 +75,7 @@ val serving : t -> bool
 
 (** {1:serving Serving} *)
 
-val serve : ?handle_stop_sigs:bool -> t -> Webs.service -> (unit, string) result
+val serve : ?handle_stop_sigs:bool -> t -> Http.service -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks,
     serving requests with [s] until {!stop} is called on [c] or
     a [SIGINT] or [SIGTERM] signal is received if [handle_stop_sigs] is [true]
