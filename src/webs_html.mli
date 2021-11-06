@@ -91,19 +91,8 @@ module At : sig
   (** [if_some n o] is [v n value] if [o] is [Some value] and {!void}
       if [o] is [None]. *)
 
-  (** FIXME if void works well remove the add_if's. There are a bit unconvient
-      to use. *)
-
-  val add_if : bool -> t -> t list -> t list
-  (** [add_if c att atts] is [att :: atts] if [c] is [true] and [atts]
-        otherwise. *)
-
-  val add_if_some : name -> string option -> t list -> t list
-  (** [add_if_some n o atts] is [(v n value) :: atts] if [o] is [Some
-      value] and [atts] otherwise. *)
-
   val to_pair : t -> string * string
-  (** [to_pair at] is [(n,v)] the name and value of the attribute. *)
+  (** [to_pair at] is [(n, v)] the name and value of the attribute. *)
 
   (** {1:cons Constructors}
 
@@ -266,8 +255,8 @@ module El : sig
   type name = string
   (** The type for element names. *)
 
-  val el : ?at:At.t list -> name -> html list -> html
-  (** [el ?at n cs] is an element with name [n], attributes [at]
+  val v : ?at:At.t list -> name -> html list -> html
+  (** [v ?at n cs] is an element with name [n], attributes [at]
       (defaults to [[]]) and children [cs].
 
       Except for {!At.class'} the list [at] must not define an
@@ -304,7 +293,7 @@ module El : sig
 
   val is_void : html -> bool
   (** [is_void h] is [true] iff [h] is void. This can be either an
-      empty {!val-splice}, and empty {!txt} or an empty {!unsafe_raw}. *)
+      empty {!val-splice}, an empty {!txt} or an empty {!unsafe_raw}. *)
 
   (** {2:raw_data Raw data} *)
 
@@ -316,7 +305,7 @@ module El : sig
       {- Include foreign markup.}
       {- Avoid unpleasant surprises with the {!style} element.}
       {- Let user generated content create
-         {{:https://owasp.org/www-community/attacks/xss/}XSS attacks}}} *)
+         {{:https://owasp.org/www-community/attacks/xss/}XSS attacks}.}} *)
 
   (** {2:page Page}
 
@@ -394,11 +383,11 @@ module El : sig
       keyword we prime it, see for example {!object'}. *)
 
   type cons = ?at:At.t list -> html list -> html
-  (** The type for element constructors. This is simply {!At.v} with a
+  (** The type for element constructors. This is simply {!El.v} with a
       pre-applied element name. *)
 
   type void_cons = ?at:At.t list -> unit -> html
-  (** The type for void element constructors. This is simply {!el}
+  (** The type for void element constructors. This is simply {!El.v}
       with a pre-applied element name and without children. *)
 
   val a : cons

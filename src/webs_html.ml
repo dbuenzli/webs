@@ -44,17 +44,17 @@ module At = struct
     let width = "width"
     let wrap = "wrap"
   end
+
   type t = name * string
   let[@inline] v n v = (n, v)
   let void = ("", "")
-  let is_void (n, v) = n = "" && v = ""
+  let is_void (n, v) = String.equal n "" && String.equal v ""
   let if' b at = if b then at else void
   let if_some n o = match o with None -> void | Some value -> (n, value)
   let true' n = (n, "")
   let int n i = (n, string_of_int i)
-  let add_if b at l = if b then at :: l else l
-  let add_if_some name o l = match o with None -> l | Some a -> (name, a) :: l
   let to_pair = Fun.id
+
   type 'a cons = 'a -> t
   let accesskey s = v Name.accesskey s
   let action s = v Name.action s
@@ -104,7 +104,7 @@ module El = struct
   | Splice of html option * html list
   | Raw of string
 
-  let[@inline] el ?(at = []) n cs = El (n, at, cs)
+  let[@inline] v ?(at = []) n cs = El (n, at, cs)
   let[@inline] txt v = Txt v
   let[@inline] txt_of f v = Txt (f v)
   let sp = Txt " "
@@ -193,8 +193,8 @@ module El = struct
 
   type cons = ?at:At.t list -> html list -> html
   type void_cons = ?at:At.t list -> unit -> html
-  let[@inline] cons e ?at els = el ?at e els
-  let[@inline] void_cons e ?at () = el e ?at []
+  let[@inline] cons e ?at els = v ?at e els
+  let[@inline] void_cons e ?at () = v e ?at []
   let a = cons "a"
   let abbr = cons "abbr"
   let address = cons "address"
