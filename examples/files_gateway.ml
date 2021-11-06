@@ -11,7 +11,7 @@ let root = "/myservice-files"
 let service req =
   Http.Resp.result @@ match Http.Req.path req with
   | "assets" as pre :: _ ->
-      let* _m = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       let* file = Http.Req.to_absolute_filepath ~strip:[pre] ~root req in
       Gateway.send_file ~header:Gateway.x_accel_redirect req file
   | _ ->

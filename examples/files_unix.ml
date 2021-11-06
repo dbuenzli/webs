@@ -10,7 +10,7 @@ let ( let* ) = Result.bind
 let service root req =
   Http.Resp.result @@ match Http.Req.path req with
   | "assets" as pre :: _ ->
-      let* `GET = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       let* file = Http.Req.to_absolute_filepath ~strip:[pre] ~root req in
       Webs_unix.send_file req file
   | _ ->

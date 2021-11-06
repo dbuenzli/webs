@@ -46,10 +46,10 @@ let resp_events () =
 let service req =
   Http.Resp.result @@ match Http.Req.path req with
   | [""] ->
-      let* `GET = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       Ok (Http.Resp.html Http.ok_200 index_page)
   | ["events"] ->
-      let* `GET = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       Ok (resp_events ())
   | _ ->
       Http.Resp.not_found_404 ()

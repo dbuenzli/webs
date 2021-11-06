@@ -55,7 +55,7 @@ let user_state =
   Session.State.v ~eq:String.equal ~encode:Fun.id ~decode:Result.ok ()
 
 let home req =
-  let* `GET = Http.Req.Allow.(meths [get] req) in
+  let* `GET = Http.Req.allow Http.Meth.[get] req in
   Ok (Http.Resp.html Http.ok_200 Page.home)
 
 let restricted ~login user req = match user with
@@ -63,7 +63,7 @@ let restricted ~login user req = match user with
     let explain = "not logged" in
     Ok (None, Http.Req.service_redirect ~explain Http.found_302 login req)
 | Some u ->
-    let* _m = Session.for_error user Http.Req.Allow.(meths [get] req) in
+    let* `GET = Session.for_error user (Http.Req.allow Http.Meth.[get] req) in
     Ok (user, Http.Resp.html Http.ok_200 (Page.restricted u))
 
 let login_user ~and_goto:goto user req =
@@ -71,7 +71,7 @@ let login_user ~and_goto:goto user req =
     let explain = user ^ " logged" in
     Http.Req.service_redirect ~explain Http.see_other_303 path req
   in
-  let* m = Session.for_error user @@ Http.Req.Allow.(meths [get; post] req) in
+  let* m = Session.for_error user @@ Http.Req.allow Http.Meth.[get;post] req in
   match m with
   | `GET ->
       begin match user with
@@ -100,7 +100,7 @@ let login_user ~and_goto:goto user req =
 
 
 let logout_user ~and_goto user req =
-  let* `POST = Session.for_error None (Http.Req.Allow.(meths [post] req)) in
+  let* `POST = Session.for_error None (Http.Req.allow Http.Meth.[post] req) in
   let explain = Option.map (fun u -> u ^ "logged out") user in
   Ok (None, Http.Req.service_redirect ?explain Http.see_other_303 and_goto req)
 

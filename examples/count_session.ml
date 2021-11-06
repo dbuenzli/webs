@@ -43,7 +43,7 @@ let count c req =
 let service ~private_key req =
   Http.Resp.result @@ match Http.Req.path req with
   | [""] ->
-      let* `GET = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       Ok (Session.setup state (session ~private_key) count req)
   | _ ->
       Http.Resp.not_found_404 ()

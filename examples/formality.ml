@@ -29,11 +29,11 @@ let form meth = strf
 let service req =
   Http.Resp.result @@ match Http.Req.path req with
   | [ "" | "post" | "get" as m] ->
-      let* `GET = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       let meth = match m with "" -> "post" | m -> m in
       Ok (Http.Resp.html Http.ok_200 (form meth))
   | ["submit"] ->
-      let* m = Http.Req.Allow.(meths [get; post] req) in
+      let* m = Http.Req.allow Http.Meth.[get; post] req in
       let* q = Http.Req.to_query req in
       let q = strf "@[<v>%a@,%a@]" Http.Meth.pp m Http.Query.pp q in
       Ok (Http.Resp.text Http.ok_200 q)

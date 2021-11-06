@@ -185,27 +185,9 @@ module Kurl = struct
 
   (* Decoder helpers *)
 
-  module Allow = struct
-    type 'a t = Http.meth * 'a
-    let meths allowed u =
-      let rec loop mr = function
-      | m :: ms -> if (fst m) = mr then Ok (snd m) else loop mr ms
-      | [] ->
-          Http.Resp.method_not_allowed_405 ~allowed:(List.map fst allowed) ()
-      in
-      loop (Bare.meth u) allowed
-
-    let connect = `CONNECT, `CONNECT
-    let delete = `DELETE, `DELETE
-    let get = `GET, `GET
-    let head = `HEAD, `HEAD
-    let options = `OPTIONS, `OPTIONS
-    let other s o = `Other s, o
-    let patch = `PATCH, `PATCH
-    let post = `POST, `POST
-    let put = `PUT, `PUT
-    let trace = `TRACE, `TRACE
-  end
+  let allow allowed u = match Http.Meth.constrain allowed (Bare.meth u) with
+  | Ok _ as v -> v
+  | Error ms -> Http.Resp.method_not_allowed_405 ~allowed:(List.map fst ms) ()
 
   (* URL request kind *)
 

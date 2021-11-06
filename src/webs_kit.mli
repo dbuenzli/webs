@@ -323,32 +323,12 @@ module Kurl : sig
 
   (** {3:decode_help Decoder helpers} *)
 
-  (** Method constraints. *)
-  module Allow : sig
-
-    type 'a t = Http.meth * 'a
-    (** The type for method constraints. *)
-
-    val meths : 'a t list -> bare -> ('a, Http.resp) result
-    (** [meths ms u] is:
+  val allow : 'a Http.Meth.constraint' list -> bare -> ('a, Http.resp) result
+  (** [meths ms u] is:
         {ul
         {- [Ok (Bare.meth u)] if [List.mem (Bare.meth u, Bare.meth u) ms]}
         {- [Error _] with a {{!Webs.Http.method_not_allowed_405}405} not
          allowed response otherwise.}} *)
-
-    (** {1:constraint Constraints} *)
-
-    val connect : [> `CONNECT] t
-    val delete : [> `DELETE] t
-    val get : [> `GET] t
-    val head : [> `HEAD] t
-    val options : [> `OPTIONS] t
-    val other : string -> 'a ->  'a t
-    val patch : [> `PATCH] t
-    val post : [> `POST] t
-    val put : [> `PUT] t
-    val trace : [> `TRACE] t
-  end
 
   val ok : 'a -> ('a option, 'e) result
   (** [ok v] is [Ok (Some v)]. *)

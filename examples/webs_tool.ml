@@ -33,7 +33,7 @@ let service ~docroot ~dir_resp req =
   Http.Resp.result @@ match docroot with
   | None -> Http.Resp.not_found_404 ()
   | Some docroot ->
-      let* _m = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       let* file = Http.Req.to_absolute_filepath ~root:docroot req in
       Webs_unix.send_file ~dir_resp req file
 

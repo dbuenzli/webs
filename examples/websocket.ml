@@ -38,10 +38,10 @@ let index = {|
 let service req =
   Http.Resp.result @@ match Http.Req.path req with
   | [""] ->
-      let* `GET = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       Ok (Http.Resp.html Http.ok_200 index)
   | ["websocket"] ->
-      let* `GET = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       Ok (Webs_websocket.upgrade req)
   | _ ->
       Http.Resp.not_found_404 ()

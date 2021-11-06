@@ -213,6 +213,8 @@ module Http : sig
   (** HTTP request methods *)
   module Meth : sig
 
+    (** {1:meths Methods} *)
+
     type t = meth
     (** See {!meth}. *)
 
@@ -223,10 +225,51 @@ module Http : sig
     (** [encode m] encodes [m] to an HTTP method.
 
         @raise Invalid_argument if [m] is [`Other t] and [t] is not
-        a {!H.is_token}. *)
+        a {!Webs.Http.Headers.is_token}. *)
 
     val pp : Format.formatter -> meth -> unit
     (** [pp] is an unspecified formatter for methods. *)
+
+    (** {1:constraints Constraints} *)
+
+    type 'a constraint' = meth * 'a
+    (** The type for constraining methods to ['a]. *)
+
+    val constrain :
+      allowed:'a constraint' list -> meth -> ('a, 'a constraint' list) result
+    (** [constrain ~allowed m] constrains [m] to [allowed]. This is [Ok m]
+        if [m] is constrained by [allowed] and [Error allowed] otherwise. *)
+
+    val connect : [> `CONNECT] constraint'
+    (** [connect] adds [`CONNECT] to the constraint set. *)
+
+    val delete : [> `DELETE] constraint'
+    (** [delete] adds [`DELETE] to the constraint set. *)
+
+    val get : [> `GET] constraint'
+    (** [get] adds [`GET] to the constraint set. *)
+
+    val head : [> `HEAD] constraint'
+    (** [head] adds [`HEAD] to the constraint set. *)
+
+    val options : [> `OPTIONS] constraint'
+    (** [options] adds [`OPTIONS] to the constraint set. *)
+
+    val other : string -> 'a ->  'a constraint'
+    (** [other s v] adds a constraint for method [s] represented
+        by [v] to the constraint set. *)
+
+    val patch : [> `PATCH] constraint'
+    (** [patch] adds [`PATCH] to the constraint set. *)
+
+    val post : [> `POST] constraint'
+    (** [post] adds [`POST] to the constraint set. *)
+
+    val put : [> `PUT] constraint'
+    (** [put] adds [`PUT] to the constraint set. *)
+
+    val trace : [> `TRACE] constraint'
+    (** [trace] adds [`TRACE] to the constraint set. *)
   end
 
   (** {1:paths_and_queries Paths and queries} *)
@@ -1513,32 +1556,12 @@ module Http : sig
 
     (** {2:method_constraints Method constraints} *)
 
-    (** Method constraints. *)
-    module Allow : sig
-
-      type 'a t = meth * 'a
-      (** The type for method constraints. *)
-
-      val meths : 'a t list -> req -> ('a, resp) result
-      (** [allow ms r] is:
+    val allow : 'a Meth.constraint' list -> req -> ('a, resp) result
+    (** [allow ms r] is:
           {ul
           {- [Ok (Req.meth r)] if [List.mem (Req.meth r, Req.meth r) ms]}
           {- [Error _] with a {!Http.method_not_allowed_405}
              response otherwise.}} *)
-
-      (** {1:constraint Constraints} *)
-
-      val connect : [> `CONNECT] t
-      val delete : [> `DELETE] t
-      val get : [> `GET] t
-      val head : [> `HEAD] t
-      val options : [> `OPTIONS] t
-      val other : string -> 'a ->  'a t
-      val patch : [> `PATCH] t
-      val post : [> `POST] t
-      val put : [> `PUT] t
-      val trace : [> `TRACE] t
-    end
 
     (** {2:cookies Cookies} *)
 

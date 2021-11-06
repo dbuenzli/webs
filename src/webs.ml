@@ -408,6 +408,28 @@ module Http = struct
     | `Other s -> if is_token s then s else invalid_arg (err_token s)
 
     let pp ppf m = Format.pp_print_string ppf (encode m)
+
+    (* Constraints *)
+
+    type 'a constraint' = meth * 'a
+
+    let constrain ~allowed m =
+      let rec loop mr = function
+      | m :: ms -> if (fst m) = mr then Ok (snd m) else loop mr ms
+      | [] -> Error allowed
+      in
+      loop m allowed
+
+    let connect = `CONNECT, `CONNECT
+    let delete = `DELETE, `DELETE
+    let get = `GET, `GET
+    let head = `HEAD, `HEAD
+    let options = `OPTIONS, `OPTIONS
+    let other s o = `Other s, o
+    let patch = `PATCH, `PATCH
+    let post = `POST, `POST
+    let put = `PUT, `PUT
+    let trace = `TRACE, `TRACE
   end
 
   (* Paths and queries *)
@@ -1502,28 +1524,10 @@ end
 
     (* Request deconstruction *)
 
-    module Allow = struct
-      type req = t
-      type 'a t = meth * 'a
-
-      let meths allowed r =
-        let rec loop mr = function
-        | m :: ms -> if (fst m) = mr then Ok (snd m) else loop mr ms
-        | [] -> Resp.method_not_allowed_405 ~allowed:(List.map fst allowed) ()
-        in
-        loop (meth r) allowed
-
-      let connect = `CONNECT, `CONNECT
-      let delete = `DELETE, `DELETE
-      let get = `GET, `GET
-      let head = `HEAD, `HEAD
-      let options = `OPTIONS, `OPTIONS
-      let other s o = `Other s, o
-      let patch = `PATCH, `PATCH
-      let post = `POST, `POST
-      let put = `PUT, `PUT
-      let trace = `TRACE, `TRACE
-    end
+    let allow allowed r = match Meth.constrain ~allowed (meth r) with
+    | Ok _ as v -> v
+    | Error allow ->
+        Resp.method_not_allowed_405 ~allowed:(List.map fst allow) ()
 
     let decode_header h dec req = match Headers.find h (headers req) with
     | None -> Ok None

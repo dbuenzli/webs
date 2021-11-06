@@ -36,7 +36,7 @@ let set_expirable_count ~private_key ~now ~count r =
 let service ~private_key req =
   Http.Resp.result @@ match Http.Req.path req with
   | [""] ->
-      let* `GET = Http.Req.Allow.(meths [get] req) in
+      let* `GET = Http.Req.allow Http.Meth.[get] req in
       let now = truncate (Unix.gettimeofday ()) in
       let c = get_expirable_count ~private_key ~now req in
       let resp = Http.Resp.html Http.ok_200 (count c) in
