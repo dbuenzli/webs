@@ -36,12 +36,12 @@ let extra_var_to_header_name var =
 
 type t =
   { extra_vars : (string * Http.name) list;
-    log : Connector.log_msg -> unit;
+    log : Webs_connector.log_msg -> unit;
     max_req_body_byte_size : int;
     service_path : Http.path; }
 
 let create
-    ?(extra_vars = []) ?(log = Connector.default_log ~trace:false ())
+    ?(extra_vars = []) ?(log = Webs_connector.default_log ~trace:false ())
     ?(max_req_body_byte_size = 10 * 1024 * 1024) ?(service_path = [""]) ()
   =
   let with_header_name v = v, extra_var_to_header_name v in

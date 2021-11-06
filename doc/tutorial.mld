@@ -21,7 +21,7 @@ requests to responses.
 This means
 you need a private key in your service. An easy way to handle this is
 o generate one randomly with
-{!Authenticatable.random_private_key_hs256} when you start your
+{!Webs_kit.Authenticatable.random_private_key_hs256} when you start your
 service. Note however that this invalidates any data currently
 stored on your clients whenever you restart your service – that
 may be okay, or not, save it and load it from a [0o600] protected

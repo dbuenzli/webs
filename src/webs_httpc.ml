@@ -34,7 +34,7 @@ let default_max_connections = 100
 
 type t =
   { listener : Webs_unix.listener;
-    log : Connector.log_msg -> unit;
+    log : Webs_connector.log_msg -> unit;
     max_connections : int;
     max_req_body_byte_size : int;
     max_req_headers_byte_size : int;
@@ -43,7 +43,7 @@ type t =
 
 let create
     ?(listener = Webs_unix.listener_localhost)
-    ?(log = Connector.default_log ~trace:true ())
+    ?(log = Webs_connector.default_log ~trace:true ())
     ?(max_connections = default_max_connections)
     ?(max_req_body_byte_size = 10 * 1024 * 1024)
     ?(max_req_headers_byte_size = 64 * 1024)

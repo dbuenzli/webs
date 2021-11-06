@@ -228,7 +228,7 @@ end
        separated in Kreq and Urlf. But we still need to
        figure out what we want to do with requests that
        are not [URL]able (well with {!Hc} every aspect
-       becomes [URL]able). Bare could embody {!Req.t}.}
+       becomes [URL]able). Bare could embody {!Http.Req.t}.}
     {- Integrate sessions ? Maybe not, here is the reasoning:
        the custom request types should only ever hold what can be specified
        by responses since they need to create these values.}
@@ -275,13 +275,13 @@ module Kurl : sig
 
     val of_req : ?ext:string -> Http.req -> bare
     (** [of_req ~ext r] is a bare URL request from [r]. {!Bare.meth} is
-        {!Req.meth}, {!Bare.path} is {!Req.path}, {!Bare.query} is parsed
-        {!Req.query}, [ext] defaults to [""]. *)
+        {!Http.Req.meth}, {!Bare.path} is {!Http.Req.path}, {!Bare.query} is
+        parsed {!Http.Req.query}, [ext] defaults to [""]. *)
 
     val of_req_referer :
       ?ext:string -> ?meth:Http.meth -> Http.req -> (bare, string) result
     (** [of_req_referer ~ext r] is a bare URL request from [r]. {!Bare.meth}
-        is [meth] (defaults to {!Req.meth r}),
+        is [meth] (defaults to {!Http.Req.meth r}),
         {!Bare.path} and {!Bare.query} are derived from the {!Http.referer}
         header. Errors if [r] has no such header or if its parsing fails. *)
 
@@ -770,11 +770,11 @@ module Authenticatable : sig
 
   val private_key_to_ascii_string : private_key -> string
   (** [private_key_to_ascii_string k] encodes [k] to an URL safe US-ASCII
-      scheme that can be read back by {!private_key_of_string}. *)
+      scheme that can be read back by {!private_key_of_ascii_string}. *)
 
   val private_key_of_ascii_string : string -> (private_key, string) result
   (** [private_key_of_ascii_string s] reads back the encoding of
-      {!private_key_to_string}. *)
+      {!private_key_to_ascii_string}. *)
 
   (** {1:auth Authenticatable} *)
 

@@ -25,7 +25,7 @@ type t
     one {!Thread} drawn from a pool. *)
 
 val create :
-  ?listener:Webs_unix.listener -> ?log:(Connector.log_msg -> unit) ->
+  ?listener:Webs_unix.listener -> ?log:(Webs_connector.log_msg -> unit) ->
   ?max_connections:int -> ?max_req_body_byte_size:int ->
   ?max_req_headers_byte_size:int -> ?service_path:Http.path ->
   unit -> t
@@ -34,7 +34,7 @@ val create :
     {- [listener] specifies the socket to listen to on.
        Defaults to {!Webs_unix.listener_localhost}}
     {- [log] logs connector log messages. Defaults to
-       {!Webs.Connector.default_log} with trace messages.}
+       {!Webs_connector.default_log} with trace messages.}
     {- [max_connections] is the maximal number of allowed concurrent
        connections. Defaults to {!default_max_connections}.}
     {- [max_req_body_byte_size] is the maximal request body size in bytes.
@@ -43,16 +43,17 @@ val create :
        to the request line and headers. Defaults to [64Ko].}
     {- [service_path] is the path at which the root of the service is being
        served. This path is stripped from the
-       path found in request targets to yield the {!Webs.Req.path} of served
-       requests. The connector responds with a {!Webs.Http.bad_request_400}
+       path found in request targets to yield the {!Webs.Http.Req.path} of
+       served requests. The connector responds with a
+       {!Webs.Http.bad_request_400}
        if the strip fails. The value of the service path can be found
-       in the {!Webs.Req.service_path} of the requests to serve.
+       in the {!Webs.Http.Req.service_path} of the requests to serve.
        Defaults to [[""]].}} *)
 
 val listener : t -> Webs_unix.listener
 (** [listener c] is the connection listener of [c]. See {!create}. *)
 
-val log : t -> Connector.log_msg -> unit
+val log : t -> Webs_connector.log_msg -> unit
 (** [log c] is the log of [c]. See {!create}. *)
 
 val max_connections : t -> int
@@ -86,7 +87,7 @@ val serve : ?handle_stop_sigs:bool -> t -> Http.service -> (unit, string) result
     {- If [max_req_headers_byte_size] or [max_req_body_byte_size]
        are exceeded the server responds to the client with a
        {!Webs.Http.payload_too_large_413}.}
-    {- If the basics to parse the {!Req} data structure and setup the
+    {- If the basics to parse the {!Webs.Http.req} data structure and setup the
        body stream is not there, the server responds with
        {!Webs.Http.bad_request_400}}
     {- If a {!Webs.Http.expect} header is found TODO}}

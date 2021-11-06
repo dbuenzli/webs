@@ -8,6 +8,18 @@ plugin(byte) = "webs.cma"
 plugin(native) = "webs.cmxs"
 exists_if = "webs.cma"
 
+package "connector" (
+  description = "Webs connector tools"
+  version = "%%VERSION_NUM%%"
+  directory = "connector"
+  requires = "webs"
+  archive(byte) = "webs_connector.cma"
+  archive(native) = "webs_connector.cmxa"
+  plugin(byte) = "webs_connector.cma"
+  plugin(native) = "webs_connector.cmxs"
+  exists_if = "webs_connector.cma"
+)
+
 package "kit" (
   description = "Webs toolkit"
   version = "%%VERSION_NUM%%"
@@ -48,7 +60,7 @@ package "cgi" (
   description = "Webs CGI connector"
   version = "%%VERSION_NUM%%"
   directory = "cgi"
-  requires = "unix webs webs.kit webs.unix"
+  requires = "unix webs webs.connector webs.kit webs.unix"
   archive(byte) = "webs_cgi.cma"
   archive(native) = "webs_cgi.cmxa"
   plugin(byte) = "webs_cgi.cma"
@@ -72,7 +84,7 @@ package "httpc" (
   description = "Webs HTTP/1.1 connector"
   version = "%%VERSION_NUM%%"
   directory = "httpc"
-  requires = "threads.posix unix webs webs.unix webs.tpool"
+  requires = "threads.posix unix webs webs.connector webs.unix webs.tpool"
   archive(byte) = "webs_httpc.cma"
   archive(native) = "webs_httpc.cmxa"
   plugin(byte) = "webs_httpc.cma"

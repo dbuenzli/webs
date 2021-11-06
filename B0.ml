@@ -12,6 +12,7 @@ let webs_kit = B0_ocaml.libname "webs.kit"
 let webs_websocket = B0_ocaml.libname "webs.websocket"
 let webs_unix = B0_ocaml.libname "webs.unix"
 let webs_tpool = B0_ocaml.libname "webs.tpool"
+let webs_connector = B0_ocaml.libname "webs.connector"
 let webs_cgi = B0_ocaml.libname "webs.cgi"
 let webs_httpc = B0_ocaml.libname "webs.httpc"
 let webs_cli = B0_ocaml.libname "webs.cli"
@@ -54,6 +55,11 @@ let webs_tpool_lib =
   let srcs = mod_srcs "webs_tpool" in
   let requires = [threads] in
   B0_ocaml.lib webs_tpool ~doc:"Webs thread pool" ~srcs ~requires
+
+let webs_connector_lib =
+  let srcs = mod_srcs "webs_connector" in
+  let requires = [webs] in
+  B0_ocaml.lib webs_connector ~doc:"Webs connector tools" ~srcs ~requires
 
 let webs_cgi_lib =
   let srcs = mod_srcs "webs_cgi" in

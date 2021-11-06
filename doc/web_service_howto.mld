@@ -150,11 +150,11 @@ let root = "/my/files"
 let service r =
   Http.Resp.result @@ match Http.Req.path r with
   | "assets" as pre :: _ ->
-      let* `GET = Http.Req.Allow.(meths [get] r) in
-      let* file = Req.to_absolute_filepath ~strip:[pre] ~root r in
+      let* `GET = Http.Req.allow Http.Meth.[get] r in
+      let* file = Http.Req.to_absolute_filepath ~strip:[pre] ~root r in
       Webs_unix.send_file r file
   | _ ->
-      Ok (Http.Resp.v Http.not_found_404)
+      Http.Resp.not_found_404 ()
 
 let main () = Webs_cli.quick_serve ~name:"files_unix" service
 let () = if !Sys.interactive then () else main ()

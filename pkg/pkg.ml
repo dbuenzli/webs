@@ -15,6 +15,7 @@ let () =
     Pkg.mllib "src/webs_unix.mllib" ~dst_dir:"unix";
     Pkg.mllib "src/webs_tpool.mllib" ~dst_dir:"tpool";
     Pkg.clib "src/libwebs_unix_stubs.clib" ~lib_dst_dir:"unix";
+    Pkg.mllib "src/webs_connector.mllib" ~dst_dir:"connector";
     Pkg.mllib "src/webs_cgi.mllib" ~dst_dir:"cgi";
     Pkg.mllib "src/webs_httpc.mllib" ~dst_dir:"httpc";
     Pkg.mllib "src/webs_html.mllib" ~dst_dir:"html";

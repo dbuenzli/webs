@@ -34,7 +34,7 @@ type t
     writing the response on {!Unix.stdout}. *)
 
 val create :
-  ?extra_vars:string list -> ?log:(Connector.log_msg -> unit) ->
+  ?extra_vars:string list -> ?log:(Webs_connector.log_msg -> unit) ->
   ?max_req_body_byte_size:int -> ?service_path:Http.path -> unit -> t
 (** [create ()] is a new CGI connector with the following parameters:
     {ul
@@ -45,22 +45,22 @@ val create :
        For example [SERVER_SOFTWARE] becomes [x-cgi-server-software]. Defaults
        to [[]]}
     {- [log] logs connector log messages. Defaults to
-       {!Webs.Connector.default_log} with trace messages.}
+       {!Webs_connector.default_log} with trace messages.}
     {- [max_req_body_byte_size] is the maximal request body size in bytes.
        FIXME not enforced.}
     {- [service_path] the path at which the root of the service of
        [c] is being served. This path is stripped from the path found in
-       the request's target to yield the {!Webs.Req.path} of the request to
+       the request's target to yield the {!Webs.Http.Req.path} of the request to
        serve. The connector responds with a {!Webs.Http.bad_request_400}
        if the strip fails. The value of the service path can also be
-       found in the {!Webs.Req.service_path} of the request to serve.
+       found in the {!Webs.Http.Req.service_path} of the request to serve.
        Defaults to [[""]].}} *)
 
 val extra_vars : t -> string list
 (** [extra_vars c] is the list of additional environment variables
     of [c]. See {!create}. *)
 
-val log : t -> (Connector.log_msg -> unit)
+val log : t -> (Webs_connector.log_msg -> unit)
 (** [log c] is the log of [c]. See {!create}. *)
 
 val max_req_body_byte_size : t -> int

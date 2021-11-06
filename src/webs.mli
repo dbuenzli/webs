@@ -3,21 +3,19 @@
    Distributed under the ISC license, see terms at the end of the file.
   ---------------------------------------------------------------------------*)
 
-(** Web service interface.
+(** Web service HTTP interface.
 
     Consult the {{!page-web_service_howto}web service howto} for quick
     steps to run your first service. A few tools are in {!Webs_kit}
     and gateway connectors to run services can be found
     {{!page-index.connectors}here}.
 
-    Open the module to use it. It defines only modules in your
+    Open the module to use it. It defines only the {!Http} module in your
     scope. *)
 
-(** {1:http HTTP} *)
+(** HTTP requests and responses.
 
-(** HTTP nuts and bolts.
-
-    HTTP {{!Http.Resp}responses} and {{!Http.Req}requests} and
+    HTTP {{!Http.Req}requests}, {{!Http.Resp}responses},
     associated types, values, codecs and protocol logic fragments.
 
     {b References.}
@@ -210,7 +208,7 @@ module Http : sig
   (** The type for HTTP {{:https://tools.ietf.org/html/rfc7231#section-4}
       request methods}. *)
 
-  (** HTTP request methods *)
+  (** HTTP request methods and constraints. *)
   module Meth : sig
 
     (** {1:meths Methods} *)
@@ -536,7 +534,7 @@ module Http : sig
          multi-valued headers. The values are stored in the string
          separated by ['\x00'] values. Use {!Headers.add_set_cookie} and
          {!Headers.values_of_set_cookie_value} to handle the field.  On
-         {!Headers.encode} this results in separate [set-cookie] headers.}} *)
+         encoding this results in separate [set-cookie] headers.}} *)
 
   (** HTTP headers and values. *)
   module Headers : sig
@@ -618,7 +616,7 @@ module Http : sig
 
     val values_of_set_cookie_value : string -> string list
     (** [values_of_set_cookie_value v] decodes [v] as stored in
-        by {!set_set_cookie} in the {!t} type to a list of cookies. *)
+        by {!add_set_cookie} in the {!t} type to a list of cookies. *)
 
     val values_of_string : ?sep:char -> string -> string list
     (** [values_of_string s] splits the string [s] at [','] (or [sep]
@@ -726,7 +724,7 @@ module Http : sig
 
     type cond = [ `Any | `Etags of t list (** *) ]
     (** The type for etags conditions. This represents the value
-        of {!H.if_match} or {!H.if_none_match} headers. *)
+        of {!Http.if_match} or {!Http.if_none_match} headers. *)
 
     val decode_cond : string -> (cond, string) result
     (** [decode_cond s] parses an etag condition from [s]. *)
@@ -736,7 +734,7 @@ module Http : sig
 
     val eval_if_match : cond -> t option -> bool
     (** [eval_if_match c t] evaluates the logic of an
-        {!H.if_match} header condition [c] on an entity represented
+        {!Http.if_match} header condition [c] on an entity represented
         by [t] ([None] means the representation does not exist). This is:
         {ul
         {- [true] if [c] is [None] (no condition).}
@@ -747,7 +745,7 @@ module Http : sig
 
     val eval_if_none_match : cond -> t option -> bool
     (** [eval_if_none_match c t] evaluates the logic of an
-        {!H.if_none_match} header condition [c] on an entity represented
+        {!Http.if_none_match} header condition [c] on an entity represented
         by [t] ([None] means the representation does not exist). This is:
         {ul
         {- [true] if [t] is [None] and [c] is [Some `Any].}
@@ -756,7 +754,7 @@ module Http : sig
         {- [false] otherwise.}} *)
 
     val eval_if_range : t -> t option -> bool
-    (** [eval_if_range req t] evaluates the logic of an {!H.if_range} header
+    (** [eval_if_range req t] evaluates the logic of an {!Http.if_range} header
         etag [req] on an entity represented by [t] ([None] means the
         representation does not exist). This is:
         {ul
@@ -1277,19 +1275,20 @@ module Http : sig
 
     val explain : resp -> string
     (** [explain r] is [r]'s explanation. In contrast to [reason] this
-        remains on the server and can be, for example logged. *)
+        remains on the server and can be, for example logged by the
+        connector. *)
 
     val with_status :
       ?explain:string -> ?reason:string -> status -> resp -> resp
     (** [with_status st r] is [r] with status [st] and reason phrase
-        [reason] (defaults to {!Http.status_reason_phrase}. *)
+        [reason] (defaults to {!Http.Status.reason_phrase}. *)
 
     val with_headers : headers -> resp -> resp
     (** [with_headers hs r] is [r] with headers [hs]. *)
 
     val override_headers : by:headers -> resp -> resp
     (** [override_headers by r] is [r] with headers
-        [H.override (headers r) ~by]. *)
+        [Http.override (headers r) ~by]. *)
 
     val with_body : body -> t -> t
     (** [with_body b r] is [r] with body [b]. *)
@@ -1303,7 +1302,7 @@ module Http : sig
         The optional [headers] argument of the functions below always
         {!Http.override} those the function computed.
 
-        See also {{!Req.deconstruct}request deconstruction} combinators.
+        See also {{!Http.Req.deconstruct}request deconstruction} combinators.
 
         {b FIXME.} Do a better compositional design, e.g. easily
         use the error responses with content responses. * *)
@@ -1444,7 +1443,7 @@ module Http : sig
     val body_to_string : body -> string
     (** [body_to_string b] accumulates the body to a string. *)
 
-    (** {1:req Requests} *)
+    (** {1:req Requestso} *)
 
     type t = req
     (** The type for HTTP requests. *)
@@ -1535,9 +1534,8 @@ module Http : sig
     (** {1:deconstruct Request deconstruction and responses}
 
         Request deconstruction helpers. These functions directly
-        error with responses that have the right statuses and empty
-        bodies. *)
-
+        error with responses that have the right statuses and, unless
+        otherwise noted, empty bodies. *)
 
     (** {2:echo Echo} *)
 
@@ -1698,44 +1696,6 @@ module Http : sig
           section for a response with the given parameters. This has the final
           double CRLF. *)
   end
-end
-
-(** {1:connector Connector} *)
-
-(** Connector commonalities. *)
-module Connector : sig
-
-  (** {1:log_msg Log messages}
-
-      These message are emited by connector to track activity and
-      report unexpected messages. *)
-
-  type dur_ns = int64
-  (** The type for integer nanosecond duration. *)
-
-  type log_msg =
-  [ `Service_exn of exn * Stdlib.Printexc.raw_backtrace
-  | `Connector_exn of exn * Stdlib.Printexc.raw_backtrace
-  | `Connection_reset
-  | `Trace of dur_ns * Http.req option * Http.resp option ]
-  (** The type for connector log messages. These *)
-
-  val no_log : log_msg -> unit
-  (** [no_log] is [Fun.const ()]. *)
-
-  val default_log :
-    ?ppf:Format.formatter -> trace:bool -> unit -> (log_msg -> unit)
-  (** [default_log ~ppf ~trace] logs message on [ppf] (defaults to
-      {!Format.err_formatter}) and [`Trace] messages
-      iff [trace] is true. *)
-
-  val pp_log_msg : Format.formatter -> log_msg -> unit
-  (** [pp_log_msg] is a unspecified formatter for log messages. *)
-
-  val pp_exn_backtrace :
-    kind:string ->
-    Format.formatter -> exn * Printexc.raw_backtrace -> unit
-  (** [pp_exn_backtrace] is a formatter for exception backtraces. *)
 end
 
 (*---------------------------------------------------------------------------
