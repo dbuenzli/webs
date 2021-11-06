@@ -1574,14 +1574,6 @@ end
       | `GET | `HEAD -> url_query r
       | _ -> body_query r
 
-    let to_service ~strip r =
-      match Path.strip_prefix ~prefix:strip (path r) with
-      | None ->
-          Error (Resp.v ~explain:"could not strip path" bad_request_400)
-      | Some path ->
-          let service_path = Path.concat (service_path r) strip in
-          Ok { r with service_path; path }
-
     let find_cookie ~name r =
       (* XXX maybe we could lazily cache the decode in [r] *)
       let cs = match Headers.(find cookie (headers r)) with

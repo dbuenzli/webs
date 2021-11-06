@@ -1578,11 +1578,6 @@ module Http : sig
         concatenates the service root and the path. Would that be an
         argument to let [] also represent the root path ? *)
 
-    val to_service : strip:path -> req -> (req, resp) result
-    (** [to_service ~strip r] strips [strip] from [r]'s path and
-        appends it to the service root. Errors with {!Http.not_found_404}
-        if stripping [strip] results in [None]. *)
-
     (** {2:queries Queries}
 
         {b Warning.} {!Http.type-query} values are untrusted,
