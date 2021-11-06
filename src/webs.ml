@@ -1473,10 +1473,6 @@ end
     let service_path r = r.service_path
     let version r = r.version
 
-    let with_headers headers r = { r with headers }
-    let with_body ~body_length body r = { r with body_length; body }
-    let with_path path r = { r with path }
-    let with_service_path service_path r = { r with service_path }
     let pp_query ppf = function None -> pf ppf "" | Some q -> pf ppf "%S" q
     let pp_body_length ppf = function
     | None -> pf ppf "unknown" | Some l -> pf ppf "%d" l

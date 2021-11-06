@@ -1401,7 +1401,7 @@ module Http : sig
     val body_to_string : body -> string
     (** [body_to_string b] accumulates the body to a string. *)
 
-    (** {1:req HTTP Requests} *)
+    (** {1:req Requests} *)
 
     type t = req
     (** The type for HTTP requests. *)
@@ -1429,11 +1429,17 @@ module Http : sig
         [request_target] unchanged. *)
 
     val default : req
-    (** [default] is a request whose [body] is
-        {!empty_body}, [body_length] is [None], [headers] is
-        {!Http.Headers.empty}, [meth] is [`GET], [path] is [[""]],
-        [query] is [None], [request_target] is ["/"], [sevice_path] is [[""]],
-        version is [(1,1)]. *)
+    (** [default] is a request whose
+        {ul
+        {- {!val-body} is {!empty_body}}
+        {- {!val-body_length} is [None]}
+        {- {!val-headers} is {!Http.Headers.empty}}
+        {- {!val-meth} is [`GET]}
+        {- {!val-path} is [[""]]}
+        {- {!val-query} is [None]}
+        {- {!val-request_target} is ["/"]}
+        {- {!val-service_path} is [[""]]}
+        {- {!val-version} is [(1,1)]}} *)
 
     val body : req -> body
     (** [body r] is [r]'s body. *)
@@ -1450,62 +1456,52 @@ module Http : sig
         {{:https://tools.ietf.org/html/rfc7231#section-4}HTTP method}. *)
 
     val path : req -> path
-    (** [path r] {b should} be (see {!v}) the absolute path of
+    (** [path r] {b should} be the absolute path of
         {!request_target}, {{!Http.Path.strip_prefix}stripped}
-        by {!service_path}. *)
+        by {!service_path} (see {!v}).  *)
 
     val query : req -> string option
-    (** [query r] {b should} be (see {!v}) the query (without the ['?'])
-        of {!request_target}. Note that query string may be the empty string
-        which is different from [None] (no ['?'] in the request target).
-        To decode the query (and handle those that are [POST]ed)
-        see {!to_query}. *)
+    (** [query r] {b should} be the query (without the ['?'])
+        of {!request_target} (see {!v}). Note that query string may be
+        the empty string which is different from [None] (no ['?'] in the
+        request target). To decode the query (and handle those that are
+        [POST]ed) see {!to_query}. *)
 
     val request_target : req -> string
     (** [request_target] is [r]'s
         {{:https://tools.ietf.org/html/rfc7230#section-5.3}request
-        target}. This should be the raw request, still percent encoded.
-        Note that you usually rather want to use the convenience {!val-path}
-        and {!val-query} which {b should} (see {!v}) derived from this value. *)
+        target}. This {b should} be the raw request, still percent
+        encoded (see {!v}). Note that you usually rather want to use
+        the convenience {!val-path} and {!val-query} which should
+        be derived from this value. *)
 
     val service_path : req -> path
     (** [service_path r] is the path on which the root of the service
         is served. This is usually set by the connector. The {!val-path} value
-        of [r] is usually the path mentioned in {!request_target} stripped
-        by the service path. *)
+        of [r] is {b should} be the path mentioned in {!request_target}
+        stripped by this path (see {!v}). *)
 
     val version : req -> version
     (** [version r] is [r]'s
         {{:https://tools.ietf.org/html/rfc7230#section-2.6}HTTP version}. *)
 
-    (** {b FIXME.} now that we have [init] in [v] consider removing those. *)
-
-    val with_headers : headers -> req -> req
-    (** [with_headers hs r] is [r] with headers [hs]. *)
-
-    val with_body : body_length:int option -> body -> req -> req
-    (** [with_body blen b r] is [r] with body length [blen] and body [b]. *)
-
-    val with_path : path -> req -> req
-    (** [with_path p r] is [r] with path [p]. *)
-
-    val with_service_path : path -> req -> req
-    (** [with_service_path p r] is [r] with service path [r]. *)
-
     val pp : Format.formatter -> req -> unit
     (** [pp ppf req] prints and unspecified representation of [req]
         on [ppf] but guarantees not to consume the {!val:body}. *)
-
-    val echo : ?status:status -> req -> resp
-    (** [echo r] returns [r] as a 404 [text/plain] document (and by
-        doing so violates numerous HTTP's musts). This includes the
-        request body, which is consumed by the service.  *)
 
     (** {1:deconstruct Request deconstruction and responses}
 
         Request deconstruction helpers. These functions directly
         error with responses that have the right statuses and empty
         bodies. *)
+
+
+    (** {2:echo Echo} *)
+
+    val echo : ?status:status -> req -> resp
+    (** [echo r] returns [r] as a 404 [text/plain] document (and by
+        doing so violates numerous HTTP's musts). This includes the
+        request body, which is consumed by the service.  *)
 
     (** {2:header_decoding Header decoding} *)
 
@@ -1548,7 +1544,9 @@ module Http : sig
 
     val find_cookie : name:string -> req -> (string option, string) result
     (** [find_cookie ~name r] is the value of cookie [name] or [None] if
-        undefined in [r]. Errors on header or cookie decoding errors. *)
+        undefined in [r]. Errors on header or cookie decoding errors.
+
+        {b FIXME.} Why is this a string error ? *)
 
     (** {2:service_forwarding Service forwarding}
 
@@ -1607,12 +1605,13 @@ module Http : sig
 
     (** {2:clean Path cleaning}
 
-        There's more than one way to handle empty segments and trailing
-        slashes in request paths. The scheme proposed here simply always
-        redirects to paths in which all empty segments, and thus
-        trailing slashes, are removed; except on the root path. The
-        advantage is that no elaborate file extension logic on the final
-        segment is needed to route file serving. *)
+        There's more than one way to handle empty segments and
+        trailing slashes in request paths. The scheme proposed here
+        simply always redirects to paths in which all empty segments,
+        and thus trailing slashes, are removed; except on the root
+        path. The advantage of this scheme is that no elaborate file
+        extension logic on the final segment is needed to route file
+        serving. *)
 
     val clean_path : req -> (req, resp) result
     (** [clean_path r] is:
@@ -1637,7 +1636,7 @@ module Http : sig
           [[""]]) from [r]'s {!val-path},
           {{!Http.Path.to_absolute_filepath} converting} the result
           to an absolute filepath and
-          {{!Http.Path.prefix_filepath}prefixing} it with [docroot].
+          {{!Http.Path.prefix_filepath}prefixing} it with [root].
 
           Errors with {!Http.not_found_404} if stripping [strip]
           results in [None] and {!Http.bad_request_400} if the
