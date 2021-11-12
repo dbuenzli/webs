@@ -63,12 +63,14 @@ let webs_connector_lib =
 
 let webs_cgi_lib =
   let srcs = mod_srcs "webs_cgi" in
-  let requires = [unix; webs; webs_kit; webs_unix] in
+  let requires = [unix; webs; webs_kit; webs_connector; webs_unix] in
   B0_ocaml.lib webs_cgi ~doc:"Webs CGI connector" ~srcs ~requires
 
 let webs_httpc_lib =
   let srcs = mod_srcs "webs_httpc" in
-  let requires = [threads; unix; webs; webs_kit; webs_unix; webs_tpool] in
+  let requires = [threads; unix; webs; webs_kit; webs_connector; webs_unix;
+                  webs_tpool]
+  in
   B0_ocaml.lib webs_httpc ~doc:"Webs HTTP/1.1 connector" ~srcs ~requires
 
 let webs_cli_lib =

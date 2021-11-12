@@ -91,13 +91,24 @@ module Http : sig
       [application/x-www-form-urlencoded] which is slightly different.
       The {!Query} module handles that. *)
   module Pct : sig
-    val encode : string -> string
-    (** [encode s] is the percent-encoding of [s].
-
-        {b TODO.} Make that more subtle for now
-        we percent-encode what is not percent-encoded
-        {{:https://tools.ietf.org/html/rfc3986#section-3.3}[pchar]}
-        in RFC 3986. *)
+    val encode : [`Uri_component | `Uri] -> string -> string
+    (** [encode what s] is the percent-encoding of [s] according to
+        [what]:
+        {ul
+        {- [`Uri_component] percent-encodes anything but
+           {{:https://datatracker.ietf.org/doc/html/rfc3986#section-2.3}
+           [unreserved]} and
+           {{:https://datatracker.ietf.org/doc/html/rfc3986#section-2.2}
+           sub-delims} URI characters. In other words only
+           ['a'..'z'], ['A'..'Z'], ['0'..'9'], ['-'], ['.'], ['_'], ['~']
+           and ['!'], ['$'], ['&'], ['\''], ['('], [')']
+           ['*'], ['+'], [','], [';'], ['='] are not percent-encoded.}
+        {- [`Uri] percent-encodes like [`Url_component] except it also
+           preserves
+           {{:https://datatracker.ietf.org/doc/html/rfc3986#section-2.2}
+           gen-delims} URI characters. In other words in addition to those
+           characters above, [':'], ['/'], ['?'], ['#'], ['\['], ['\]'], ['@']
+           are not percent-encoded.}} *)
 
     val decode : string -> string
     (** [decode s] is the percent-encoding decode of [s]. *)

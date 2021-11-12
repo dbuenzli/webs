@@ -143,14 +143,23 @@ module Http = struct
   end
 
   module Pct = struct
-    let is_non_pct_pchar = function
-    (* see https://tools.ietf.org/html/rfc3986#section-3.3 *)
+
+    (* See https://tools.ietf.org/html/rfc3986 *)
+
+    let char_is_uri_component_verbatim = function
+    (* unreserved *)
+    | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '-' | '.' | '_' | '~'
+    (* sub-delims *)
+    | '!' | '$' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | ';' | '=' -> true
+    | _ -> false
+
+    let char_is_uri_verbatim = function
     (* unreserved *)
     | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '-' | '.' | '_' | '~'
     (* sub-delims *)
     | '!' | '$' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | ';' | '='
-    (* *)
-    | ':' | '@' -> true
+    (* gen-delims *)
+    | ':' | '/' | '?' | '#' | '[' | ']' | '@' -> true
     | _ -> false
 
     let is_hexdig = function
@@ -166,9 +175,9 @@ module Http = struct
       if i < 10 then Char.unsafe_chr (i + 0x30) else
       Char.unsafe_chr (i + 0x37)
 
-    let encode_to_buffer b s =
+    let encode_to_buffer is_verbatim b s =
       for k = 0 to String.length s - 1 do match s.[k] with
-      | c when is_non_pct_pchar c -> Buffer.add_char b c
+      | c when is_verbatim c -> Buffer.add_char b c
       | c ->
           let hi = (Char.code c lsr 4) land 0xF in
           let lo = (Char.code c) land 0xF in
@@ -193,12 +202,16 @@ module Http = struct
       | c -> Buffer.add_char b c; incr i
       done
 
-    let encode s =
+    let encode what s =
       (* XXX one day we should benchmark whether the scan first to determine
          length and then use Bytes directly is faster – see
          Query.pct_encode_space_as_plus) – one day. *)
+      let is_verbatim = match what with
+      | `Uri_component -> char_is_uri_component_verbatim
+      | `Uri -> char_is_uri_verbatim
+      in
       let b = Buffer.create (String.length s * 2) in
-      encode_to_buffer b s;
+      encode_to_buffer is_verbatim b s;
       Buffer.contents b
 
     let decode s =
@@ -561,14 +574,17 @@ module Http = struct
               let seg = decode_segment b ~first ~last:(i - 1) s in
               let i = i + 1 in
               loop (seg :: acc) b s ~first:i i
-          | c when c = '%' || Pct.is_non_pct_pchar c ->
+          | c when c = '%' || Pct.char_is_uri_component_verbatim c ->
               loop acc b s ~first (i + 1)
           | c -> Error (err_path_char c)
       in
       loop [] (Buffer.create 255) s 1 1
 
     let buffer_encode_path b segs =
-      let add_seg seg = Buffer.add_char b '/'; Pct.encode_to_buffer b seg in
+      let add_seg seg =
+        Buffer.add_char b '/';
+        Pct.encode_to_buffer Pct.char_is_uri_component_verbatim b seg
+      in
       List.iter add_seg segs
 
     let encode segs =
