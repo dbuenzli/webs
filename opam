@@ -1,21 +1,47 @@
 opam-version: "2.0"
+name: "webs"
+synopsis: "Web service toolkit for OCaml"
+description: """\
+Webs is a toolkit for programming web services in OCaml. It provides:
+
+* A generic low-level interface for defining web services in terms
+  of HTTP request-responses cycles.
+* Optional service building blocks. File serving, authenticated
+  cookies, sessions, HTML generation, etc.
+* Connectors. They run services and are in charge of talking 
+  to the HTTP gateway or client. CGI and HTTP/1.1 gateway
+  connectors are provided, but you can bring your own.
+
+Webs is a set of libraries and building block, not a framework.
+
+Webs is distributed under the ISC license. It has no dependencies. The
+connector libraries depend on OCaml's `Unix` and `Thread` modules.
+
+Home page: http://erratique.ch/software/webs"""
 maintainer: "Daniel Bünzli <daniel.buenzl i@erratique.ch>"
-authors: ["The webs programmers"]
+authors: "The webs programmers"
+license: "ISC"
+tags: ["www" "webserver" "org:erratique"]
 homepage: "https://erratique.ch/software/webs"
 doc: "https://erratique.ch/software/webs/doc"
-dev-repo: "git+https://erratique.ch/repos/webs.git"
 bug-reports: "https://github.com/dbuenzli/webs/issues"
-tags: [ "web" "www" "webserver" "org:erratique" ]
-license: "ISC"
 depends: [
-  "ocaml" {>= "4.08.0"}
+  "ocaml" {>= "4.14.0"}
   "ocamlfind" {build}
   "ocamlbuild" {build}
-  "topkg" {build & >= "0.9.0"}
+  "topkg" {build & >= "1.0.3"}
 ]
-depopts: [ "cmdliner" ]
-build: [[
- "ocaml" "pkg/pkg.ml" "build"
-          "--dev-pkg" "%{dev}%"
-          "--with-cmdliner" "%{cmdliner:installed}%"
-]]
+depopts: ["cmdliner"]
+conflicts: [
+  "cmdliner" {< "1.0.0"}
+]
+build: [
+  "ocaml"
+  "pkg/pkg.ml"
+  "build"
+  "--dev-pkg"
+  "%{dev}%"
+  "--with-cmdliner"
+  "%{cmdliner:installed}%"
+]
+dev-repo: "git+https://erratique.ch/repos/webs.git"

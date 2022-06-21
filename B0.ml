@@ -147,7 +147,15 @@ let default =
     |> add issues "https://github.com/dbuenzli/webs/issues"
     |> add description_tags ["www"; "webserver"; "org:erratique"; ]
     |> add B0_opam.Meta.build
-      {|[["ocaml" "pkg/pkg.ml" "build" "--dev-pkg" "%{dev}%"]]|}
+      {|[["ocaml" "pkg/pkg.ml" "build" "--dev-pkg" "%{dev}%"
+          "--with-cmdliner" "%{cmdliner:installed}%"]]|}
+    |> add B0_opam.Meta.depopts ["cmdliner", ""]
+    |> add B0_opam.Meta.conflicts [ "cmdliner", {|< "1.0.0"|}]
+    |> add B0_opam.Meta.depends
+      [ "ocaml", {|>= "4.14.0"|};
+        "ocamlfind", {|build|};
+        "ocamlbuild", {|build|};
+        "topkg", {|build & >= "1.0.3"|}; ]
     |> tag B0_opam.tag
   in
   B0_pack.v "default" ~doc:"webs package" ~meta ~locked:true @@
