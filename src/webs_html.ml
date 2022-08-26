@@ -254,6 +254,7 @@ module El = struct
   let legend = cons "legend"
   let li = cons "li"
   let link = void_cons "link"
+  let main = cons "main"
   let map = cons "map"
   let mark = cons "mark"
   let menu = cons "menu"

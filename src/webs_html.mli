@@ -608,6 +608,9 @@ module El : sig
   val link : void_cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/link}link} *)
 
+  val main : cons
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/main}main} *)
+
   val map : cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/map}map} *)
 
