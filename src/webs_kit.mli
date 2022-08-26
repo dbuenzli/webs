@@ -213,7 +213,13 @@ end
 
     {b TODO.}
     {ul
-    {- Bare.equal}
+    {- Bare.equal and Kurl.t equal.}
+    {- I think the encoding decoding symmetry assumption
+       is wrong. Maybe we should get the full request on decode,
+       e.g. see next point}
+    {- For responding e.g. with 301 we need more context to be
+       able to generate urls should we pass an url formatter/service
+       to decoder ?}
     {- Integrate fragment part ? If yes, in the [bare] type or on
        formatting functions ? Likely not on [bare], you never get fragments
        to decode so it seems a bit OT.}
@@ -321,7 +327,9 @@ module Kurl : sig
       {- We could generalize over the error. But then we need to carry it
          over everywhere.}} *)
 
-  (** {3:decode_help Decoder helpers} *)
+  (** {3:decode_help Decoder helpers}
+
+      {b TODO.} Provide easy redirect. *)
 
   val allow : 'a Http.Meth.constraint' list -> bare -> ('a, Http.resp) result
   (** [meths ms u] is:
