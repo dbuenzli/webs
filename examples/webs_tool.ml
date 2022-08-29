@@ -76,13 +76,14 @@ let cmd =
         See https://erratique.ch/software/webs for contact information."; ]
   in
   let exits =
-    Term.exit_info ~doc:"on indiscriminate error reported on stderr." 2 ::
-    Term.default_exits
+    Cmd.Exit.info ~doc:"on indiscriminate error reported on stderr." 2 ::
+    Cmd.Exit.defaults
   in
-  Term.(const webs $ quiet $ listener $ docroot $ dir_index),
-  Term.info "webs" ~version:"%%VERSION%%" ~doc ~man ~exits
+  Cmd.v (Cmd.info "webs" ~version:"%%VERSION%%" ~doc ~man ~exits)
+    Term.(const webs $ quiet $ listener $ docroot $ dir_index)
 
-let () = if !Sys.interactive then () else Term.exit_status @@ Term.eval cmd
+
+let () = if !Sys.interactive then () else exit (Cmd.eval' cmd)
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2020 The webs programmers

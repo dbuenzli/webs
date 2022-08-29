@@ -88,14 +88,14 @@ let quick_serve' ?version ?man ?(doc = "Undocumented service") ~name ~conf s =
   let service_path = service_path () in
   let max_connections = max_connections () in
   let exits =
-    Term.exit_info ~doc:"on indiscriminate error reported on stderr." 1 ::
-    Term.default_exits
+    Cmd.Exit.info ~doc:"on indiscriminate error reported on stderr." 1 ::
+    Cmd.Exit.defaults
   in
   let term = Term.(const (quick_service s) $ listener $ service_path $
                    max_connections $ conf)
   in
-  let info = Term.info name ?version ~doc ?man ~exits in
-  Term.exit_status @@ Term.eval (term, info)
+  let cmd = Cmd.v (Cmd.info name ?version ~doc ?man ~exits) term in
+  exit (Cmd.eval' cmd)
 
 let quick_serve ?version ?man ?doc ~name s =
   let conf = (Term.const (Ok ())) in
