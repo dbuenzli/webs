@@ -67,7 +67,8 @@ let read_clrfs s ~max_bytes buf fd =
   let i = ref 0 and free = ref max_bytes in
   (try
     while (!free > 0) do
-      match Webs_unix.Connector.read fd buf !i (Bytes.length buf - !i) with
+      let len = Bytes.length buf - !i in
+      match Webs_unix.Connector.read fd buf ~start:!i ~len with
       | 0 -> raise Exit
       | c ->
           let j = !i in
@@ -155,7 +156,7 @@ let write_resp c fd resp =
   let sec = Http.Private.encode_resp_header_section version st r hs in
   let sec = Bytes.unsafe_of_string sec in
   try
-    Webs_unix.Connector.write fd sec 0 (Bytes.length sec);
+    Webs_unix.Connector.write fd sec ~start:0 ~len:(Bytes.length sec);
     write_body fd;
   with
   | Unix.Unix_error (Unix.EPIPE, _, _) -> () (* disconnect TODO log ? *)

@@ -578,7 +578,7 @@ module Http = struct
               loop acc b s ~first (i + 1)
           | c -> Error (err_path_char c)
       in
-      loop [] (Buffer.create 255) s 1 1
+      loop [] (Buffer.create 255) s ~first:1 1
 
     let buffer_encode_path b segs =
       let add_seg seg =
@@ -1570,7 +1570,7 @@ end
       | Some p ->
           match Path.to_absolute_filepath p with
           | Error e -> Error (Resp.v ~explain:e bad_request_400)
-          | Ok filepath -> Ok (Path.prefix_filepath root filepath)
+          | Ok filepath -> Ok (Path.prefix_filepath ~prefix:root filepath)
 
     let to_query r =
       let url_query r = match query r with

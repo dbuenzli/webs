@@ -185,7 +185,7 @@ module Kurl = struct
 
   (* Decoder helpers *)
 
-  let allow allowed u = match Http.Meth.constrain allowed (Bare.meth u) with
+  let allow allowed u = match Http.Meth.constrain ~allowed (Bare.meth u) with
   | Ok _ as v -> v
   | Error ms -> Http.Resp.method_not_allowed_405 ~allowed:(List.map fst ms) ()
 
@@ -925,7 +925,7 @@ module Basic_auth = struct
       let resp =
         Http.Resp.with_status ~explain Http.unauthorized_401 (cancel r)
       in
-      Error (Http.Resp.override_headers hs resp)
+      Error (Http.Resp.override_headers ~by:hs resp)
     in
     match Http.Headers.find Http.authorization (Http.Req.headers r) with
     | None -> error_401 ~explain:"No authorization header"

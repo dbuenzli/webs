@@ -173,7 +173,7 @@ let write_resp c fd resp =
   let st = Http.Resp.status resp and reason = Http.Resp.reason resp in
   let sec = encode_resp_header_section st reason hs in
   let sec = Bytes.unsafe_of_string sec in
-  Webs_unix.Connector.write fd sec 0 (Bytes.length sec);
+  Webs_unix.Connector.write fd sec ~start:0 ~len:(Bytes.length sec);
   write_body fd
 
 (* Serving *)

@@ -99,33 +99,36 @@ let test_path () =
   assert (Http.Path.encode ["a"; "a,b;c=3"; "c"] = "/a/a,b;c=3/c");
   assert (Http.Path.encode [] = "");
   log "Webs.Http.Path.strip_prefix";
-  assert (Http.Path.strip_prefix [] [] = None);
-  assert (Http.Path.strip_prefix [] (["a"]) = None);
-  assert (Http.Path.strip_prefix [] (["a"; "b"]) = None);
-  assert (Http.Path.strip_prefix [""] [] = None);
-  assert (Http.Path.strip_prefix ["a"] [] = None);
-  assert (Http.Path.strip_prefix ["a"; "b"] [] = None);
-  assert (Http.Path.strip_prefix [""] [""] = Some [""]);
-  assert (Http.Path.strip_prefix [""] ["a"; "b"] = Some ["a"; "b"]);
-  assert (Http.Path.strip_prefix [""] [""; "a"; "b"] = Some [""; "a"; "b"]);
-  assert (Http.Path.strip_prefix ["a"] ["a"] = Some [""]);
-  assert (Http.Path.strip_prefix ["a"] ["a"; ""] = Some [""]);
-  assert (Http.Path.strip_prefix ["a"] ["a"; ""; "b"] = Some [""; "b"]);
-  assert (Http.Path.strip_prefix ["a"] ["a"; "b"] = Some ["b"]);
-  assert (Http.Path.strip_prefix ["a"] ["a"; "b"; ""] = Some ["b"; ""]);
-  assert (Http.Path.strip_prefix ["a"] ["a"; "b"; "c"] = Some ["b"; "c"]);
-  assert (Http.Path.strip_prefix ["a"] [""] = None);
-  assert (Http.Path.strip_prefix ["a"] ["b"] = None);
-  assert (Http.Path.strip_prefix ["a"] [""; "a"] = None);
-  assert (Http.Path.strip_prefix ["a"; ""] ["a"] = None);
-  assert (Http.Path.strip_prefix ["a"; ""] ["a"; ""] = Some [""]);
-  assert (Http.Path.strip_prefix ["a"] ["a"; ""; "b"] = Some [""; "b"]);
-  assert (Http.Path.strip_prefix ["a"; ""] ["a"; "b"] = Some ["b"]);
-  assert (Http.Path.strip_prefix ["a"; ""] ["a"; "b"; ""] = Some ["b"; ""]);
-  assert (Http.Path.strip_prefix ["a"; ""] ["a"; "b"; "c"] = Some ["b"; "c"]);
-  assert (Http.Path.strip_prefix ["a"; ""] [""] = None);
-  assert (Http.Path.strip_prefix ["a"; ""] ["b"] = None);
-  assert (Http.Path.strip_prefix ["a"; ""] [""; "a"] = None);
+  assert (Http.Path.strip_prefix ~prefix:[] [] = None);
+  assert (Http.Path.strip_prefix ~prefix:[] (["a"]) = None);
+  assert (Http.Path.strip_prefix ~prefix:[] (["a"; "b"]) = None);
+  assert (Http.Path.strip_prefix ~prefix:[""] [] = None);
+  assert (Http.Path.strip_prefix ~prefix:["a"] [] = None);
+  assert (Http.Path.strip_prefix ~prefix:["a"; "b"] [] = None);
+  assert (Http.Path.strip_prefix ~prefix:[""] [""] = Some [""]);
+  assert (Http.Path.strip_prefix ~prefix:[""] ["a"; "b"] = Some ["a"; "b"]);
+  assert (Http.Path.strip_prefix ~prefix:[""] [""; "a"; "b"] =
+                                              Some [""; "a"; "b"]);
+  assert (Http.Path.strip_prefix ~prefix:["a"] ["a"] = Some [""]);
+  assert (Http.Path.strip_prefix ~prefix:["a"] ["a"; ""] = Some [""]);
+  assert (Http.Path.strip_prefix ~prefix:["a"] ["a"; ""; "b"] = Some [""; "b"]);
+  assert (Http.Path.strip_prefix ~prefix:["a"] ["a"; "b"] = Some ["b"]);
+  assert (Http.Path.strip_prefix ~prefix:["a"] ["a"; "b"; ""] = Some ["b"; ""]);
+  assert (Http.Path.strip_prefix ~prefix:["a"] ["a"; "b"; "c"] = Some ["b"; "c"]);
+  assert (Http.Path.strip_prefix ~prefix:["a"] [""] = None);
+  assert (Http.Path.strip_prefix ~prefix:["a"] ["b"] = None);
+  assert (Http.Path.strip_prefix ~prefix:["a"] [""; "a"] = None);
+  assert (Http.Path.strip_prefix ~prefix:["a"; ""] ["a"] = None);
+  assert (Http.Path.strip_prefix ~prefix:["a"; ""] ["a"; ""] = Some [""]);
+  assert (Http.Path.strip_prefix ~prefix:["a"] ["a"; ""; "b"] = Some [""; "b"]);
+  assert (Http.Path.strip_prefix ~prefix:["a"; ""] ["a"; "b"] = Some ["b"]);
+  assert (Http.Path.strip_prefix ~prefix:["a"; ""] ["a"; "b"; ""] =
+                                                   Some ["b"; ""]);
+  assert (Http.Path.strip_prefix ~prefix:["a"; ""] ["a"; "b"; "c"] =
+                                                   Some ["b"; "c"]);
+  assert (Http.Path.strip_prefix ~prefix:["a"; ""] [""] = None);
+  assert (Http.Path.strip_prefix ~prefix:["a"; ""] ["b"] = None);
+  assert (Http.Path.strip_prefix ~prefix:["a"; ""] [""; "a"] = None);
   log "Webs.Http.Path.filepath_ext";
   assert (Http.Path.filepath_ext "" = "");
   assert (Http.Path.filepath_ext "/" = "");
@@ -165,7 +168,7 @@ let test_path () =
   in
   let test ?(trace = false) root path expect =
     let rel = Http.Path.relative ~src:root ~dst:path in
-    let cat = Http.Path.undot_and_compress (concat_rel root rel) in
+    let cat = Http.Path.undot_and_compress (concat_rel ~root rel) in
     if rel = expect && path = cat then begin
       if trace then
         Format.printf

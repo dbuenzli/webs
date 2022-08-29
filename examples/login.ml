@@ -114,7 +114,7 @@ let service ~private_key req =
     | ["logout"] -> logout_user ~and_goto:[""] user req
     | _ -> Session.for_result user (Http.Resp.not_found_404 ())
   in
-  Session.setup user_state (session private_key) serve req
+  Session.setup user_state (session ~private_key) serve req
 
 let main () =
   let private_key = Authenticatable.random_private_key_hs256 () in
