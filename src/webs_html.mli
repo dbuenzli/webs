@@ -87,8 +87,11 @@ module At : sig
   val if' : bool -> t -> t
   (** [if' b a] is [a] if [b] is [true] and {!void} otherwise. *)
 
-  val if_some : name -> string option -> t
-  (** [if_some n o] is [v n value] if [o] is [Some value] and {!void}
+  val if_some : t option -> t
+  (** [if_some o] is [a] if [o] is [Some a] and {!void} if [o] is [None]. *)
+
+  val if_value : name -> string option -> t
+  (** [if_value n o] is [v n value] if [o] is [Some value] and {!void}
       if [o] is [None]. *)
 
   val to_pair : t -> string * string
