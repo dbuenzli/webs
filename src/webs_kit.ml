@@ -220,6 +220,8 @@ module Kurl = struct
       kind ?root_is ?name enc dec
   end
 
+  let any = Kind.bare ~name:"any" ~root_is:(`Dir (Some "index")) ()
+
   (* Kinded url requests *)
 
   type t = V : 'a kind * 'a -> t
@@ -425,7 +427,8 @@ module Kurl = struct
         ?(disable_rel = false) ?(use_exts = false) ?(scheme = "")
         ?(authority = "") ~root ()
       =
-      { disable_rel; use_exts; scheme; authority; root; kind_paths = Imap.empty}
+      let kind_paths = Imap.add any.uid [""] Imap.empty in
+      { disable_rel; use_exts; scheme; authority; root; kind_paths }
 
     let with_fmt ?disable_rel ?use_exts ?scheme ?authority ?root uf =
       { disable_rel = Option.value ~default:uf.disable_rel disable_rel;

@@ -356,18 +356,23 @@ module Kurl : sig
       codec bare URL request values. [name] is a name used for debugging
       purposes (defaults to [""]).
 
-      [root_is] defines the root path ([[""]]) encoding behaviour relative
-      to the service binding path. With:
+      [root_is] defines formatting behaviour of the root path ([[""]])
+      relative to the service binding path. With:
 
       {ul
       {- [`File] the binding path encodes the root. Note that since the
          binding path must be {{!wf_paths}well-formed} it is guaranteed to
          lack a trailing slash. If extension formatting is requested and there
-         is one in the encoded bare, it is appended to it.}
+         is one in the encoded bare, it is appended to it. For example
+         if the URL kind is bound to path [["mykind"]] and [enc] encodes a
+         bare URL with path [[""]] the formatted URL will be ["/mykind"].}
       {- [`Dir seg] the binding path with a trailing slash is the resulting
          path. If extension formatting is requested and [seg] is [Some seg]
          then both segment [seg] (e.g. "index") and the extension are appended,
-         otherwise the path is left as is.}}
+         otherwise the path is left as is. For example
+         if the URL kind is bound to path [["mykind"]] and [enc] encodes a
+         bare URL with path [[""]] the formatted URL will be ["/mykind/"]
+         or [/mykind/seg] if extension formatting is requested.}}
 
        {b TODO.} Should [root_is] also affect decoding ?
 
@@ -408,6 +413,19 @@ module Kurl : sig
         formatting tricks. *)
   end
 
+  val any : bare kind
+  (** [any] is [Kind.bare ~name:"any" ~root_is:(`Dir (Some "index")) ()].
+      This is a catch-all bare request kind defined. It is
+      always added at the root of URL formatters.
+
+      In conjunction with {!Bare.of_req_referer} it allows for example
+      to easily format relative URLs for requests performed by HTML
+      page components or for request that do not exist in the service
+      space like 404.
+
+      You can also bind it at the root of your service tree as the last
+      service. It will provide you with a catch all handler. *)
+
   (** {1:kinded Kinded URL requests} *)
 
   type t = V : 'a kind * 'a -> t (** *)
@@ -426,10 +444,11 @@ module Kurl : sig
   (** [service k f] is a service handling URL requests of kind [k] with
       [f].
 
-      The return type of ['a] is common to all services. Usually this is a
-      function which when given arguments common to all services
-      effectively handles the request. The service type simply hides the
-      first, request kind specific, argument of these functions. *)
+      The return type of ['a] is common to all services. Usually this
+      is a function which when given arguments common to all services
+      effectively handles the request. The service type simply hides
+      the first, request kind specific, argument of these
+      functions. *)
 
   val map_service : ('a -> 'b) -> 'a service -> 'b service
   (** [map_service f s] applies [f] to the service of [s]. *)
@@ -448,8 +467,8 @@ module Kurl : sig
   val find_service : 'a tree -> bare -> ('a option, Http.resp) result
   (** [find_service t u] finds the service for handling [u]'s
       {!Webs.Req.path}. [Ok None] is returned if no URL request kind
-      matched. [Error _] is returned if a URL request kind
-      matched but errored. *)
+      matched. [Error _] is returned if a URL request kind matched but
+      errored. *)
 
   (** {2:bind Binding services} *)
 
@@ -496,13 +515,6 @@ module Kurl : sig
 
       {b TODO}
       {ul
-      {- Should we allow to attach a default bare url to the
-         the formatter w.r.t. relative urls are rendered. In hyperbib
-         it would allow to get rid of quite a bit of the [self] stuff.}
-      {- Add functions for untyped formatting. Actually no
-         {!Kind.val-bare} does the trick. Document how to go about it via a
-         bare url kind, especially if you need relative info for out of
-         space urls.}
       {- Move out of [Kurl] as [Fmt_url] or [Urlf] or
          [Urlfmt] or [Url_fmt] ?}} *)
   module Fmt : sig
@@ -528,7 +540,14 @@ module Kurl : sig
         {- [disable_rel] turns {{!section-rel}relative} formatting functions
            into absolute ones (defaults to [false]). [true] is faster.
            The idea is to disable it for serving over the [http[s]] scheme
-           and enable it for serving over the [file] scheme.}} *)
+           and enable it for serving over the [file] scheme.}}
+
+        This empty URL formatter has {!any} bound on the root. This means
+        that untyped URL formatting is readily available. For example via:
+{[
+        let url uf path = Kurl.Url.url uf Kurl.(V (any, Bare.v `GET path))
+]}
+    *)
 
     val with_fmt :
       ?disable_rel:bool -> ?use_exts:bool -> ?scheme:string ->
