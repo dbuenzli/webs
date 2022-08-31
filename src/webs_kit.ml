@@ -841,7 +841,6 @@ module Session = struct
   end
 
   type 'a resp = 'a option * Http.resp
-  type nonrec 'a result = ('a resp, 'a resp) result
 
   let setup sd h service = fun req ->
     let r = h.load sd req in

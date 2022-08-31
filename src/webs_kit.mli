@@ -1093,9 +1093,6 @@ module Session : sig
   val for_error : 's option -> ('a, 'b) result -> ('a, 's option * 'b) result
   (** [for_error st r] injects [st] into the error case of [r]. *)
 
-  type nonrec 'a result = ('a resp, 'a resp) result
-
-
   (** {1:design_notes Design notes}
 
       {b TODO.} Decide whether they makes sense.
