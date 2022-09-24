@@ -72,7 +72,7 @@ val service_path : t -> Http.path
 
 (** {1:serving Serving} *)
 
-val serve : t -> Http.service -> (unit, string) result
+val serve : t -> (Http.req -> Http.resp) -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks until
     the response of [s] for the request has been served. The error is
     returned in case of connector error, it's a good practice to write

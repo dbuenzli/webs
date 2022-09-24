@@ -1022,7 +1022,8 @@ module Session : sig
 
   val setup :
     'a state -> ('a, 'e) handler ->
-    (('a option, 'e) result -> Http.req -> 'a resp) -> Http.service
+    (('a option, 'e) result -> Http.req -> 'a resp) ->
+    (Http.req -> Http.resp)
   (** [setup sd h service] handles loading and saving state described
       by [sd] with handler [h] for service [service].
 

@@ -1616,7 +1616,6 @@ end
 
   type resp = Resp.t
   type req = Req.t
-  type service = req -> resp
 end
 
 module Connector = struct

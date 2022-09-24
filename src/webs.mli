@@ -1670,13 +1670,6 @@ module Http : sig
           absolute path conversion fails. *)
   end
 
-  (** {1:service Service} *)
-
-  type service = req -> resp
-  (** The type for services. Maps requests to responses. Note that
-      services should not raise exceptions (but connectors should be
-      prepared to handle spurious ones). *)
-
   (** {1:low_level_codecs Low-level codecs} *)
 
   (** Low-level codecs
