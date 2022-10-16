@@ -51,6 +51,7 @@ module At : sig
     val required : name
     val selected : name
     val src : name
+    val style : name
     val tabindex : name
     val title : name
     val type' : name
@@ -216,6 +217,10 @@ module At : sig
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/src}
       src} *)
 
+  val style : string cons
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attribute/style}
+      style}. *)
+
   val tabindex : int cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/tabindex}
       tabindex} *)
@@ -258,11 +263,13 @@ module El : sig
   (** [v ?at n cs] is an element with name [n], attributes [at]
       (defaults to [[]]) and children [cs].
 
-      Except for {!At.class'} the list [at] must not define an
-      attribute more than once; this is not checked by the module.
-      The {!At.class'} is treated specially: multiple specifications
-      are gathered to form a single, space separated, attribute value
-      for the [class] HTML attribute.
+      Except for {!At.class'} and {!At.style} the list [at] must not
+      define an attribute more than once; this is not checked by the
+      module. For {!At.class'} multiple specifications are gathered to
+      form a single, space separated, attribute value for the [class]
+      HTML attribute. For {!At.style} multiple specifications are
+      gathered to form a single, semi-colon seperated, attribute value
+      for the [style] HTML attribute.
 
       See also (and favor) {{!El.section-cons}element constructors}. *)
 

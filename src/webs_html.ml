@@ -36,6 +36,7 @@ module At = struct
     let rows = "rows"
     let selected = "selected"
     let src = "src"
+    let style = "style"
     let spellcheck = "spellcheck"
     let tabindex = "tabindex"
     let title = "title"
@@ -86,6 +87,7 @@ module At = struct
   let rows i = int Name.rows i
   let selected = true' Name.selected
   let src s = v Name.src s
+  let style s = v Name.style s
   let spellcheck = v Name.spellcheck
   let tabindex i = int Name.tabindex i
   let title s = v Name.title s
@@ -153,14 +155,18 @@ module El = struct
       [ "area"; "base"; "br"; "col"; "embed"; "hr"; "img"; "input"; "link";
         "meta"; "param"; "source"; "track"; "wbr" ]
 
-  let rec add_ats b cs atts =
+  let rec add_ats b cs ss atts =
     let add_at b n v = adds b n; adds b "=\""; adds_esc b v; addc b '\"' in
     match atts with
-    | ("class", c) :: atts -> add_ats b (c :: cs) atts
-    | at :: atts when at == At.void -> add_ats b cs atts
-    | (n, v) :: atts -> addc b ' '; add_at b n v; add_ats b cs atts
-    | [] when cs = [] -> ()
-    | [] -> addc b ' '; add_at b "class" (String.concat " " (List.rev cs))
+    | ("class", c) :: atts -> add_ats b (c :: cs) ss atts
+    | ("style", s) :: atts -> add_ats b cs (s :: ss) atts
+    | at :: atts when at == At.void -> add_ats b cs ss atts
+    | (n, v) :: atts -> addc b ' '; add_at b n v; add_ats b cs ss atts
+    | [] ->
+        if cs <> []
+        then (addc b ' '; add_at b "class" (String.concat " " (List.rev cs)));
+        if ss <> []
+        then (addc b ' '; add_at b "style" (String.concat ";" (List.rev ss)))
 
   let rec add_child b = function (* not T.R. *)
   | Raw r -> adds b r
@@ -177,7 +183,7 @@ module El = struct
           end
       end
   | El (n, atts, cs) ->
-      addc b '<'; adds b n; add_ats b [] atts; addc b '>';
+      addc b '<'; adds b n; add_ats b [] [] atts; addc b '>';
       if not (Sset.mem n void_els)
       then (List.iter (add_child b) cs; adds b "</"; adds b n; addc b '>')
 
