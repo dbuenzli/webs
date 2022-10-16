@@ -116,24 +116,20 @@ module At : sig
 (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/autocomplete}autocomplete} *)
 
   val autofocus : t
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/autofocus}
-      autofocus} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/autofocus}autofocus} *)
 
   val charset : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/charset}
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}
       charset} *)
 
   val checked : t
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/checked}
-      checked} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#checked}checked} *)
 
   val class' : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/class}
-      class} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/class}class} *)
 
   val content : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/content}
-      content} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content}content} *)
 
   val contenteditable : bool cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/contenteditable}contenteditable} *)
@@ -142,8 +138,7 @@ module At : sig
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea#attr-cols}cols} *)
 
   val defer : t
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/defer}
-      defer} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-defer}defer} *)
 
   val disabled : t
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/disabled}
@@ -156,44 +151,39 @@ module At : sig
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/draggable}draggable} *)
 
   val for' : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/for'}
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/for}
       for'} *)
 
   val height : int cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/height}
-      height} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}height} *)
 
   val href : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/href}
-      href} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}href} *)
 
   val hidden : t
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/hidden}hidden} *)
 
   val id : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/id}
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/id}
       id} *)
 
   val lang : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/lang}
-      lang} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/lang}lang} *)
 
   val list : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#attr-list}list} *)
 
   val media : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/media}
-      media} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}media} *)
 
   val name : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/name}
-      name} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}name} *)
 
   val method' : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method}method}. *)
 
   val placeholder : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/placeholder}
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}
       placeholder} *)
 
   val rel : string cons
@@ -214,34 +204,29 @@ module At : sig
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/option#attr-selected}selected} *)
 
   val src : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/src}
-      src} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}src} *)
 
   val style : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attribute/style}
-      style}. *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/style}style} *)
 
   val tabindex : int cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/tabindex}
-      tabindex} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/tabindex}tabindex} *)
 
   val title : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/title}
-      title} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/title}title} *)
 
   val type' : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/type}
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}
       type} *)
 
   val value : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/value}
-      value} *)
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}value} *)
 
   val wrap : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea#attr-wrap}wrap} *)
 
   val width : int cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/width}
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}
       width} *)
 end
 
@@ -264,7 +249,7 @@ module El : sig
       (defaults to [[]]) and children [cs].
 
       Except for {!At.class'} and {!At.style} the list [at] must not
-      define an attribute more than once; this is not checked by the
+      specify an attribute more than once; this is not checked by the
       module. For {!At.class'} multiple specifications are gathered to
       form a single, space separated, attribute value for the [class]
       HTML attribute. For {!At.style} multiple specifications are
