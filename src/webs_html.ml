@@ -51,7 +51,6 @@ module At = struct
   let is_void (n, v) = String.equal n "" && String.equal v ""
   let if' b at = if b then at else void
   let if_some = function None -> void | Some at -> at
-  let if_value n o = match o with None -> void | Some value -> (n, value)
   let true' n = (n, "")
   let int n i = (n, string_of_int i)
   let to_pair = Fun.id
