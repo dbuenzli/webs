@@ -34,11 +34,16 @@ module At : sig
     val charset : name
     val checked : name
     val class' : name
+    val cols : name
     val content : name
+    val contenteditable : name
     val defer : name
+    val dir : name
     val disabled : name
+    val draggable : name
     val for' : name
     val height : name
+    val hidden : name
     val href : name
     val id : name
     val lang : name
@@ -49,7 +54,9 @@ module At : sig
     val placeholder : name
     val rel : name
     val required : name
+    val rows : name
     val selected : name
+    val spellcheck : name
     val src : name
     val style : name
     val tabindex : name
@@ -128,24 +135,24 @@ module At : sig
   val class' : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/class}class} *)
 
+  val cols : int cons
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea#attr-cols}cols} *)
+
   val content : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content}content} *)
 
   val contenteditable : bool cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/contenteditable}contenteditable} *)
 
-  val cols : int cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea#attr-cols}cols} *)
-
   val defer : t
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#attr-defer}defer} *)
+
+  val dir : string cons
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/dir}dir} *)
 
   val disabled : t
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/disabled}
       disabled} *)
-
-  val dir : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/dir}dir} *)
 
   val draggable : bool cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/draggable}draggable} *)
@@ -157,11 +164,11 @@ module At : sig
   val height : int cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}height} *)
 
-  val href : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}href} *)
-
   val hidden : t
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/hidden}hidden} *)
+
+  val href : string cons
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}href} *)
 
   val id : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/id}
@@ -176,11 +183,11 @@ module At : sig
   val media : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}media} *)
 
-  val name : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}name} *)
-
   val method' : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method}method}. *)
+
+  val name : string cons
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}name} *)
 
   val placeholder : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}
@@ -197,11 +204,11 @@ module At : sig
   val rows : int cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea#attr-rows}rows} *)
 
-  val spellcheck : string cons
-  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/spellcheck}spellcheck} *)
-
   val selected : t
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Element/option#attr-selected}selected} *)
+
+  val spellcheck : string cons
+  (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/spellcheck}spellcheck} *)
 
   val src : string cons
   (** {{:https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes}src} *)
