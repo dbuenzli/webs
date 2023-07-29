@@ -39,7 +39,7 @@ let service req =
   Http.Resp.result @@ match Http.Req.path req with
   | [""] ->
       let* `GET = Http.Req.allow Http.Meth.[get] req in
-      Ok (Http.Resp.html Http.ok_200 index)
+      Ok (Http.Resp.html Http.Status.ok_200 index)
   | ["websocket"] ->
       let* `GET = Http.Req.allow Http.Meth.[get] req in
       Ok (Webs_websocket.upgrade req)

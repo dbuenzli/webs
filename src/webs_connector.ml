@@ -10,7 +10,7 @@ type log_msg =
 [ `Service_exn of exn * Stdlib.Printexc.raw_backtrace
 | `Connector_exn of exn * Stdlib.Printexc.raw_backtrace
 | `Connection_reset
-| `Trace of dur_ns * Http.req option * Http.resp option ]
+| `Trace of dur_ns * Http.Req.t option * Http.Resp.t option ]
 
 let no_log _ = ()
 

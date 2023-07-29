@@ -38,7 +38,7 @@ let count c req =
   | Some "prev" -> c - 1
   | Some _ | None -> c
   in
-  Some c', Http.Resp.html Http.ok_200 (count c')
+  Some c', Http.Resp.html Http.Status.ok_200 (count c')
 
 let service ~private_key req =
   Http.Resp.result @@ match Http.Req.path req with

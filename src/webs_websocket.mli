@@ -15,34 +15,34 @@ open Webs
 
 (** {1:upgrade Upgrading} *)
 
-val upgradable : Http.headers -> bool
+val upgradable : Http.Headers.t -> bool
 (** [upgradable hs] is [true] iff [hs] has {!Webs.Http.H.connection}
     with an ["upgrade"] and {!Webs.Http.H.upgrade} with a ["websocket"]. *)
 
-val upgrade : Http.req -> Http.resp
+val upgrade : Http.Req.t -> Http.Resp.t
 (** [upgrade] responds to upgrade the request to a websocket.
 
     {b FIXME} handle protocols, doc details. *)
 
 (** {1:headers Headers} *)
 
-val sec_websocket_accept : Http.name
+val sec_websocket_accept : Http.Name.t
 (** {{:https://tools.ietf.org/html/rfc6455#section-11.3.3}
     [sec-websocket-accept]} *)
 
-val sec_websocket_extensions : Http.name
+val sec_websocket_extensions : Http.Name.t
 (** {{:https://tools.ietf.org/html/rfc6455#section-11.3.2}
     [sec-websocket-extensions]} *)
 
-val sec_websocket_key : Http.name
+val sec_websocket_key : Http.Name.t
 (** {{:https://tools.ietf.org/html/rfc6455#section-11.3.1}
     [sec-websocket-key]} *)
 
-val sec_websocket_protocol : Http.name
+val sec_websocket_protocol : Http.Name.t
 (** {{:https://tools.ietf.org/html/rfc6455#section-11.3.4}
     [sec-websocket-protocol]} *)
 
-val sec_websocket_version : Http.name
+val sec_websocket_version : Http.Name.t
 (** {{:https://tools.ietf.org/html/rfc6455#section-11.3.5}
     [sec-websocket-version]} *)
 

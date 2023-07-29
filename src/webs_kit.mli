@@ -18,7 +18,8 @@ module Gateway : sig
       web service howto. *)
 
   val send_file :
-    header:Http.name -> Http.req -> Http.fpath -> (Http.resp, 'e) result
+    header:Http.Name.t -> Http.Req.t -> Http.Path.fpath ->
+    (Http.Resp.t, 'e) result
   (** [send_file ~header r file] lets {e the gateway} respond to [r]
       with file [file], use {!Req_to.absolute_filepath} to determine one
       from [r] safely. More precisely this a {!Webs.Http.ok_200} empty
@@ -33,13 +34,13 @@ module Gateway : sig
       e.g. the etag and conditional headers but at least with Nginx
       that doesn't seem to be the case. *)
 
-  val x_accel_redirect : Http.name
+  val x_accel_redirect : Http.Name.t
   (** [x_accel_redirect] is the header name
       {{:https://www.nginx.com/resources/wiki/start/topics/examples/x-accel/}
       ["x-accel-redirect"]} used
       by Nginx for internal redirection. *)
 
-  val x_sendfile : Http.name
+  val x_sendfile : Http.Name.t
   (** [x_sendfile] is the header name ["x-sendfile"]. Used by Apache and
       Lighttpd for file serving. *)
 end
@@ -94,11 +95,11 @@ module Res : sig
 
     val resolve :
       ?eq:('name -> 'name -> bool) ->
-      get_res:('id -> ('res, Http.resp) result) ->
+      get_res:('id -> ('res, Http.Resp.t) result) ->
       res_name:('res -> 'name) ->
       res_url:('name -> 'id -> string) ->
       req_name:'name option ->
-      req_id:'id -> unit -> ('res, Http.resp) result
+      req_id:'id -> unit -> ('res, Http.Resp.t) result
     (** [resolve ~eq ~get_res ~res_name ~res_url ~req_name ~req_id ()]
         implements the 301 redirection logic spelled out in the preamble of
         this module.
@@ -157,7 +158,7 @@ module Res : sig
     val error_message : error -> string
     (** [error_message e] is an english error message for [e]. *)
 
-    val error_to_resp : error -> Http.resp
+    val error_to_resp : error -> Http.Resp.t
     (** [error_to_resp e] is a {{!Webs.Http.bad_request_400}400} bad request
         for [e]. The response's reason is determined by {!error_to_string}. *)
 
@@ -180,7 +181,7 @@ module Res : sig
         {- [Error `Syntax] in case [s] contains any non US-ASCII digits or
             if [s] has a leading [0] and is not ["0"].}} *)
 
-    val decode : string -> (t, Http.resp) result
+    val decode : string -> (t, Http.Resp.t) result
     (** [decode s] is [Result.map_error error_to_resp (of_string s)]. *)
   end
 end
@@ -249,7 +250,8 @@ module Kurl : sig
       URL path, an URL query and an optional URL path file extension
       used by some URL formatting modes. *)
 
-  val bare : ?ext:string -> ?query:Http.query -> Http.meth -> Http.path -> bare
+  val bare :
+    ?ext:string -> ?query:Http.Query.t -> Http.Meth.t -> Http.Path.t -> bare
   (** [bare m p ~query ~ext] is an URL request to path [p] with method
       [m], query [query] (defaults to {!Webs.Http.Query.empty}) and URL
       path file extension [ext] (defaults to [""]). *)
@@ -260,32 +262,33 @@ module Kurl : sig
     type t = bare
     (** See {!type-bare}. *)
 
-    val v : ?ext:string -> ?query:Http.query -> Http.meth -> Http.path -> bare
+    val v :
+      ?ext:string -> ?query:Http.Query.t -> Http.Meth.t -> Http.Path.t -> bare
     (** See {!val-bare}. *)
 
-    val meth : bare -> Http.meth
+    val meth : bare -> Http.Meth.t
     (** [meth u] is the HTTP method of [u]. *)
 
-    val path : bare -> Http.path
+    val path : bare -> Http.Path.t
     (** [path u] is the URL path of [u]. *)
 
-    val query : bare -> Http.query
+    val query : bare -> Http.Query.t
     (** [query u] is the URL query of [u]. *)
 
     val ext : bare -> string
     (** [ext u] is the optional URL path file extension of [u]. This is
         used by some URL formatting modes. *)
 
-    val with_path : Http.path -> bare -> bare
+    val with_path : Http.Path.t -> bare -> bare
     (** [with_path p b] is [b] with path [p]. *)
 
-    val of_req : ?ext:string -> Http.req -> bare
+    val of_req : ?ext:string -> Http.Req.t -> bare
     (** [of_req ~ext r] is a bare URL request from [r]. {!Bare.meth} is
         {!Http.Req.meth}, {!Bare.path} is {!Http.Req.path}, {!Bare.query} is
         parsed {!Http.Req.query}, [ext] defaults to [""]. *)
 
     val of_req_referer :
-      ?ext:string -> ?meth:Http.meth -> Http.req -> (bare, string) result
+      ?ext:string -> ?meth:Http.Meth.t -> Http.Req.t -> (bare, string) result
     (** [of_req_referer ~ext r] is a bare URL request from [r]. {!Bare.meth}
         is [meth] (defaults to {!Http.Req.meth r}),
         {!Bare.path} and {!Bare.query} are derived from the {!Http.referer}
@@ -304,7 +307,7 @@ module Kurl : sig
 
   (** {2:decoders Decoders } *)
 
-  type 'a dec = bare -> ('a option, Http.resp) result
+  type 'a dec = bare -> ('a option, Http.Resp.t) result
   (** The type for decoding a bare URL request to a request value of
       type ['a]. The path in [bare] url is relative to the service
       tree binding point.
@@ -331,7 +334,7 @@ module Kurl : sig
 
       {b TODO.} Provide easy redirect. *)
 
-  val allow : 'a Http.Meth.constraint' list -> bare -> ('a, Http.resp) result
+  val allow : 'a Http.Meth.constraint' list -> bare -> ('a, Http.Resp.t) result
   (** [meths ms u] is:
         {ul
         {- [Ok (Bare.meth u)] if [List.mem (Bare.meth u, Bare.meth u) ms]}
@@ -464,7 +467,7 @@ module Kurl : sig
 
   (** {2:req Request handling} *)
 
-  val find_service : 'a tree -> bare -> ('a option, Http.resp) result
+  val find_service : 'a tree -> bare -> ('a option, Http.Resp.t) result
   (** [find_service t u] finds the service for handling [u]'s
       {!Webs.Req.path}. [Ok None] is returned if no URL request kind
       matched. [Error _] is returned if a URL request kind matched but
@@ -472,7 +475,7 @@ module Kurl : sig
 
   (** {2:bind Binding services} *)
 
-  val bind : Http.path -> 'a service -> 'a tree -> 'a tree
+  val bind : Http.Path.t -> 'a service -> 'a tree -> 'a tree
   (** [bind p s t] is [t] with {{!wf_paths}well-formed} path [p] bound to [s].
       Note shorter bindings to [p] in [t] take precedence, but [s] takes
       precedence over existing bindings at [p]. More precisely:
@@ -490,18 +493,18 @@ module Kurl : sig
   val unbind_service : 'a service -> 'a tree -> 'a tree
   (** [unbind s t] is [t] with the binding of [s] removed (if any). *)
 
-  val unbind_path : Http.path -> 'a tree -> 'a tree
+  val unbind_path : Http.Path.t -> 'a tree -> 'a tree
   (** [unbind_path p t] is [t] with all services bound to [p] removed
       (if any). *)
 
-  val service_path : 'a service -> 'a tree -> Http.path option
+  val service_path : 'a service -> 'a tree -> Http.Path.t option
   (** [service_path s t] is the path to which [s] is bound in [t] (if any). *)
 
-  val path_services : Http.path -> 'a tree -> 'a service list
+  val path_services : Http.Path.t -> 'a tree -> 'a service list
   (** [path_services p t] are the services bound to [p] in [t] (if any). *)
 
   val fold_paths :
-    (Http.path -> 'a service list -> 'b -> 'b) -> 'a tree -> 'b -> 'b
+    (Http.Path.t -> 'a service list -> 'b -> 'b) -> 'a tree -> 'b -> 'b
   (** [fold_paths f t acc] folds [f] and [acc] over all paths of [t] in
       lexicographic order. This includes paths on which the service list
       is empty. *)
@@ -527,7 +530,7 @@ module Kurl : sig
 
     val empty :
       ?disable_rel:bool -> ?use_exts:bool -> ?scheme:string ->
-      ?authority:string -> root:Http.path -> unit -> fmt
+      ?authority:string -> root:Http.Path.t -> unit -> fmt
     (** [empty ~disable_rel ~use_exts ~scheme ~host ~root ()] is
         an empty URL formatter with:
         {ul
@@ -551,7 +554,7 @@ module Kurl : sig
 
     val with_fmt :
       ?disable_rel:bool -> ?use_exts:bool -> ?scheme:string ->
-      ?authority:string -> ?root:Http.path -> fmt -> fmt
+      ?authority:string -> ?root:Http.Path.t -> fmt -> fmt
     (** [with_fmt uf] is [uf] with formatter parameters changed
         as specified. See {!Fmt.val-empty}. *)
 
@@ -561,7 +564,7 @@ module Kurl : sig
     val authority : fmt -> string
     (** [authority uf] is the authority of [uf], can be empty. *)
 
-    val root : fmt -> Http.path
+    val root : fmt -> Http.Path.t
     (** [root uf] is the root path of [uf]. *)
 
     val disable_rel : fmt -> bool
@@ -576,7 +579,7 @@ module Kurl : sig
 
     (** {2:bind Binding} *)
 
-    val bind : Http.path -> 'a kind -> fmt -> fmt
+    val bind : Http.Path.t -> 'a kind -> fmt -> fmt
     (** [bind p k uf] is [uf] with URL requests of kind [k] bound to
         {{!Kurl.wf_paths}well-formed} path [p].
 
@@ -595,7 +598,7 @@ module Kurl : sig
 
         Raises [Invalid_arg] if [k] is not part of [fmt]'s tree. *)
 
-    val req : ?full:bool -> fmt -> kurl -> Http.meth * string
+    val req : ?full:bool -> fmt -> kurl -> Http.Meth.t * string
     (** [req] is like {!Fmt.val-bare}' but returns an encoded URL path
         and query (if any).
 
@@ -626,7 +629,7 @@ module Kurl : sig
 
         Raises [Invalid_arg] if [root] or [sub] is not part of [fmt]'s tree. *)
 
-    val rel_req : fmt -> src:kurl -> dst:kurl -> Http.meth * string
+    val rel_req : fmt -> src:kurl -> dst:kurl -> Http.Meth.t * string
     (** [rel_req] is like {!rel_bare} but returns an encoded URL {e path},
         including the query (if any). *)
 
@@ -892,7 +895,7 @@ module Authenticated_cookie : sig
   val set :
     private_key:Authenticatable.private_key ->
     expire:Authenticatable.time option -> ?atts:Http.Cookie.atts ->
-    name:string -> string -> Http.resp -> Http.resp
+    name:string -> string -> Http.Resp.t -> Http.Resp.t
   (** [set ~private_key ~expire ~atts ~name data resp] sets in [resp] the
       cookie [name] to [data] authenticated by [private_key] and expiring at
       [expire] (see {!Authenticatable.encode}). [atts] are the cookie's
@@ -902,7 +905,8 @@ module Authenticated_cookie : sig
       authenticated data, it does not affect HTTP cookie expiration. Use the
       [max_age] attribute of {!Webs.Http.Cookie.val-atts} for that.  *)
 
-  val clear : ?atts:Http.Cookie.atts -> name:string -> Http.resp -> Http.resp
+  val clear :
+    ?atts:Http.Cookie.atts -> name:string -> Http.Resp.t -> Http.Resp.t
   (** [clear ~atts ~name resp] clears the cookie named [name] in
       [resp] by setting its [max-age] to [-1] and value to
       [""]. [atts] should be the same value as the one given to
@@ -925,7 +929,7 @@ module Authenticated_cookie : sig
 
   val find :
     private_key:Authenticatable.private_key ->
-    now:Authenticatable.time option -> name:string -> Http.req ->
+    now:Authenticatable.time option -> name:string -> Http.Req.t ->
     ((Authenticatable.time option * string) option, error) result
   (** [find ~private_key ~now ~name req] is the cookie of [req] named
       [name] authenticated and expired by [private_key] and
@@ -995,8 +999,8 @@ module Session : sig
     (** See {!Session.type-handler}. *)
 
     val v :
-      load:('a state -> Http.req -> ('a option, 'e) result) ->
-      save:('a state -> 'a option -> Http.resp -> Http.resp) -> unit ->
+      load:('a state -> Http.Req.t -> ('a option, 'e) result) ->
+      save:('a state -> 'a option -> Http.Resp.t -> Http.Resp.t) -> unit ->
       ('a, 'e) handler
     (** [handler ~load ~save ()] is a session handler using [load]
         to setup the session state and [save] to save it before responding.
@@ -1009,21 +1013,21 @@ module Session : sig
         from the one that was loaded. *)
 
     val load :
-      ('a, 'e) handler -> ('a state -> Http.req -> ('a option, 'e) result)
+      ('a, 'e) handler -> ('a state -> Http.Req.t -> ('a option, 'e) result)
     (** [load h] is the state loading function of [h]. *)
 
     val save :
-      ('a, 'e) handler -> ('a state -> 'a option -> Http.resp -> Http.resp)
+      ('a, 'e) handler -> ('a state -> 'a option -> Http.Resp.t -> Http.Resp.t)
     (** [save h] is the state saving function of [h]. *)
   end
 
-  type 'a resp = 'a option * Http.resp
+  type 'a resp = 'a option * Http.Resp.t
   (** The type for session responses. *)
 
   val setup :
     'a state -> ('a, 'e) handler ->
-    (('a option, 'e) result -> Http.req -> 'a resp) ->
-    (Http.req -> Http.resp)
+    (('a option, 'e) result -> Http.Req.t -> 'a resp) ->
+    (Http.Req.t -> Http.Resp.t)
   (** [setup sd h service] handles loading and saving state described
       by [sd] with handler [h] for service [service].
 
@@ -1156,9 +1160,9 @@ module Basic_auth : sig
       that. If this sources from storage at least hash your passwords. *)
 
   val enticate :
-    ?cancel:(Http.req -> Http.resp) -> (* TODO we want to specify a body. *)
-    check:check -> realm:string -> Http.req ->
-    (user * Http.req, Http.resp) result
+    ?cancel:(Http.Req.t -> Http.Resp.t) -> (* TODO we want to specify a body. *)
+    check:check -> realm:string -> Http.Req.t ->
+    (user * Http.Req.t, Http.Resp.t) result
   (** [enticate ~check ~realm ~forbidden_body ~cancel req] is:
       {ul
       {- [Ok (user, req)] if the basic {{!Webs.Http.authorization}

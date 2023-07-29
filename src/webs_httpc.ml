@@ -38,7 +38,7 @@ type t =
     max_connections : int;
     max_req_body_byte_size : int;
     max_req_headers_byte_size : int;
-    service_path : Http.path;
+    service_path : Http.Path.t;
     mutable serving : bool; }
 
 let create
@@ -166,11 +166,11 @@ let write_resp c fd resp =
 let resp_of_error e =
   let reason e = if e = "" then None else Some e in
   match e with
-  | `Service -> Http.Resp.v Http.server_error_500
-  | `Too_large -> Http.Resp.v Http.payload_too_large_413
-  | `Malformed e -> Http.Resp.v Http.bad_request_400 ?reason:(reason e)
+  | `Service -> Http.Resp.v Http.Status.server_error_500
+  | `Too_large -> Http.Resp.v Http.Status.payload_too_large_413
+  | `Malformed e -> Http.Resp.v Http.Status.bad_request_400 ?reason:(reason e)
   | `Not_implemented e ->
-      Http.Resp.v Http.not_implemented_501 ?reason:(reason e)
+      Http.Resp.v Http.Status.not_implemented_501 ?reason:(reason e)
 
 let apply_service c service req =
   try

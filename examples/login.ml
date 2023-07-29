@@ -56,34 +56,35 @@ let user_state =
 
 let home req =
   let* `GET = Http.Req.allow Http.Meth.[get] req in
-  Ok (Http.Resp.html Http.ok_200 Page.home)
+  Ok (Http.Resp.html Http.Status.ok_200 Page.home)
 
 let restricted ~login user req = match user with
 | None ->
     let explain = "not logged" in
-    Ok (None, Http.Req.service_redirect ~explain Http.found_302 login req)
+    Ok (None,
+        Http.Req.service_redirect ~explain Http.Status.found_302 login req)
 | Some u ->
     let* `GET = Session.for_error user (Http.Req.allow Http.Meth.[get] req) in
-    Ok (user, Http.Resp.html Http.ok_200 (Page.restricted u))
+    Ok (user, Http.Resp.html Http.Status.ok_200 (Page.restricted u))
 
 let login_user ~and_goto:goto user req =
   let redirect user ~path =
     let explain = user ^ " logged" in
-    Http.Req.service_redirect ~explain Http.see_other_303 path req
+    Http.Req.service_redirect ~explain Http.Status.see_other_303 path req
   in
   let* m = Session.for_error user @@ Http.Req.allow Http.Meth.[get;post] req in
   match m with
   | `GET ->
       begin match user with
       | Some u -> Ok (user, redirect u ~path:goto)
-      | None -> Ok (None, Http.Resp.html Http.ok_200 (Page.login ""))
+      | None -> Ok (None, Http.Resp.html Http.Status.ok_200 (Page.login ""))
       end
   | `POST ->
       begin match Http.Req.to_query req with
       | Error r ->
           (* FIXME Resp.with_body on [r] *)
           let err = "Something wrong happened. Try again." in
-          Ok (None, Http.Resp.html Http.bad_request_400 (Page.login err))
+          Ok (None, Http.Resp.html Http.Status.bad_request_400 (Page.login err))
       | Ok q ->
           let email = Http.Query.find "email" q in
           let password = Http.Query.find "password" q in
@@ -95,14 +96,16 @@ let login_user ~and_goto:goto user req =
               let explain = "bad credentials" in
               let err = "Incorrect email or password. Try again." in
               Ok (None,
-                  Http.Resp.html ~explain Http.forbidden_403 (Page.login err))
+                  Http.Resp.html ~explain Http.Status.forbidden_403
+                    (Page.login err))
       end
 
 
 let logout_user ~and_goto user req =
   let* `POST = Session.for_error None (Http.Req.allow Http.Meth.[post] req) in
   let explain = Option.map (fun u -> u ^ "logged out") user in
-  Ok (None, Http.Req.service_redirect ?explain Http.see_other_303 and_goto req)
+  Ok (None, Http.Req.service_redirect ?explain Http.Status.see_other_303
+        and_goto req)
 
 let service ~private_key req =
   let serve user req =

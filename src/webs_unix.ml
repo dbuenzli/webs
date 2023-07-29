@@ -188,7 +188,8 @@ let http_date_of_ptime =
     wday t.tm_mday month (t.tm_year + 1900) t.tm_hour t.tm_min t.tm_sec
 
 type etagger =
-  Http.fpath -> Unix.file_descr -> Unix.stats -> (Http.Etag.t, string) result
+  Http.Path.fpath -> Unix.file_descr -> Unix.stats ->
+  (Http.Etag.t, string) result
 
 let default_etagger file fd stats =
   let mtime = truncate stats.Unix.st_mtime in
@@ -198,16 +199,16 @@ let default_etagger file fd stats =
 
 type dir_resp =
   etagger:etagger -> mime_types:Http.Mime_type.file_ext_map option ->
-  Http.req -> Http.fpath -> (Http.Resp.t, Http.Resp.t) result
+  Http.Req.t -> Http.Path.fpath -> (Http.Resp.t, Http.Resp.t) result
 
 let dir_404 ~etagger ~mime_types _ fpath =
   let explain = strf "%s: is a directory" fpath in
-  Ok (Http.Resp.v Http.not_found_404 ~explain)
+  Ok (Http.Resp.v Http.Status.not_found_404 ~explain)
 
 let range_full ~file_size hs =
   let file_size' = Http.Digits.encode file_size in
   let hs = Http.Headers.(hs |> def Http.content_length file_size') in
-  0, file_size - 1, hs, Http.ok_200
+  0, file_size - 1, hs, Http.Status.ok_200
 
 let range_partial ~file_size ~first ~last hs =
   let range_len = Http.Digits.encode (last - first + 1) in
@@ -218,7 +219,7 @@ let range_partial ~file_size ~first ~last hs =
   in
   let hs = Http.Headers.(hs |> def Http.content_range crange) in
   let hs = Http.Headers.(hs |> def Http.content_length range_len) in
-  first, last, hs , Http.partial_content_206
+  first, last, hs , Http.Status.partial_content_206
 
 let find_range req file etag ~file_size hs =
   let* r = Http.Req.decode_header Http.range Http.Range.decode req in
@@ -235,7 +236,8 @@ let find_range req file etag ~file_size hs =
       let rec loop = function
       | [] ->
           let reason = Http.Range.encode r and explain = file in
-          Error (Http.Resp.v Http.range_not_satisfiable_416 ~reason ~explain)
+          Error
+            (Http.Resp.v Http.Status.range_not_satisfiable_416 ~reason ~explain)
       | r :: rs ->
           match Http.Range.eval_bytes ~len:file_size r with
           | None -> loop rs
@@ -256,7 +258,7 @@ let check_if_match_cond r file etag =
   let explain =
     strf "%s: etag: %s, if-match failed" file (Http.Etag.encode etag)
   in
-  Error (Http.Resp.v Http.precondition_failed_412 ~explain)
+  Error (Http.Resp.v Http.Status.precondition_failed_412 ~explain)
 
 let eval_if_none_match r file etag =
   let eval = Http.Etag.eval_if_none_match in
@@ -270,7 +272,7 @@ let send_file
   | _ -> Http.Resp.method_not_allowed_405 ~allowed:[`GET; `HEAD] ()
   in
   let error e =
-    Http.Resp.v Http.not_found_404 ~explain:(strf "%s: %s" file e)
+    Http.Resp.v Http.Status.not_found_404 ~explain:(strf "%s: %s" file e)
   in
   try
     let file_fd = openfile file Unix.[O_RDONLY] 0 in
@@ -284,7 +286,8 @@ let send_file
           let* tag = Result.map_error error (etagger file file_fd stat) in
           let* () = check_if_match_cond req file tag in
           let* cond = eval_if_none_match req file tag in
-          if not cond then Ok (Http.Resp.v Http.not_modified_304 ~explain) else
+          if not cond
+          then Ok (Http.Resp.v Http.Status.not_modified_304 ~explain) else
           let file_size = stat.Unix.st_size in
           let file_type = Http.Mime_type.of_filepath ?map:mime_types file in
           let mtime = http_date_of_ptime stat.Unix.st_mtime in
@@ -301,7 +304,7 @@ let send_file
             let len = Http.Digits.encode file_size in
             let headers = Http.Headers.(hs |> def Http.content_length len) in
             let body = Http.Resp.empty_body in
-            Ok (Http.Resp.v Http.ok_200 ~headers ~body ~explain)
+            Ok (Http.Resp.v Http.Status.ok_200 ~headers ~body ~explain)
           else
           let* first, last, headers, status =
             find_range req file tag ~file_size hs

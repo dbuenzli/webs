@@ -22,7 +22,7 @@ val listener :
     {- [opts] are the options to use (defaults to [["l";"listen"]]).}} *)
 
 val service_path :
-  ?opts:string list -> ?docs:string -> unit -> Webs.Http.path option Term.t
+  ?opts:string list -> ?docs:string -> unit -> Webs.Http.Path.t option Term.t
 (** [service_path] is an option for specifying an optional service path. *)
 
 val docroot : ?opts:string list -> ?docs:string -> unit -> string option Term.t
@@ -48,7 +48,7 @@ val conf_docroot : unit -> (string, string) result Term.t
 
 val quick_serve :
   ?version:string -> ?man:Cmdliner.Manpage.block list ->
-  ?doc:string -> name:string -> (Webs.Http.req -> Webs.Http.resp) -> unit
+  ?doc:string -> name:string -> (Webs.Http.Req.t -> Webs.Http.Resp.t) -> unit
 (** [quick_serve ~name (Ok s)] runs [s] with the {!Webs_httpc} and handles
     a few default command line options. If you want to be able to specify
     a docroot on the command line you need to specify [with_docroot:true].
@@ -58,7 +58,7 @@ val quick_serve :
 val quick_serve' :
   ?version:string -> ?man:Cmdliner.Manpage.block list ->
   ?doc:string -> name:string -> conf:('a, string) result Term.t ->
-  ('a -> Webs.Http.req -> Webs.Http.resp) -> unit
+  ('a -> Webs.Http.Req.t -> Webs.Http.Resp.t) -> unit
 (** [quick_serve'] is like {!quick_serve} but additional configuration
     parameters can be parsed from the command line and be checked
     before installing the service. *)

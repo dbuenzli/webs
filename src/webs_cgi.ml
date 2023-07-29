@@ -35,10 +35,10 @@ let extra_var_to_header_name var =
 (* Connectors *)
 
 type t =
-  { extra_vars : (string * Http.name) list;
+  { extra_vars : (string * Http.Name.t) list;
     log : Webs_connector.log_msg -> unit;
     max_req_body_byte_size : int;
-    service_path : Http.path; }
+    service_path : Http.Path.t; }
 
 let create
     ?(extra_vars = []) ?(log = Webs_connector.default_log ~trace:false ())
@@ -181,11 +181,11 @@ let write_resp c fd resp =
 let resp_of_error e =
   let reason e = if e = "" then None else Some e in
   match e with
-  | `Service -> Http.Resp.v Http.server_error_500
-  | `Too_large -> Http.Resp.v Http.payload_too_large_413 (* FIXME *)
-  | `Malformed e -> Http.Resp.v Http.bad_request_400 ?reason:(reason e)
+  | `Service -> Http.Resp.v Http.Status.server_error_500
+  | `Too_large -> Http.Resp.v Http.Status.payload_too_large_413 (* FIXME *)
+  | `Malformed e -> Http.Resp.v Http.Status.bad_request_400 ?reason:(reason e)
   | `Not_implemented e ->
-      Http.Resp.v Http.not_implemented_501 ?reason:(reason e)
+      Http.Resp.v Http.Status.not_implemented_501 ?reason:(reason e)
 
 let apply_service c service req =
   try

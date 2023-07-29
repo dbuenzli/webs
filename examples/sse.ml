@@ -41,13 +41,14 @@ let resp_events () =
   let hs = Http.Headers.(def x_accel_buffering "no" empty) in
   let hs = Http.Headers.(def Http.cache_control "no-cache" hs) in
   let hs = Http.Headers.(def Http.content_type "text/event-stream" hs) in
-  Http.Resp.v Http.ok_200 ~headers:hs ~body:(Http.Resp.stream_body event_stream)
+  Http.Resp.v Http.Status.ok_200 ~headers:hs
+    ~body:(Http.Resp.stream_body event_stream)
 
 let service req =
   Http.Resp.result @@ match Http.Req.path req with
   | [""] ->
       let* `GET = Http.Req.allow Http.Meth.[get] req in
-      Ok (Http.Resp.html Http.ok_200 index_page)
+      Ok (Http.Resp.html Http.Status.ok_200 index_page)
   | ["events"] ->
       let* `GET = Http.Req.allow Http.Meth.[get] req in
       Ok (resp_events ())

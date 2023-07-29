@@ -39,7 +39,7 @@ let service ~private_key req =
       let* `GET = Http.Req.allow Http.Meth.[get] req in
       let now = truncate (Unix.gettimeofday ()) in
       let c = get_expirable_count ~private_key ~now req in
-      let resp = Http.Resp.html Http.ok_200 (count c) in
+      let resp = Http.Resp.html Http.Status.ok_200 (count c) in
       Ok (set_expirable_count ~private_key ~now ~count:(c + 1) resp)
   | _ ->
       Http.Resp.not_found_404 ()

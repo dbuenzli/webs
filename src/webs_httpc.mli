@@ -27,7 +27,7 @@ type t
 val create :
   ?listener:Webs_unix.listener -> ?log:(Webs_connector.log_msg -> unit) ->
   ?max_connections:int -> ?max_req_body_byte_size:int ->
-  ?max_req_headers_byte_size:int -> ?service_path:Http.path ->
+  ?max_req_headers_byte_size:int -> ?service_path:Http.Path.t ->
   unit -> t
 (** [create ()] is a new connector with following parameters:
     {ul
@@ -68,7 +68,7 @@ val max_req_headers_byte_size : t -> int
 (** [max_connection c] is the maximal headers size in bytes  for requests
     handled by [c]. See {!create}. *)
 
-val service_path : t -> Http.path
+val service_path : t -> Http.Path.t
 (** [service_path c] is the service path of [c]. See {!create}. *)
 
 val serving : t -> bool
@@ -77,7 +77,7 @@ val serving : t -> bool
 (** {1:serving Serving} *)
 
 val serve :
-  ?handle_stop_sigs:bool -> t -> (Http.req -> Http.resp) ->
+  ?handle_stop_sigs:bool -> t -> (Http.Req.t -> Http.Resp.t) ->
   (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks,
     serving requests with [s] until {!stop} is called on [c] or
@@ -89,7 +89,8 @@ val serve :
     {- If [max_req_headers_byte_size] or [max_req_body_byte_size]
        are exceeded the server responds to the client with a
        {!Webs.Http.payload_too_large_413}.}
-    {- If the basics to parse the {!Webs.Http.req} data structure and setup the
+    {- If the basics to parse the {!Webs.Http.Req.t} data structure and
+       setup the
        body stream is not there, the server responds with
        {!Webs.Http.bad_request_400}}
     {- If a {!Webs.Http.expect} header is found TODO}}

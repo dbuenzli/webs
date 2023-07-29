@@ -353,9 +353,8 @@ module Http = struct
 
   (* Names *)
 
-  type name = string
   module Name = struct
-    type t = name
+    type t = string
     let v s = try lower_token_of_string s with Failure e -> invalid_arg e
     let equal = String.equal
     let compare = String.compare
@@ -367,9 +366,8 @@ module Http = struct
 
   (* Versions *)
 
-  type version = int * int
   module Version = struct
-    type t = version
+    type t = int * int
     let decode_of_bytes b ~first ~max =
       if max - first + 1 < 8 then failwith err_version else
       let[@inline] c b i = Bytes.get b (first + i) in
@@ -394,23 +392,21 @@ module Http = struct
 
   (* Methods *)
 
-  let meth_of_token = function
-  | "GET" -> `GET | "HEAD" -> `HEAD | "POST" -> `POST | "PUT" -> `PUT
-  | "DELETE" -> `DELETE | "CONNECT" -> `CONNECT | "OPTIONS" -> `OPTIONS
-  | "TRACE" -> `TRACE | "PATCH" -> `PATCH | s -> `Other s
-
-  let decode_method b ~first ~max =
-    let first, token = decode_token b ~first ~max in
-    first, meth_of_token token
-
-  type meth =
-  [ `GET | `HEAD | `POST | `PUT | `DELETE | `CONNECT | `OPTIONS | `TRACE
-  | `PATCH | `Other of string ]
-
   module Meth = struct
-    type t = meth
+    type t =
+    [ `GET | `HEAD | `POST | `PUT | `DELETE | `CONNECT | `OPTIONS | `TRACE
+    | `PATCH | `Other of string ]
 
-    let decode s = match meth_of_token s with
+    let of_token = function
+    | "GET" -> `GET | "HEAD" -> `HEAD | "POST" -> `POST | "PUT" -> `PUT
+    | "DELETE" -> `DELETE | "CONNECT" -> `CONNECT | "OPTIONS" -> `OPTIONS
+    | "TRACE" -> `TRACE | "PATCH" -> `PATCH | s -> `Other s
+
+    let decode' b ~first ~max =
+      let first, token = decode_token b ~first ~max in
+      first, of_token token
+
+    let decode s = match of_token s with
     | `Other s as o -> if is_token s then Ok o else Error (err_token s)
     | m -> Ok m
 
@@ -424,7 +420,7 @@ module Http = struct
 
     (* Constraints *)
 
-    type 'a constraint' = meth * 'a
+    type 'a constraint' = t * 'a
 
     let constrain ~allowed m =
       let rec loop mr = function
@@ -447,14 +443,11 @@ module Http = struct
 
   (* Paths and queries *)
 
-  type fpath = string
-  type path = string list
-
   module Path = struct
 
     (* Paths *)
 
-    type t = path
+    type t = string list
 
     let _undot_and_compress ~check (* also applied on discarded segs *) p =
       let rec loop acc = function
@@ -510,6 +503,8 @@ module Http = struct
           loop "" src dst
 
     (* File paths *)
+
+    type fpath = string
 
     let has_no_dir_seps s = (* String.forall :-( *)
       try
@@ -636,9 +631,8 @@ module Http = struct
 
   (* Queries *)
 
-  type query = string list Smap.t (* The list is never empty *)
   module Query = struct
-    type t = query
+    type t = string list Smap.t (* The list is never empty *)
     let empty = Smap.empty
     let is_empty = Smap.is_empty
     let mem = Smap.mem
@@ -872,7 +866,7 @@ module Http = struct
       { domain : string option;
         http_only : bool;
         max_age : int option;
-        path : path;
+        path : Path.t;
         same_site : string;
         secure : bool; }
 
@@ -1051,9 +1045,8 @@ module Http = struct
 
   (* Status *)
 
-  type status = int
   module Status = struct
-    type t = status
+    type t = int
     let reason_phrase = function
     (* 1XX *)
     | 100 -> "Continue"
@@ -1106,50 +1099,52 @@ module Http = struct
     | s -> "Unknown"
 
     let pp ppf s = pf ppf "@[%d %s@]" s (reason_phrase s)
-  end
 
-  let continue_100 = 100
-  let switching_protocols_101 = 101
-  let ok_200 = 200
-  let created_201 = 201
-  let accepted_202 = 202
-  let non_authoritative_information_203 = 203
-  let no_content_204 = 204
-  let reset_content_205 = 205
-  let partial_content_206 = 206
-  let multiple_choices_300 = 300
-  let moved_permanently_301 = 301
-  let found_302 = 302
-  let see_other_303 = 303
-  let not_modified_304 = 304
-  let use_proxy_305 = 305
-  let temporary_redirect_307 = 307
-  let bad_request_400 = 400
-  let unauthorized_401 = 401
-  let payement_required_402 = 402
-  let forbidden_403 = 403
-  let not_found_404 = 404
-  let method_not_allowed_405 = 405
-  let not_acceptable_406 = 406
-  let proxy_authentication_required_407 = 407
-  let request_time_out_408 = 408
-  let conflict_409 = 409
-  let gone_410 = 410
-  let length_required_411 = 411
-  let precondition_failed_412 = 412
-  let payload_too_large_413 = 413
-  let uri_too_long_414 = 414
-  let unsupported_media_type_415 = 415
-  let range_not_satisfiable_416 = 416
-  let expectation_failed_417 = 417
-  let i'm_a_teapot_418 = 418
-  let upgrade_required_426 = 426
-  let server_error_500 = 500
-  let not_implemented_501 = 501
-  let bad_gateway_502 = 502
-  let service_unavailable_503 = 503
-  let gateway_time_out_504 = 504
-  let http_version_not_supported_505 = 505
+    (* Predefined statuses *)
+
+    let continue_100 = 100
+    let switching_protocols_101 = 101
+    let ok_200 = 200
+    let created_201 = 201
+    let accepted_202 = 202
+    let non_authoritative_information_203 = 203
+    let no_content_204 = 204
+    let reset_content_205 = 205
+    let partial_content_206 = 206
+    let multiple_choices_300 = 300
+    let moved_permanently_301 = 301
+    let found_302 = 302
+    let see_other_303 = 303
+    let not_modified_304 = 304
+    let use_proxy_305 = 305
+    let temporary_redirect_307 = 307
+    let bad_request_400 = 400
+    let unauthorized_401 = 401
+    let payement_required_402 = 402
+    let forbidden_403 = 403
+    let not_found_404 = 404
+    let method_not_allowed_405 = 405
+    let not_acceptable_406 = 406
+    let proxy_authentication_required_407 = 407
+    let request_time_out_408 = 408
+    let conflict_409 = 409
+    let gone_410 = 410
+    let length_required_411 = 411
+    let precondition_failed_412 = 412
+    let payload_too_large_413 = 413
+    let uri_too_long_414 = 414
+    let unsupported_media_type_415 = 415
+    let range_not_satisfiable_416 = 416
+    let expectation_failed_417 = 417
+    let i'm_a_teapot_418 = 418
+    let upgrade_required_426 = 426
+    let server_error_500 = 500
+    let not_implemented_501 = 501
+    let bad_gateway_502 = 502
+    let service_unavailable_503 = 503
+    let gateway_time_out_504 = 504
+    let http_version_not_supported_505 = 505
+  end
 
   (* MIME types *)
 
@@ -1247,7 +1242,7 @@ module Http = struct
   (* HTTP request line, https://tools.ietf.org/html/rfc7230#section-3.1.1 *)
 
   let decode_request_line b ~first ~crlf =
-    let first, meth = decode_method b ~first ~max:crlf in
+    let first, meth = Meth.decode' b ~first ~max:crlf in
     let first = decode_sp b ~first ~max:crlf in
     let first, target = decode_request_target b ~first ~max:crlf in
     let first = decode_sp b ~first ~max:crlf in
@@ -1328,8 +1323,8 @@ module Http = struct
     (* Responses *)
 
     type t =
-      { version : version;
-        status : status;
+      { version : Version.t;
+        status : Status.t;
         reason : string;
         headers : headers;
         body : body;
@@ -1414,16 +1409,16 @@ module Http = struct
     v ?explain ?reason st ~headers:hs
 
   let bad_request_400 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers bad_request_400)
+    Error (v ?explain ?reason ?headers Status.bad_request_400)
 
   let unauthorized_401 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers unauthorized_401)
+    Error (v ?explain ?reason ?headers Status.unauthorized_401)
 
   let forbidden_403 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers forbidden_403)
+    Error (v ?explain ?reason ?headers Status.forbidden_403)
 
   let not_found_404 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers not_found_404)
+    Error (v ?explain ?reason ?headers Status.not_found_404)
 
   let method_not_allowed_405
       ?explain ?reason ?(headers = Headers.empty) ~allowed ()
@@ -1431,16 +1426,16 @@ module Http = struct
     let ms = String.concat ", " (List.map Meth.encode allowed) in
     let hs = Headers.(empty |> def allow ms) in
     let hs = Headers.override hs ~by:headers in
-    Error (v ?explain ?reason ~headers:hs method_not_allowed_405)
+    Error (v ?explain ?reason ~headers:hs Status.method_not_allowed_405)
 
   let gone_410 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers gone_410)
+    Error (v ?explain ?reason ?headers Status.gone_410)
 
   let server_error_500 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers server_error_500)
+    Error (v ?explain ?reason ?headers Status.server_error_500)
 
   let not_implemented_501 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers not_implemented_501)
+    Error (v ?explain ?reason ?headers Status.not_implemented_501)
 
   let map_errors ~only_empty f r =
     let st = status r in
@@ -1473,12 +1468,12 @@ end
       { body : unit -> (bytes * int * int) option;
         body_length : int option;
         headers : headers;
-        meth : meth;
-        path : path;
+        meth : Meth.t;
+        path : Path.t;
         query : string option;
         request_target : string;
-        service_path : path;
-        version : version; }
+        service_path : Path.t;
+        version : Version.t; }
 
     let default =
       { body = empty_body; body_length = None; headers = Headers.empty;
@@ -1533,7 +1528,7 @@ end
       let loc = Path.(encode @@ concat (service_path r) p) in
       Resp.redirect ?explain status loc
 
-    let echo ?(status = not_found_404) r =
+    let echo ?(status = Status.not_found_404) r =
       let body = body_to_string (body r) in
       let body = Format.asprintf "@[<v>%a@,%s@]" pp r body in
       Resp.text status body
@@ -1552,10 +1547,10 @@ end
         | Ok v -> Ok (Some v)
         | Error e ->
             let reason = strf "%s: %s" (h :> string) e in
-            Error (Resp.v bad_request_400 ~reason)
+            Error (Resp.v Status.bad_request_400 ~reason)
 
     let bad_strip_404 =
-      Resp.v ~explain:"could not strip prefix" not_found_404
+      Resp.v ~explain:"could not strip prefix" Status.not_found_404
 
     let forward_service ~strip r =
       match Path.strip_prefix ~prefix:strip (path r) with
@@ -1569,7 +1564,7 @@ end
       | None -> Error bad_strip_404
       | Some p ->
           match Path.to_absolute_filepath p with
-          | Error e -> Error (Resp.v ~explain:e bad_request_400)
+          | Error e -> Error (Resp.v ~explain:e Status.bad_request_400)
           | Ok filepath -> Ok (Path.prefix_filepath ~prefix:root filepath)
 
     let to_query r =
@@ -1580,7 +1575,7 @@ end
         match Headers.(find ~lowervalue:true content_type (headers r))
         with
         | None ->
-            Error (Resp.v ~reason:"missing content type" bad_request_400)
+            Error (Resp.v ~reason:"missing content type" Status.bad_request_400)
         | Some t ->
             (* TODO proper Mimetype decoding *)
             match String.split_on_char ';' t with
@@ -1588,7 +1583,7 @@ end
                 String.equal (String.trim t)
                   Mime_type.application_x_www_form_urlencoded ->
                 Ok (Query.decode @@ body_to_string (body r))
-            | _ -> Error (Resp.v unsupported_media_type_415)
+            | _ -> Error (Resp.v Status.unsupported_media_type_415)
       in
       match meth r with
       | `GET | `HEAD -> url_query r
@@ -1611,7 +1606,7 @@ end
           let p = match (List.filter not_empty p) with [] -> [""] | p -> p in
           let loc = Path.(encode @@ concat (service_path r) p) in
           let explain = "path cleaning" in
-          Error (Resp.redirect ~explain moved_permanently_301 loc)
+          Error (Resp.redirect ~explain Status.moved_permanently_301 loc)
   end
 
   type resp = Resp.t

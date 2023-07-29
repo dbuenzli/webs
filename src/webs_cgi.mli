@@ -35,7 +35,7 @@ type t
 
 val create :
   ?extra_vars:string list -> ?log:(Webs_connector.log_msg -> unit) ->
-  ?max_req_body_byte_size:int -> ?service_path:Http.path -> unit -> t
+  ?max_req_body_byte_size:int -> ?service_path:Http.Path.t -> unit -> t
 (** [create ()] is a new CGI connector with the following parameters:
     {ul
     {- [extra_vars c] is the list of environment variables whose content
@@ -67,12 +67,12 @@ val max_req_body_byte_size : t -> int
 (** [max_req_body_byte_size c] is the maximal request body size
     in bytes supported by [c]. See {!create}. *)
 
-val service_path : t -> Http.path
+val service_path : t -> Http.Path.t
 (** [service_path c] is service path of [c]. See {!create}.  *)
 
 (** {1:serving Serving} *)
 
-val serve : t -> (Http.req -> Http.resp) -> (unit, string) result
+val serve : t -> (Http.Req.t -> Http.Resp.t) -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks until
     the response of [s] for the request has been served. The error is
     returned in case of connector error, it's a good practice to write

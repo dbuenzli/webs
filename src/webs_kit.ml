@@ -11,7 +11,7 @@ let ( let* ) = Result.bind
 module Gateway = struct
   let send_file ~header _ file =
     let headers = Http.Headers.(def header file empty) in
-    Ok (Http.Resp.v Http.ok_200 ~headers ~explain:(header :> string))
+    Ok (Http.Resp.v Http.Status.ok_200 ~headers ~explain:(header :> string))
 
   let x_accel_redirect = Http.Name.v "x-accel-redirect"
   let x_sendfile = Http.Name.v "x-sendfile"
@@ -28,7 +28,8 @@ module Res = struct
       let redirect name id =
         let url = res_url name id in
         let explain = "to " ^ url in
-        Error (Http.Resp.redirect ~explain Http.moved_permanently_301 url)
+        Error
+          (Http.Resp.redirect ~explain Http.Status.moved_permanently_301 url)
       in
       match get_res req_id with
       | Error _ as e -> e
@@ -97,7 +98,7 @@ module Res = struct
     | `Syntax -> "id syntax error"
 
     let error_to_resp e =
-      Http.Resp.v ~reason:(error_message e) Http.bad_request_400
+      Http.Resp.v ~reason:(error_message e) Http.Status.bad_request_400
 
     (* Identifiers *)
 
@@ -140,7 +141,10 @@ module Kurl = struct
   (* Bare URL requests *)
 
   type bare =
-    { meth : Http.meth; path : Http.path; query : Http.query; ext : string; }
+    { meth : Http.Meth.t;
+      path : Http.Path.t;
+      query : Http.Query.t;
+      ext : string; }
 
   let bare ?(ext = "") ?(query = Http.Query.empty) meth path =
     { meth; path; query; ext }
@@ -192,7 +196,7 @@ module Kurl = struct
   (* URL request kind *)
 
   type 'a enc = 'a -> bare
-  type 'a dec = bare -> ('a option, Http.resp) result
+  type 'a dec = bare -> ('a option, Http.Resp.t) result
   let ok v = Ok (Some v)
   let no_match = Ok None
 
@@ -361,7 +365,7 @@ module Kurl = struct
     invalid_arg (strf "cannot bind kind%s to %s: already bound at %s" p n p')
 
   type 'a tree =
-    { kind_paths : Http.path Imap.t; (* mapped by kind id *)
+    { kind_paths : Http.Path.t Imap.t; (* mapped by kind id *)
       trie : 'a Trie.t }
 
   let empty () = { kind_paths = Imap.empty; trie = Trie.empty }
@@ -416,8 +420,8 @@ module Kurl = struct
       use_exts : bool;
       scheme : string;
       authority : string;
-      root : Http.path;
-      kind_paths : Http.path Imap.t; (* mapped by kind id *)  }
+      root : Http.Path.t;
+      kind_paths : Http.Path.t Imap.t; (* mapped by kind id *)  }
 
   module Fmt = struct
     type kurl = t
@@ -830,8 +834,8 @@ module Session = struct
   (* Handler *)
 
   type ('a, 'e) handler =
-    { load : 'a state -> Http.req -> ('a option, 'e) result;
-      save : 'a state -> 'a option -> Http.resp -> Http.resp }
+    { load : 'a state -> Http.Req.t -> ('a option, 'e) result;
+      save : 'a state -> 'a option -> Http.Resp.t -> Http.Resp.t }
 
   module Handler = struct
     type ('a, 'e) t = ('a, 'e) handler
@@ -840,7 +844,7 @@ module Session = struct
     let save h = h.save
   end
 
-  type 'a resp = 'a option * Http.resp
+  type 'a resp = 'a option * Http.Resp.t
 
   let setup sd h service = fun req ->
     let r = h.load sd req in
@@ -913,7 +917,7 @@ module Basic_auth = struct
     | _ -> Error ("Not a basic auth-scheme")
 
 
-  let cancel = Http.Resp.html Http.unauthorized_401 @@
+  let cancel = Http.Resp.html Http.Status.unauthorized_401 @@
 {|<!DOCTYPE html>
 <html lang="en">
   <head><meta charset="utf-8"><title>Login cancelled</title></head>
@@ -925,7 +929,7 @@ module Basic_auth = struct
       let auth = Printf.sprintf {|basic realm="%s", charset="utf-8"|} realm in
       let hs = Http.Headers.(def Http.www_authenticate auth empty) in
       let resp =
-        Http.Resp.with_status ~explain Http.unauthorized_401 (cancel r)
+        Http.Resp.with_status ~explain Http.Status.unauthorized_401 (cancel r)
       in
       Error (Http.Resp.override_headers ~by:hs resp)
     in
@@ -934,7 +938,8 @@ module Basic_auth = struct
     | Some creds ->
         let* user, pass = match basic_authentication_of_string creds with
         | Ok _ as v -> v
-        | Error explain -> Error (Http.Resp.v ~explain Http.bad_request_400)
+        | Error explain ->
+            Error (Http.Resp.v ~explain Http.Status.bad_request_400)
         in
         let* () = match check ~user ~pass with
         | Ok _ as v -> v
