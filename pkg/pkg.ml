@@ -18,7 +18,6 @@ let () =
     Pkg.mllib "src/webs_connector.mllib" ~dst_dir:"connector";
     Pkg.mllib "src/webs_cgi.mllib" ~dst_dir:"cgi";
     Pkg.mllib "src/webs_httpc.mllib" ~dst_dir:"httpc";
-    Pkg.mllib "src/webs_html.mllib" ~dst_dir:"html";
     Pkg.mllib ~cond:cmdliner "src/webs_cli.mllib" ~dst_dir:"cli";
     Pkg.bin ~cond:cmdliner "examples/webs_tool" ~dst:"webs";
     Pkg.test ~run:false "examples/httpc";
