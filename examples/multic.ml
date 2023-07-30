@@ -3,7 +3,7 @@
    Distributed under the ISC license, see terms at the end of the file.
   ---------------------------------------------------------------------------*)
 
-let service = Webs.Http.Req.echo
+let service = Webs.Http.Request.echo
 let cgi_server s = let c = Webs_cgi.create () in Webs_cgi.serve c s
 let web_server s = let c = Webs_httpc.create () in Webs_httpc.serve c s
 let select = function `Cgi -> cgi_server | `Web -> web_server

@@ -77,7 +77,7 @@ val serving : t -> bool
 (** {1:serving Serving} *)
 
 val serve :
-  ?handle_stop_sigs:bool -> t -> (Http.Req.t -> Http.Resp.t) ->
+  ?handle_stop_sigs:bool -> t -> (Http.Request.t -> Http.Response.t) ->
   (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks,
     serving requests with [s] until {!stop} is called on [c] or
@@ -89,7 +89,7 @@ val serve :
     {- If [max_req_headers_byte_size] or [max_req_body_byte_size]
        are exceeded the server responds to the client with a
        {!Webs.Http.payload_too_large_413}.}
-    {- If the basics to parse the {!Webs.Http.Req.t} data structure and
+    {- If the basics to parse the {!Webs.Http.Request.t} data structure and
        setup the
        body stream is not there, the server responds with
        {!Webs.Http.bad_request_400}}

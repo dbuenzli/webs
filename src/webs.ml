@@ -392,7 +392,7 @@ module Http = struct
 
   (* Methods *)
 
-  module Meth = struct
+  module Method = struct
     type t =
     [ `GET | `HEAD | `POST | `PUT | `DELETE | `CONNECT | `OPTIONS | `TRACE
     | `PATCH | `Other of string ]
@@ -1242,7 +1242,7 @@ module Http = struct
   (* HTTP request line, https://tools.ietf.org/html/rfc7230#section-3.1.1 *)
 
   let decode_request_line b ~first ~crlf =
-    let first, meth = Meth.decode' b ~first ~max:crlf in
+    let first, meth = Method.decode' b ~first ~max:crlf in
     let first = decode_sp b ~first ~max:crlf in
     let first, target = decode_request_target b ~first ~max:crlf in
     let first = decode_sp b ~first ~max:crlf in
@@ -1293,8 +1293,7 @@ module Http = struct
     let encode_resp_header_section = encode_resp_header_section
   end
 
-
-  module Resp = struct
+  module Response = struct
 
     (* Response bodies *)
 
@@ -1332,119 +1331,119 @@ module Http = struct
         explain : string; }
 
     let get_reason st = function
-  | Some s -> s | None -> Status.reason_phrase st
+    | Some s -> s | None -> Status.reason_phrase st
 
-  let v
-      ?(version = (1,1)) ?(explain = "") ?reason ?(body = empty_body)
-      ?headers:(hs = Headers.empty) status
-    =
-    let reason = get_reason status reason in
-    let headers = match body with
-    | Empty -> Headers.def content_length "0" hs
-    | _ -> hs
-    in
-    { version; status; reason; headers; body; explain }
+    let v
+        ?(version = (1,1)) ?(explain = "") ?reason ?(body = empty_body)
+        ?headers:(hs = Headers.empty) status
+      =
+      let reason = get_reason status reason in
+      let headers = match body with
+      | Empty -> Headers.def content_length "0" hs
+      | _ -> hs
+      in
+      { version; status; reason; headers; body; explain }
 
-  let version r = r.version
-  let status r = r.status
-  let reason r = r.reason
-  let headers r = r.headers
-  let body r = r.body
-  let explain r = r.explain
-  let with_status ?(explain = "") ?reason status r =
-    let explain = if r.explain = "" then explain else r.explain in
-    let reason = get_reason status reason in
-    { r with status; reason; explain }
+    let version r = r.version
+    let status r = r.status
+    let reason r = r.reason
+    let headers r = r.headers
+    let body r = r.body
+    let explain r = r.explain
+    let with_status ?(explain = "") ?reason status r =
+      let explain = if r.explain = "" then explain else r.explain in
+      let reason = get_reason status reason in
+      { r with status; reason; explain }
 
-  let with_headers headers r = { r with headers }
-  let override_headers ~by:headers r =
-    { r with headers = Headers.override r.headers ~by:headers }
+    let with_headers headers r = { r with headers }
+    let override_headers ~by:headers r =
+      { r with headers = Headers.override r.headers ~by:headers }
 
-  let with_body body r = { r with body }
-  let pp ppf r =
-    let sep = Format.pp_print_cut in
-    Format.pp_open_vbox ppf 1;
-    pp_field "version" Version.pp ppf r.version; sep ppf ();
-    pp_field "status" Status.pp ppf r.status; sep ppf ();
-    pp_field "reason" Format.pp_print_string ppf r.reason; sep ppf ();
-    Headers.pp ppf r.headers;
-    pp_field "body" pp_body ppf r.body;
-    Format.pp_close_box ppf ()
+    let with_body body r = { r with body }
+    let pp ppf r =
+      let sep = Format.pp_print_cut in
+      Format.pp_open_vbox ppf 1;
+      pp_field "version" Version.pp ppf r.version; sep ppf ();
+      pp_field "status" Status.pp ppf r.status; sep ppf ();
+      pp_field "reason" Format.pp_print_string ppf r.reason; sep ppf ();
+      Headers.pp ppf r.headers;
+      pp_field "body" pp_body ppf r.body;
+      Format.pp_close_box ppf ()
 
-  (* Pre-canned answers *)
+    (* Pre-canned answers *)
 
-  let result = function Ok v | Error v -> v
+    let result = function Ok v | Error v -> v
 
-  let empty ?explain ?reason ?headers st = v ?explain ?reason ?headers st
+    let empty ?explain ?reason ?headers st = v ?explain ?reason ?headers st
 
-  let content
-      ?explain ?reason ?(headers = Headers.empty) ~mime_type:t st s
-    =
-    let l = string_of_int (String.length s) in
-    let hs =
-      Headers.(empty
-                    |> def content_length l
-                    |> def content_type t)
-    in
-    let hs = Headers.override hs ~by:headers in
-    v ?explain ?reason st ~headers:hs ~body:(body_of_string s)
+    let content
+        ?explain ?reason ?(headers = Headers.empty) ~mime_type:t st s
+      =
+      let l = string_of_int (String.length s) in
+      let hs =
+        Headers.(empty
+                 |> def content_length l
+                 |> def content_type t)
+      in
+      let hs = Headers.override hs ~by:headers in
+      v ?explain ?reason st ~headers:hs ~body:(body_of_string s)
 
-  let text ?explain ?reason ?headers st s =
-    content ?explain ?reason ?headers ~mime_type:Mime_type.text_plain st s
+    let text ?explain ?reason ?headers st s =
+      content ?explain ?reason ?headers ~mime_type:Mime_type.text_plain st s
 
-  let html ?explain ?reason ?headers st s =
-    content ?explain ?reason ?headers ~mime_type:Mime_type.text_html st s
+    let html ?explain ?reason ?headers st s =
+      content ?explain ?reason ?headers ~mime_type:Mime_type.text_html st s
 
-  let json ?explain ?reason ?headers st s =
-    content
-      ?explain ?reason ?headers ~mime_type:Mime_type.application_json st s
+    let json ?explain ?reason ?headers st s =
+      content
+        ?explain ?reason ?headers ~mime_type:Mime_type.application_json st s
 
-  let octets ?explain ?reason ?headers st s =
-    content
-      ?headers ?reason ~mime_type:Mime_type.application_octet_stream st s
+    let octets ?explain ?reason ?headers st s =
+      content
+        ?headers ?reason ~mime_type:Mime_type.application_octet_stream st s
 
-  let redirect ?explain ?reason ?(headers = Headers.empty) st loc =
-    let hs = Headers.(empty |> def location loc) in
-    let hs = Headers.override hs ~by:headers in
-    v ?explain ?reason st ~headers:hs
+    let redirect ?explain ?reason ?(headers = Headers.empty) st loc =
+      let hs = Headers.(empty |> def location loc) in
+      let hs = Headers.override hs ~by:headers in
+      v ?explain ?reason st ~headers:hs
 
-  let bad_request_400 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers Status.bad_request_400)
+    let bad_request_400 ?explain ?reason ?headers () =
+      Error (v ?explain ?reason ?headers Status.bad_request_400)
 
-  let unauthorized_401 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers Status.unauthorized_401)
+    let unauthorized_401 ?explain ?reason ?headers () =
+      Error (v ?explain ?reason ?headers Status.unauthorized_401)
 
-  let forbidden_403 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers Status.forbidden_403)
+    let forbidden_403 ?explain ?reason ?headers () =
+      Error (v ?explain ?reason ?headers Status.forbidden_403)
 
-  let not_found_404 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers Status.not_found_404)
+    let not_found_404 ?explain ?reason ?headers () =
+      Error (v ?explain ?reason ?headers Status.not_found_404)
 
-  let method_not_allowed_405
-      ?explain ?reason ?(headers = Headers.empty) ~allowed ()
-    =
-    let ms = String.concat ", " (List.map Meth.encode allowed) in
-    let hs = Headers.(empty |> def allow ms) in
-    let hs = Headers.override hs ~by:headers in
-    Error (v ?explain ?reason ~headers:hs Status.method_not_allowed_405)
+    let method_not_allowed_405
+        ?explain ?reason ?(headers = Headers.empty) ~allowed ()
+      =
+      let ms = String.concat ", " (List.map Method.encode allowed) in
+      let hs = Headers.(empty |> def allow ms) in
+      let hs = Headers.override hs ~by:headers in
+      Error (v ?explain ?reason ~headers:hs Status.method_not_allowed_405)
 
-  let gone_410 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers Status.gone_410)
+    let gone_410 ?explain ?reason ?headers () =
+      Error (v ?explain ?reason ?headers Status.gone_410)
 
-  let server_error_500 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers Status.server_error_500)
+    let server_error_500 ?explain ?reason ?headers () =
+      Error (v ?explain ?reason ?headers Status.server_error_500)
 
-  let not_implemented_501 ?explain ?reason ?headers () =
-    Error (v ?explain ?reason ?headers Status.not_implemented_501)
+    let not_implemented_501 ?explain ?reason ?headers () =
+      Error (v ?explain ?reason ?headers Status.not_implemented_501)
 
-  let map_errors ~only_empty f r =
-    let st = status r in
-    if 400 <= st && st <= 599
-    then (if only_empty && body r <> Empty then r else f r)
-    else r
-end
+    let map_errors ~only_empty f r =
+      let st = status r in
+      if 400 <= st && st <= 599
+      then (if only_empty && body r <> Empty then r else f r)
+      else r
+  end
 
-  module Req = struct
+  module Request = struct
 
     (* Request bodies *)
 
@@ -1468,7 +1467,7 @@ end
       { body : unit -> (bytes * int * int) option;
         body_length : int option;
         headers : headers;
-        meth : Meth.t;
+        method' : Method.t;
         path : Path.t;
         query : string option;
         request_target : string;
@@ -1477,7 +1476,7 @@ end
 
     let default =
       { body = empty_body; body_length = None; headers = Headers.empty;
-        meth = `GET; path = [""]; query = None; request_target = "/";
+        method' = `GET; path = [""]; query = None; request_target = "/";
         service_path = [""]; version = (1,1) }
 
     let v
@@ -1485,7 +1484,7 @@ end
         ?(body = r.body)
         ?(body_length = r.body_length)
         ?(headers = r.headers)
-        ?(meth = r.meth)
+        ?(method' = r.method')
         ?(path = r.path)
         ?(query = r.query)
         ?(request_target = r.request_target)
@@ -1493,13 +1492,13 @@ end
         ?(version = (1,1))
         ()
       =
-      { body; body_length; headers; meth; path; query; request_target;
+      { body; body_length; headers; method'; path; query; request_target;
         service_path; version; }
 
     let body r = r.body
     let body_length r = r.body_length
     let headers r = r.headers
-    let meth r = r.meth
+    let method' r = r.method'
     let path r = r.path
     let query r = r.query
     let request_target r = r.request_target
@@ -1514,7 +1513,7 @@ end
       pf ppf "@[<v>";
       pp_field "body-length" pp_body_length ppf r.body_length; pp_cut ppf ();
       Headers.pp ppf r.headers; pp_cut ppf ();
-      pp_field "method" Meth.pp ppf r.meth; pp_cut ppf ();
+      pp_field "method" Method.pp ppf r.method'; pp_cut ppf ();
       pp_field "path" Path.pp_dump ppf r.path; pp_cut ppf ();
       pp_field "query" pp_query ppf r.query; pp_cut ppf ();
       pp_field "service-path" Path.pp_dump ppf r.service_path; pp_cut ppf ();
@@ -1526,19 +1525,19 @@ end
 
     let service_redirect ?explain status p r =
       let loc = Path.(encode @@ concat (service_path r) p) in
-      Resp.redirect ?explain status loc
+      Response.redirect ?explain status loc
 
     let echo ?(status = Status.not_found_404) r =
       let body = body_to_string (body r) in
       let body = Format.asprintf "@[<v>%a@,%s@]" pp r body in
-      Resp.text status body
+      Response.text status body
 
     (* Request deconstruction *)
 
-    let allow allowed r = match Meth.constrain ~allowed (meth r) with
+    let allow allowed r = match Method.constrain ~allowed (method' r) with
     | Ok _ as v -> v
     | Error allow ->
-        Resp.method_not_allowed_405 ~allowed:(List.map fst allow) ()
+        Response.method_not_allowed_405 ~allowed:(List.map fst allow) ()
 
     let decode_header h dec req = match Headers.find h (headers req) with
     | None -> Ok None
@@ -1547,10 +1546,10 @@ end
         | Ok v -> Ok (Some v)
         | Error e ->
             let reason = strf "%s: %s" (h :> string) e in
-            Error (Resp.v Status.bad_request_400 ~reason)
+            Error (Response.v Status.bad_request_400 ~reason)
 
     let bad_strip_404 =
-      Resp.v ~explain:"could not strip prefix" Status.not_found_404
+      Response.v ~explain:"could not strip prefix" Status.not_found_404
 
     let forward_service ~strip r =
       match Path.strip_prefix ~prefix:strip (path r) with
@@ -1564,7 +1563,7 @@ end
       | None -> Error bad_strip_404
       | Some p ->
           match Path.to_absolute_filepath p with
-          | Error e -> Error (Resp.v ~explain:e Status.bad_request_400)
+          | Error e -> Error (Response.v ~explain:e Status.bad_request_400)
           | Ok filepath -> Ok (Path.prefix_filepath ~prefix:root filepath)
 
     let to_query r =
@@ -1575,7 +1574,7 @@ end
         match Headers.(find ~lowervalue:true content_type (headers r))
         with
         | None ->
-            Error (Resp.v ~reason:"missing content type" Status.bad_request_400)
+            Error (Response.v ~reason:"missing content type" Status.bad_request_400)
         | Some t ->
             (* TODO proper Mimetype decoding *)
             match String.split_on_char ';' t with
@@ -1583,9 +1582,9 @@ end
                 String.equal (String.trim t)
                   Mime_type.application_x_www_form_urlencoded ->
                 Ok (Query.decode @@ body_to_string (body r))
-            | _ -> Error (Resp.v Status.unsupported_media_type_415)
+            | _ -> Error (Response.v Status.unsupported_media_type_415)
       in
-      match meth r with
+      match method' r with
       | `GET | `HEAD -> url_query r
       | _ -> body_query r
 
@@ -1606,11 +1605,11 @@ end
           let p = match (List.filter not_empty p) with [] -> [""] | p -> p in
           let loc = Path.(encode @@ concat (service_path r) p) in
           let explain = "path cleaning" in
-          Error (Resp.redirect ~explain Status.moved_permanently_301 loc)
+          Error (Response.redirect ~explain Status.moved_permanently_301 loc)
   end
 
-  type resp = Resp.t
-  type req = Req.t
+  type resp = Response.t
+  type req = Request.t
 end
 
 module Connector = struct
@@ -1654,20 +1653,20 @@ module Connector = struct
         | -1 -> strf " % 3Luµs" (Int64.unsigned_div dur_ns 1_000L)
         | _ -> strf " % 3Lums" (Int64.unsigned_div dur_ns 1_000_000L)
     in
-    let meth req = match Http.Req.meth req with
+    let meth req = match Http.Request.method' req with
     | `POST | `PUT | `DELETE | `PATCH as m ->
-        strf "\x1B[34m%s\x1B[0m" (Http.Meth.encode m)
-    | m ->  Http.Meth.encode m
+        strf "\x1B[34m%s\x1B[0m" (Http.Method.encode m)
+    | m ->  Http.Method.encode m
     in
-    let query req = match Http.Req.query req with
+    let query req = match Http.Request.query req with
     | None -> ""
     | Some q -> strf "?%s" q
     in
     let path req =
       strf "\x1B[1m%s\x1B[0m%s"
-        (Http.Path.encode (Http.Req.path req)) (query req)
+        (Http.Path.encode (Http.Request.path req)) (query req)
     in
-    let status resp = match Http.Resp.status resp with
+    let status resp = match Http.Response.status resp with
     | st when st <= 299 -> strf "\x1B[32m%d\x1B[0m" st
     | st when st <= 399 -> strf "\x1B[93m%d\x1B[0m" st
     | st when 400 <= st && st <= 599 -> strf "\x1B[31m%d\x1B[0m" st
@@ -1678,9 +1677,9 @@ module Connector = struct
         let data =
           String.concat "" @@
           meth req :: " [" :: status resp :: dur :: "] " ::
-          path req :: " (" :: Http.Resp.reason resp :: ")" ::
-          (if Http.Resp.explain resp = "" then [] else
-           [ " "; Http.Resp.explain resp])
+          path req :: " (" :: Http.Response.reason resp :: ")" ::
+          (if Http.Response.explain resp = "" then [] else
+           [ " "; Http.Response.explain resp])
         in
         Format.pp_print_string ppf data
     | Some req, None ->
@@ -1694,9 +1693,9 @@ module Connector = struct
         let data =
           String.concat "" @@
           "???" :: " [" :: status resp :: dur :: "] " ::
-          "Can't decode request" :: " (" :: Http.Resp.reason resp :: ")" ::
-          (if Http.Resp.explain resp = "" then [] else
-           [ " "; Http.Resp.explain resp])
+          "Can't decode request" :: " (" :: Http.Response.reason resp :: ")" ::
+          (if Http.Response.explain resp = "" then [] else
+           [ " "; Http.Response.explain resp])
         in
         Format.pp_print_string ppf data
     | None, None ->

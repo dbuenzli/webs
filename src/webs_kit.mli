@@ -18,8 +18,8 @@ module Gateway : sig
       web service howto. *)
 
   val send_file :
-    header:Http.Name.t -> Http.Req.t -> Http.Path.fpath ->
-    (Http.Resp.t, 'e) result
+    header:Http.Name.t -> Http.Request.t -> Http.Path.fpath ->
+    (Http.Response.t, 'e) result
   (** [send_file ~header r file] lets {e the gateway} respond to [r]
       with file [file], use {!Req_to.absolute_filepath} to determine one
       from [r] safely. More precisely this a {!Webs.Http.ok_200} empty
@@ -95,11 +95,11 @@ module Res : sig
 
     val resolve :
       ?eq:('name -> 'name -> bool) ->
-      get_res:('id -> ('res, Http.Resp.t) result) ->
+      get_res:('id -> ('res, Http.Response.t) result) ->
       res_name:('res -> 'name) ->
       res_url:('name -> 'id -> string) ->
       req_name:'name option ->
-      req_id:'id -> unit -> ('res, Http.Resp.t) result
+      req_id:'id -> unit -> ('res, Http.Response.t) result
     (** [resolve ~eq ~get_res ~res_name ~res_url ~req_name ~req_id ()]
         implements the 301 redirection logic spelled out in the preamble of
         this module.
@@ -158,7 +158,7 @@ module Res : sig
     val error_message : error -> string
     (** [error_message e] is an english error message for [e]. *)
 
-    val error_to_resp : error -> Http.Resp.t
+    val error_to_resp : error -> Http.Response.t
     (** [error_to_resp e] is a {{!Webs.Http.bad_request_400}400} bad request
         for [e]. The response's reason is determined by {!error_to_string}. *)
 
@@ -181,7 +181,7 @@ module Res : sig
         {- [Error `Syntax] in case [s] contains any non US-ASCII digits or
             if [s] has a leading [0] and is not ["0"].}} *)
 
-    val decode : string -> (t, Http.Resp.t) result
+    val decode : string -> (t, Http.Response.t) result
     (** [decode s] is [Result.map_error error_to_resp (of_string s)]. *)
   end
 end
@@ -235,7 +235,7 @@ end
        separated in Kreq and Urlf. But we still need to
        figure out what we want to do with requests that
        are not [URL]able (well with {!Hc} every aspect
-       becomes [URL]able). Bare could embody {!Http.Req.t}.}
+       becomes [URL]able). Bare could embody {!Http.Request.t}.}
     {- Integrate sessions ? Maybe not, here is the reasoning:
        the custom request types should only ever hold what can be specified
        by responses since they need to create these values.}
@@ -251,7 +251,7 @@ module Kurl : sig
       used by some URL formatting modes. *)
 
   val bare :
-    ?ext:string -> ?query:Http.Query.t -> Http.Meth.t -> Http.Path.t -> bare
+    ?ext:string -> ?query:Http.Query.t -> Http.Method.t -> Http.Path.t -> bare
   (** [bare m p ~query ~ext] is an URL request to path [p] with method
       [m], query [query] (defaults to {!Webs.Http.Query.empty}) and URL
       path file extension [ext] (defaults to [""]). *)
@@ -263,11 +263,11 @@ module Kurl : sig
     (** See {!type-bare}. *)
 
     val v :
-      ?ext:string -> ?query:Http.Query.t -> Http.Meth.t -> Http.Path.t -> bare
+      ?ext:string -> ?query:Http.Query.t -> Http.Method.t -> Http.Path.t -> bare
     (** See {!val-bare}. *)
 
-    val meth : bare -> Http.Meth.t
-    (** [meth u] is the HTTP method of [u]. *)
+    val method' : bare -> Http.Method.t
+    (** [method' u] is the HTTP method of [u]. *)
 
     val path : bare -> Http.Path.t
     (** [path u] is the URL path of [u]. *)
@@ -282,13 +282,14 @@ module Kurl : sig
     val with_path : Http.Path.t -> bare -> bare
     (** [with_path p b] is [b] with path [p]. *)
 
-    val of_req : ?ext:string -> Http.Req.t -> bare
+    val of_req : ?ext:string -> Http.Request.t -> bare
     (** [of_req ~ext r] is a bare URL request from [r]. {!Bare.meth} is
         {!Http.Req.meth}, {!Bare.path} is {!Http.Req.path}, {!Bare.query} is
         parsed {!Http.Req.query}, [ext] defaults to [""]. *)
 
     val of_req_referer :
-      ?ext:string -> ?meth:Http.Meth.t -> Http.Req.t -> (bare, string) result
+      ?ext:string -> ?method':Http.Method.t -> Http.Request.t ->
+      (bare, string) result
     (** [of_req_referer ~ext r] is a bare URL request from [r]. {!Bare.meth}
         is [meth] (defaults to {!Http.Req.meth r}),
         {!Bare.path} and {!Bare.query} are derived from the {!Http.referer}
@@ -307,7 +308,7 @@ module Kurl : sig
 
   (** {2:decoders Decoders } *)
 
-  type 'a dec = bare -> ('a option, Http.Resp.t) result
+  type 'a dec = bare -> ('a option, Http.Response.t) result
   (** The type for decoding a bare URL request to a request value of
       type ['a]. The path in [bare] url is relative to the service
       tree binding point.
@@ -334,7 +335,8 @@ module Kurl : sig
 
       {b TODO.} Provide easy redirect. *)
 
-  val allow : 'a Http.Meth.constraint' list -> bare -> ('a, Http.Resp.t) result
+  val allow :
+    'a Http.Method.constraint' list -> bare -> ('a, Http.Response.t) result
   (** [meths ms u] is:
         {ul
         {- [Ok (Bare.meth u)] if [List.mem (Bare.meth u, Bare.meth u) ms]}
@@ -467,7 +469,7 @@ module Kurl : sig
 
   (** {2:req Request handling} *)
 
-  val find_service : 'a tree -> bare -> ('a option, Http.Resp.t) result
+  val find_service : 'a tree -> bare -> ('a option, Http.Response.t) result
   (** [find_service t u] finds the service for handling [u]'s
       {!Webs.Req.path}. [Ok None] is returned if no URL request kind
       matched. [Error _] is returned if a URL request kind matched but
@@ -598,7 +600,7 @@ module Kurl : sig
 
         Raises [Invalid_arg] if [k] is not part of [fmt]'s tree. *)
 
-    val req : ?full:bool -> fmt -> kurl -> Http.Meth.t * string
+    val req : ?full:bool -> fmt -> kurl -> Http.Method.t * string
     (** [req] is like {!Fmt.val-bare}' but returns an encoded URL path
         and query (if any).
 
@@ -629,7 +631,7 @@ module Kurl : sig
 
         Raises [Invalid_arg] if [root] or [sub] is not part of [fmt]'s tree. *)
 
-    val rel_req : fmt -> src:kurl -> dst:kurl -> Http.Meth.t * string
+    val rel_req : fmt -> src:kurl -> dst:kurl -> Http.Method.t * string
     (** [rel_req] is like {!rel_bare} but returns an encoded URL {e path},
         including the query (if any). *)
 
@@ -895,7 +897,7 @@ module Authenticated_cookie : sig
   val set :
     private_key:Authenticatable.private_key ->
     expire:Authenticatable.time option -> ?atts:Http.Cookie.atts ->
-    name:string -> string -> Http.Resp.t -> Http.Resp.t
+    name:string -> string -> Http.Response.t -> Http.Response.t
   (** [set ~private_key ~expire ~atts ~name data resp] sets in [resp] the
       cookie [name] to [data] authenticated by [private_key] and expiring at
       [expire] (see {!Authenticatable.encode}). [atts] are the cookie's
@@ -906,7 +908,7 @@ module Authenticated_cookie : sig
       [max_age] attribute of {!Webs.Http.Cookie.val-atts} for that.  *)
 
   val clear :
-    ?atts:Http.Cookie.atts -> name:string -> Http.Resp.t -> Http.Resp.t
+    ?atts:Http.Cookie.atts -> name:string -> Http.Response.t -> Http.Response.t
   (** [clear ~atts ~name resp] clears the cookie named [name] in
       [resp] by setting its [max-age] to [-1] and value to
       [""]. [atts] should be the same value as the one given to
@@ -929,7 +931,7 @@ module Authenticated_cookie : sig
 
   val find :
     private_key:Authenticatable.private_key ->
-    now:Authenticatable.time option -> name:string -> Http.Req.t ->
+    now:Authenticatable.time option -> name:string -> Http.Request.t ->
     ((Authenticatable.time option * string) option, error) result
   (** [find ~private_key ~now ~name req] is the cookie of [req] named
       [name] authenticated and expired by [private_key] and
@@ -999,8 +1001,8 @@ module Session : sig
     (** See {!Session.type-handler}. *)
 
     val v :
-      load:('a state -> Http.Req.t -> ('a option, 'e) result) ->
-      save:('a state -> 'a option -> Http.Resp.t -> Http.Resp.t) -> unit ->
+      load:('a state -> Http.Request.t -> ('a option, 'e) result) ->
+      save:('a state -> 'a option -> Http.Response.t -> Http.Response.t) -> unit ->
       ('a, 'e) handler
     (** [handler ~load ~save ()] is a session handler using [load]
         to setup the session state and [save] to save it before responding.
@@ -1013,21 +1015,21 @@ module Session : sig
         from the one that was loaded. *)
 
     val load :
-      ('a, 'e) handler -> ('a state -> Http.Req.t -> ('a option, 'e) result)
+      ('a, 'e) handler -> ('a state -> Http.Request.t -> ('a option, 'e) result)
     (** [load h] is the state loading function of [h]. *)
 
     val save :
-      ('a, 'e) handler -> ('a state -> 'a option -> Http.Resp.t -> Http.Resp.t)
+      ('a, 'e) handler -> ('a state -> 'a option -> Http.Response.t -> Http.Response.t)
     (** [save h] is the state saving function of [h]. *)
   end
 
-  type 'a resp = 'a option * Http.Resp.t
+  type 'a resp = 'a option * Http.Response.t
   (** The type for session responses. *)
 
   val setup :
     'a state -> ('a, 'e) handler ->
-    (('a option, 'e) result -> Http.Req.t -> 'a resp) ->
-    (Http.Req.t -> Http.Resp.t)
+    (('a option, 'e) result -> Http.Request.t -> 'a resp) ->
+    (Http.Request.t -> Http.Response.t)
   (** [setup sd h service] handles loading and saving state described
       by [sd] with handler [h] for service [service].
 
@@ -1160,9 +1162,10 @@ module Basic_auth : sig
       that. If this sources from storage at least hash your passwords. *)
 
   val enticate :
-    ?cancel:(Http.Req.t -> Http.Resp.t) -> (* TODO we want to specify a body. *)
-    check:check -> realm:string -> Http.Req.t ->
-    (user * Http.Req.t, Http.Resp.t) result
+    (* TODO we want to specify a body. *)
+    ?cancel:(Http.Request.t -> Http.Response.t) ->
+    check:check -> realm:string -> Http.Request.t ->
+    (user * Http.Request.t, Http.Response.t) result
   (** [enticate ~check ~realm ~forbidden_body ~cancel req] is:
       {ul
       {- [Ok (user, req)] if the basic {{!Webs.Http.authorization}

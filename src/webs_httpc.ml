@@ -117,7 +117,7 @@ let read_req c fd =
     let buf = Bytes.create (max io_buffer_size max_bytes) in
     let crlfs, first_start, first_len = read_clrfs c ~max_bytes buf fd in
     let req_line = List.hd crlfs in
-    let meth, request_target, version = decode_request_line buf req_line in
+    let method', request_target, version = decode_request_line buf req_line in
     let path, query =
       match Http.Path.and_query_string_of_request_target request_target with
       | Ok v -> v | Error e -> failwith e
@@ -137,7 +137,7 @@ let read_req c fd =
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd buf ~first_start ~first_len
     in
-    Ok (Http.Req.v ~body ~body_length ~headers ~meth ~path ~query
+    Ok (Http.Request.v ~body ~body_length ~headers ~method' ~path ~query
           ~request_target ~service_path ~version ())
   with
   | Failure e -> Error (`Malformed e)
@@ -146,13 +146,13 @@ let read_req c fd =
 
 let write_resp c fd resp =
   let resp, write_body = Webs_unix.Connector.resp_body_writer resp in
-  let version = Http.Resp.version resp and st = Http.Resp.status resp in
+  let version = Http.Response.version resp and st = Http.Response.status resp in
   (* TODO check what to do with the connection in case of upgrade *)
   let hs =
-    Http.Headers.(Http.Resp.headers resp |>
+    Http.Headers.(Http.Response.headers resp |>
                   def_if_undef Http.connection "close")
   in
-  let r = Http.Resp.reason resp in
+  let r = Http.Response.reason resp in
   let sec = Http.Private.encode_resp_header_section version st r hs in
   let sec = Bytes.unsafe_of_string sec in
   try
@@ -166,11 +166,14 @@ let write_resp c fd resp =
 let resp_of_error e =
   let reason e = if e = "" then None else Some e in
   match e with
-  | `Service -> Http.Resp.v Http.Status.server_error_500
-  | `Too_large -> Http.Resp.v Http.Status.payload_too_large_413
-  | `Malformed e -> Http.Resp.v Http.Status.bad_request_400 ?reason:(reason e)
+  | `Service ->
+      Http.Response.v Http.Status.server_error_500
+  | `Too_large ->
+      Http.Response.v Http.Status.payload_too_large_413
+  | `Malformed e ->
+      Http.Response.v Http.Status.bad_request_400 ?reason:(reason e)
   | `Not_implemented e ->
-      Http.Resp.v Http.Status.not_implemented_501 ?reason:(reason e)
+      Http.Response.v Http.Status.not_implemented_501 ?reason:(reason e)
 
 let apply_service c service req =
   try

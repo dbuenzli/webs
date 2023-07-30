@@ -5,7 +5,7 @@
 
 open Webs
 
-let service = Http.Req.echo
+let service = Http.Request.echo
 let main () = Webs_cli.quick_serve ~name:"min" service
 let () = if !Sys.interactive then () else main ()
 

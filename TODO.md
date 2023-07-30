@@ -1,6 +1,5 @@
 # A laundry list
 
-
 * Connector `service_path` strip failure. Maybe we should 
   rather issue a 404 or 500, in the end it's more a configuration 
   problem. 

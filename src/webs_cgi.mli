@@ -72,7 +72,7 @@ val service_path : t -> Http.Path.t
 
 (** {1:serving Serving} *)
 
-val serve : t -> (Http.Req.t -> Http.Resp.t) -> (unit, string) result
+val serve : t -> (Http.Request.t -> Http.Response.t) -> (unit, string) result
 (** [serve c s] runs service [s] with connector [c]. This blocks until
     the response of [s] for the request has been served. The error is
     returned in case of connector error, it's a good practice to write
@@ -82,7 +82,7 @@ val serve : t -> (Http.Req.t -> Http.Resp.t) -> (unit, string) result
 
 (** {1:req_derivation Request derivation}
 
-	  The  {!Webs.Http.Req.t} value is constructed from the environment and
+	  The  {!Webs.Http.Request.t} value is constructed from the environment and
     {!Unix.stdin} as follows:
     {ul
     {- {!Webs.Http.Req.val-body}, is the result of reading {!Unix.stdin}}

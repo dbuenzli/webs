@@ -11,7 +11,7 @@ let ( let* ) = Result.bind
 module Gateway = struct
   let send_file ~header _ file =
     let headers = Http.Headers.(def header file empty) in
-    Ok (Http.Resp.v Http.Status.ok_200 ~headers ~explain:(header :> string))
+    Ok (Http.Response.v Http.Status.ok_200 ~headers ~explain:(header :> string))
 
   let x_accel_redirect = Http.Name.v "x-accel-redirect"
   let x_sendfile = Http.Name.v "x-sendfile"
@@ -29,7 +29,7 @@ module Res = struct
         let url = res_url name id in
         let explain = "to " ^ url in
         Error
-          (Http.Resp.redirect ~explain Http.Status.moved_permanently_301 url)
+          (Http.Response.redirect ~explain Http.Status.moved_permanently_301 url)
       in
       match get_res req_id with
       | Error _ as e -> e
@@ -98,7 +98,7 @@ module Res = struct
     | `Syntax -> "id syntax error"
 
     let error_to_resp e =
-      Http.Resp.v ~reason:(error_message e) Http.Status.bad_request_400
+      Http.Response.v ~reason:(error_message e) Http.Status.bad_request_400
 
     (* Identifiers *)
 
@@ -141,29 +141,31 @@ module Kurl = struct
   (* Bare URL requests *)
 
   type bare =
-    { meth : Http.Meth.t;
+    { method' : Http.Method.t;
       path : Http.Path.t;
       query : Http.Query.t;
       ext : string; }
 
-  let bare ?(ext = "") ?(query = Http.Query.empty) meth path =
-    { meth; path; query; ext }
+  let bare ?(ext = "") ?(query = Http.Query.empty) method' path =
+    { method'; path; query; ext }
 
   module Bare = struct
     type t = bare
     let v = bare
-    let meth u = u.meth
+    let method' u = u.method'
     let path u = u.path
     let query u = u.query
     let ext u = u.ext
     let with_path path u = { u with path }
     let of_req ?ext r =
       let none = Http.Query.empty in
-      let query = Option.fold ~none ~some:Http.Query.decode (Http.Req.query r)in
-      bare ?ext ~query (Http.Req.meth r) (Http.Req.path r)
+      let query =
+        Option.fold ~none ~some:Http.Query.decode (Http.Request.query r)
+      in
+      bare ?ext ~query (Http.Request.method' r) (Http.Request.path r)
 
-    let of_req_referer ?ext ?meth r =
-      match Http.Headers.find Http.referer (Http.Req.headers r) with
+    let of_req_referer ?ext ?method' r =
+      match Http.Headers.find Http.referer (Http.Request.headers r) with
       | None -> Error ("referer: not found in request")
       | Some ref ->
           match Http.Path.and_query_string_of_request_target ref with
@@ -171,8 +173,8 @@ module Kurl = struct
           | Ok (p, q) ->
               let none = Http.Query.empty in
               let query = Option.fold ~none ~some:Http.Query.decode q in
-              let meth = Option.value ~default:(Http.Req.meth r) meth in
-              Ok (bare ?ext ~query meth p)
+              let m = Option.value ~default:(Http.Request.method' r) method' in
+              Ok (bare ?ext ~query m p)
 
     let pp ppf b =
       let pp_field f pp_v ppf v =
@@ -180,7 +182,7 @@ module Kurl = struct
       in
       let pp_cut = Format.pp_print_cut in
       Format.pp_open_vbox ppf 1;
-      pp_field "meth" Http.Meth.pp ppf b.meth; pp_cut ppf ();
+      pp_field "method" Http.Method.pp ppf b.method'; pp_cut ppf ();
       pp_field "path" Http.Path.pp_dump ppf b.path; pp_cut ppf ();
       pp_field "query" Http.Query.pp ppf b.query; pp_cut ppf ();
       pp_field "ext" Format.pp_print_string ppf b.ext;
@@ -189,14 +191,16 @@ module Kurl = struct
 
   (* Decoder helpers *)
 
-  let allow allowed u = match Http.Meth.constrain ~allowed (Bare.meth u) with
-  | Ok _ as v -> v
-  | Error ms -> Http.Resp.method_not_allowed_405 ~allowed:(List.map fst ms) ()
+  let allow allowed u =
+    match Http.Method.constrain ~allowed (Bare.method' u) with
+    | Ok _ as v -> v
+    | Error ms ->
+        Http.Response.method_not_allowed_405 ~allowed:(List.map fst ms) ()
 
   (* URL request kind *)
 
   type 'a enc = 'a -> bare
-  type 'a dec = bare -> ('a option, Http.Resp.t) result
+  type 'a dec = bare -> ('a option, Http.Response.t) result
   let ok v = Ok (Some v)
   let no_match = Ok None
 
@@ -518,11 +522,11 @@ module Kurl = struct
       in
       let path = Http.Path.concat uf.root path in
       let path = if path = [] then [""] else path in
-      Bare.v u.meth path ~query:u.query ~ext
+      Bare.v u.method' path ~query:u.query ~ext
 
     let req ?full uf u =
       let u = bare uf u in
-      u.meth, encode_url ?full uf u
+      u.method', encode_url ?full uf u
 
     let url ?full uf u = encode_url ?full uf (bare uf u)
 
@@ -533,12 +537,12 @@ module Kurl = struct
       let src = bare uf src in
       let dst = bare uf dst in
       let path = Http.Path.relative ~src:src.path ~dst:dst.path in
-      Bare.v dst.meth path ~query:dst.query ~ext:dst.ext
+      Bare.v dst.method' path ~query:dst.query ~ext:dst.ext
 
     let rel_req uf ~src ~dst =
       if uf.disable_rel then req uf dst else
       let dst = rel_bare uf ~src ~dst in
-      dst.meth, encode_rel_url uf dst
+      dst.method', encode_rel_url uf dst
 
     let rel_url uf ~src ~dst =
       if uf.disable_rel then url uf dst else
@@ -786,14 +790,14 @@ module Authenticated_cookie = struct
   let set ~private_key ~expire ?atts ~name data resp =
     let value = Authenticatable.encode ~private_key ~expire data in
     let cookie = Http.Cookie.encode ?atts ~name value in
-    let hs = Http.Headers.add_set_cookie cookie (Http.Resp.headers resp) in
-    Http.Resp.with_headers hs resp
+    let hs = Http.Headers.add_set_cookie cookie (Http.Response.headers resp) in
+    Http.Response.with_headers hs resp
 
   let clear ?atts ~name resp =
     let atts = Http.Cookie.atts ?init:atts ~max_age:(Some ~-1) () in
     let cookie = Http.Cookie.encode ~atts ~name "" in
-    let hs = Http.Headers.add_set_cookie cookie (Http.Resp.headers resp) in
-    Http.Resp.with_headers hs resp
+    let hs = Http.Headers.add_set_cookie cookie (Http.Response.headers resp) in
+    Http.Response.with_headers hs resp
 
   (* Getting *)
 
@@ -805,7 +809,7 @@ module Authenticated_cookie = struct
 
   let error_string r = Result.map_error error_message r
 
-  let find ~private_key ~now ~name r  = match Http.Req.find_cookie ~name r with
+  let find ~private_key ~now ~name r  = match Http.Request.find_cookie ~name r with
   | Error e -> Error (`Cookie e)
   | Ok (None | Some "") -> Ok None
   | Ok (Some c) ->
@@ -834,8 +838,8 @@ module Session = struct
   (* Handler *)
 
   type ('a, 'e) handler =
-    { load : 'a state -> Http.Req.t -> ('a option, 'e) result;
-      save : 'a state -> 'a option -> Http.Resp.t -> Http.Resp.t }
+    { load : 'a state -> Http.Request.t -> ('a option, 'e) result;
+      save : 'a state -> 'a option -> Http.Response.t -> Http.Response.t }
 
   module Handler = struct
     type ('a, 'e) t = ('a, 'e) handler
@@ -844,7 +848,7 @@ module Session = struct
     let save h = h.save
   end
 
-  type 'a resp = 'a option * Http.Resp.t
+  type 'a resp = 'a option * Http.Response.t
 
   let setup sd h service = fun req ->
     let r = h.load sd req in
@@ -917,7 +921,7 @@ module Basic_auth = struct
     | _ -> Error ("Not a basic auth-scheme")
 
 
-  let cancel = Http.Resp.html Http.Status.unauthorized_401 @@
+  let cancel = Http.Response.html Http.Status.unauthorized_401 @@
 {|<!DOCTYPE html>
 <html lang="en">
   <head><meta charset="utf-8"><title>Login cancelled</title></head>
@@ -929,17 +933,17 @@ module Basic_auth = struct
       let auth = Printf.sprintf {|basic realm="%s", charset="utf-8"|} realm in
       let hs = Http.Headers.(def Http.www_authenticate auth empty) in
       let resp =
-        Http.Resp.with_status ~explain Http.Status.unauthorized_401 (cancel r)
+        Http.Response.with_status ~explain Http.Status.unauthorized_401 (cancel r)
       in
-      Error (Http.Resp.override_headers ~by:hs resp)
+      Error (Http.Response.override_headers ~by:hs resp)
     in
-    match Http.Headers.find Http.authorization (Http.Req.headers r) with
+    match Http.Headers.find Http.authorization (Http.Request.headers r) with
     | None -> error_401 ~explain:"No authorization header"
     | Some creds ->
         let* user, pass = match basic_authentication_of_string creds with
         | Ok _ as v -> v
         | Error explain ->
-            Error (Http.Resp.v ~explain Http.Status.bad_request_400)
+            Error (Http.Response.v ~explain Http.Status.bad_request_400)
         in
         let* () = match check ~user ~pass with
         | Ok _ as v -> v

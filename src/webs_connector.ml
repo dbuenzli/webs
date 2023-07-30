@@ -10,7 +10,7 @@ type log_msg =
 [ `Service_exn of exn * Stdlib.Printexc.raw_backtrace
 | `Connector_exn of exn * Stdlib.Printexc.raw_backtrace
 | `Connection_reset
-| `Trace of dur_ns * Http.Req.t option * Http.Resp.t option ]
+| `Trace of dur_ns * Http.Request.t option * Http.Response.t option ]
 
 let no_log _ = ()
 
@@ -45,20 +45,20 @@ let pp_trace ppf dur_ns req resp =
       | -1 -> strf " % 3Luµs" (Int64.unsigned_div dur_ns 1_000L)
       | _ -> strf " % 3Lums" (Int64.unsigned_div dur_ns 1_000_000L)
   in
-  let meth req = match Http.Req.meth req with
+  let method' req = match Http.Request.method' req with
   | `POST | `PUT | `DELETE | `PATCH as m ->
-      strf "\x1B[34m%s\x1B[0m" (Http.Meth.encode m)
-  | m ->  Http.Meth.encode m
+      strf "\x1B[34m%s\x1B[0m" (Http.Method.encode m)
+  | m ->  Http.Method.encode m
   in
-  let query req = match Http.Req.query req with
+  let query req = match Http.Request.query req with
   | None -> ""
   | Some q -> strf "?%s" q
   in
   let path req =
     strf "\x1B[1m%s\x1B[0m%s"
-      (Http.Path.encode (Http.Req.path req)) (query req)
+      (Http.Path.encode (Http.Request.path req)) (query req)
   in
-  let status resp = match Http.Resp.status resp with
+  let status resp = match Http.Response.status resp with
   | st when st <= 299 -> strf "\x1B[32m%d\x1B[0m" st
   | st when st <= 399 -> strf "\x1B[93m%d\x1B[0m" st
   | st when 400 <= st && st <= 599 -> strf "\x1B[31m%d\x1B[0m" st
@@ -68,16 +68,16 @@ let pp_trace ppf dur_ns req resp =
   | Some req, Some resp ->
       let data =
         String.concat "" @@
-        meth req :: " [" :: status resp :: dur :: "] " ::
-        path req :: " (" :: Http.Resp.reason resp :: ")" ::
-        (if Http.Resp.explain resp = "" then [] else
-         [ " "; Http.Resp.explain resp])
+        method' req :: " [" :: status resp :: dur :: "] " ::
+        path req :: " (" :: Http.Response.reason resp :: ")" ::
+        (if Http.Response.explain resp = "" then [] else
+         [ " "; Http.Response.explain resp])
       in
       Format.pp_print_string ppf data
   | Some req, None ->
       let data =
         String.concat "" @@
-        meth req :: " [" :: dur :: "] " ::
+        method' req :: " [" :: dur :: "] " ::
         path req :: " No response" :: []
       in
       Format.pp_print_string ppf data
@@ -85,9 +85,9 @@ let pp_trace ppf dur_ns req resp =
       let data =
         String.concat "" @@
         "???" :: " [" :: status resp :: dur :: "] " ::
-        "Can't decode request" :: " (" :: Http.Resp.reason resp :: ")" ::
-        (if Http.Resp.explain resp = "" then [] else
-         [ " "; Http.Resp.explain resp])
+        "Can't decode request" :: " (" :: Http.Response.reason resp :: ")" ::
+        (if Http.Response.explain resp = "" then [] else
+         [ " "; Http.Response.explain resp])
       in
       Format.pp_print_string ppf data
   | None, None ->

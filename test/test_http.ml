@@ -27,32 +27,32 @@ let test_version () =
   ()
 
 let test_method () =
-  log "Webs.Http.Meth.{encode,decode}";
-  assert (Http.Meth.decode "GET" = Ok `GET);
-  assert (Http.Meth.decode "HEAD" = Ok `HEAD);
-  assert (Http.Meth.decode "POST" = Ok `POST);
-  assert (Http.Meth.decode "PUT" = Ok `PUT);
-  assert (Http.Meth.decode "DELETE" = Ok `DELETE);
-  assert (Http.Meth.decode "CONNECT" = Ok `CONNECT);
-  assert (Http.Meth.decode "OPTIONS" = Ok `OPTIONS);
-  assert (Http.Meth.decode "TRACE" = Ok `TRACE);
-  assert (Http.Meth.decode "PATCH" = Ok `PATCH);
-  assert (Http.Meth.decode "Get" = Ok (`Other "Get"));
-  assert (Result.is_error @@ Http.Meth.decode " GET");
-  assert (Result.is_error @@ Http.Meth.decode " Get");
-  assert (Result.is_error @@ Http.Meth.decode "Get,Get");
-  assert (Http.Meth.encode `GET = "GET");
-  assert (Http.Meth.encode `HEAD = "HEAD");
-  assert (Http.Meth.encode `POST = "POST");
-  assert (Http.Meth.encode `PUT = "PUT");
-  assert (Http.Meth.encode `DELETE = "DELETE");
-  assert (Http.Meth.encode `CONNECT = "CONNECT");
-  assert (Http.Meth.encode `OPTIONS = "OPTIONS");
-  assert (Http.Meth.encode `TRACE = "TRACE");
-  assert (Http.Meth.encode `PATCH = "PATCH");
-  assert (Http.Meth.encode (`Other "Get") = "Get");
-  raises_invalid (fun () -> Http.Meth.encode (`Other " Get"));
-  raises_invalid (fun () -> Http.Meth.encode (`Other "Get,Get"));
+  log "Webs.Http.Method.{encode,decode}";
+  assert (Http.Method.decode "GET" = Ok `GET);
+  assert (Http.Method.decode "HEAD" = Ok `HEAD);
+  assert (Http.Method.decode "POST" = Ok `POST);
+  assert (Http.Method.decode "PUT" = Ok `PUT);
+  assert (Http.Method.decode "DELETE" = Ok `DELETE);
+  assert (Http.Method.decode "CONNECT" = Ok `CONNECT);
+  assert (Http.Method.decode "OPTIONS" = Ok `OPTIONS);
+  assert (Http.Method.decode "TRACE" = Ok `TRACE);
+  assert (Http.Method.decode "PATCH" = Ok `PATCH);
+  assert (Http.Method.decode "Get" = Ok (`Other "Get"));
+  assert (Result.is_error @@ Http.Method.decode " GET");
+  assert (Result.is_error @@ Http.Method.decode " Get");
+  assert (Result.is_error @@ Http.Method.decode "Get,Get");
+  assert (Http.Method.encode `GET = "GET");
+  assert (Http.Method.encode `HEAD = "HEAD");
+  assert (Http.Method.encode `POST = "POST");
+  assert (Http.Method.encode `PUT = "PUT");
+  assert (Http.Method.encode `DELETE = "DELETE");
+  assert (Http.Method.encode `CONNECT = "CONNECT");
+  assert (Http.Method.encode `OPTIONS = "OPTIONS");
+  assert (Http.Method.encode `TRACE = "TRACE");
+  assert (Http.Method.encode `PATCH = "PATCH");
+  assert (Http.Method.encode (`Other "Get") = "Get");
+  raises_invalid (fun () -> Http.Method.encode (`Other " Get"));
+  raises_invalid (fun () -> Http.Method.encode (`Other "Get,Get"));
   ()
 
 let test_headers_case () =

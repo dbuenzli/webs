@@ -3,20 +3,14 @@
    Distributed under the ISC license, see terms at the end of the file.
   ---------------------------------------------------------------------------*)
 
-(** Web service HTTP interface.
-
-    Consult the {{!page-web_service_howto}web service howto} for quick
-    steps to run your first service. A few tools are in {!Webs_kit}
-    and gateway connectors to run services can be found
-    {{!page-index.connectors}here}.
+(** HTTP requests and responses.
 
     Open the module to use it. It defines only the {!Http} module in your
     scope. *)
 
 (** HTTP codecs, datatypes, requests and responses.
 
-    HTTP codecs, datatypes, requests, responses and and protocol logic
-    fragments.
+    Including protocol logic fragments.
 
     {b References.}
     {ul
@@ -185,9 +179,9 @@ module Http : sig
   end
 
   (** Request methods and constraints. *)
-  module Meth : sig
+  module Method : sig
 
-    (** {1:meths Methods} *)
+    (** {1:methods Methods} *)
 
     type t =
     [ `GET
@@ -998,7 +992,7 @@ module Http : sig
   (** {1:req_resp Request and responses} *)
 
   (** HTTP responses. *)
-  module Resp : sig
+  module Response : sig
 
     (** {1:body Response bodies} *)
 
@@ -1194,7 +1188,7 @@ module Http : sig
 
     val method_not_allowed_405 :
       ?explain:string -> ?reason:string -> ?headers:Headers.t ->
-      allowed:Meth.t list -> unit -> ('a, t) result
+      allowed:Method.t list -> unit -> ('a, t) result
     (** [method_not_allowed ~allowed] is an {!empty} response with status
         {!Http.method_not_allowed_405}. It sets the {!Http.allow} header
         to the [allow]ed methods (which can be empty). *)
@@ -1230,7 +1224,7 @@ module Http : sig
   (** {1:req Requests} *)
 
   (** HTTP requests. *)
-  module Req : sig
+  module Request : sig
 
     (** {1:body Request bodies} *)
 
@@ -1238,10 +1232,11 @@ module Http : sig
     (** The type for request bodies.
 
         Bodies are blocking functions pulled by services to yield byte
-        chunks of data of the request body as [Some (bytes, first, len)]
-        values. The bytes value must not be modified and is readable
-        from [first] to [first+len] until the next call to the
-        function. The function returns [None] at the end of stream. *)
+        chunks of data of the request body as [Some (bytes, first,
+        len)] values. The bytes value must not be modified and is
+        readable from [first] to [first+len] until the next call to
+        the function. The function returns [None] at the end of
+        stream. *)
 
     val empty_body : body
     (** [empty_body] is an empty body. *)
@@ -1256,7 +1251,7 @@ module Http : sig
 
     val v :
       ?init:t -> ?body:body -> ?body_length:int option ->
-      ?headers:Headers.t -> ?meth:Meth.t -> ?path:Path.t ->
+      ?headers:Headers.t -> ?method':Method.t -> ?path:Path.t ->
       ?query:string option -> ?request_target:string ->
       ?service_path:Path.t -> ?version:Version.t -> unit -> t
     (** [v ~init ()] is an HTTP request with given attributes and for those
@@ -1299,8 +1294,8 @@ module Http : sig
     (** [headers r] is [r]'s HTTP headers. Includes at least
         the {!Http.host} header. *)
 
-    val meth : t -> Meth.t
-    (** [meth r] is [r]'s
+    val method' : t -> Method.t
+    (** [method' r] is [r]'s
         {{:https://tools.ietf.org/html/rfc7231#section-4}HTTP method}. *)
 
     val path : t -> Path.t
@@ -1345,7 +1340,7 @@ module Http : sig
 
     (** {2:echo Echo} *)
 
-    val echo : ?status:Status.t -> t -> Resp.t
+    val echo : ?status:Status.t -> t -> Response.t
     (** [echo r] returns [r] as a 404 [text/plain] document (and by
         doing so violates numerous HTTP's musts). This includes the
         request body, which is consumed by the service.  *)
@@ -1354,13 +1349,13 @@ module Http : sig
 
     val decode_header :
       Name.t -> (string -> ('a, string) result) -> t ->
-      ('a option, Resp.t) result
+      ('a option, Response.t) result
     (** [decode_header h dec r] decodes header [h] (if any) in [r].
         Errors with {!Http.bad_request_400} in case of decoding errors. *)
 
     (** {2:method_constraints Method constraints} *)
 
-    val allow : 'a Meth.constraint' list -> t -> ('a, Resp.t) result
+    val allow : 'a Method.constraint' list -> t -> ('a, Response.t) result
     (** [allow ms r] is:
           {ul
           {- [Ok (Req.meth r)] if [List.mem (Req.meth r, Req.meth r) ms]}
@@ -1384,13 +1379,13 @@ module Http : sig
         {- Introduce a variation where you push [n] segments
          on the service path.}} *)
 
-    val service_redirect : ?explain:string -> int -> Path.t -> t -> Resp.t
+    val service_redirect : ?explain:string -> int -> Path.t -> t -> Response.t
     (** [service_redirect status p r] redirects [r] to the service path [p]
         (this
         means [r]'s {!service_path} is prefixed to [p]) with status [status].
         See also {!Resp.redirect}. *)
 
-    val forward_service : strip:Path.t -> t -> (t, Resp.t) result
+    val forward_service : strip:Path.t -> t -> (t, Response.t) result
     (** [forward_service ~strip r] is:
         {ul
         {- [Ok r'] with [r'] the request [r] with a {!val-path} made
@@ -1410,7 +1405,7 @@ module Http : sig
         {b Warning.} {!Http.type-query} values are untrusted,
         you need to properly validate their data. *)
 
-    val to_query : t -> (Query.t, Resp.t) result
+    val to_query : t -> (Query.t, Response.t) result
     (** [to_query r] extracts a query from [r]. This is
         {ul
         {- [Ok q] with [q] parsed from [Req.query r] if [r]'s
@@ -1435,7 +1430,7 @@ module Http : sig
         extension logic on the final segment is needed to route file
         serving. *)
 
-    val clean_path : t -> (t, Resp.t) result
+    val clean_path : t -> (t, Response.t) result
     (** [clean_path r] is:
         {ul
         {- [Ok r] if [r]'s path is [[]], [[""]] or if it has no empty segment.}
@@ -1451,7 +1446,7 @@ module Http : sig
     (** {2:file_path Absolute file paths} *)
 
     val to_absolute_filepath :
-      ?strip:Path.t -> root:Path.fpath -> t -> (Path.fpath, Resp.t) result
+      ?strip:Path.t -> root:Path.fpath -> t -> (Path.fpath, Response.t) result
       (** [absolute_filepath ~strip ~root r] determines an absolute
           file path strictly rooted in [root] by
           {{!Http.Path.strip_prefix}stripping} [strip] (defaults to
@@ -1638,7 +1633,7 @@ module Http : sig
     (** [trim_ows] trims starting and ending HTTP ows. *)
 
     val decode_request_line :
-      bytes -> first:int -> crlf:int -> Meth.t * string * Version.t
+      bytes -> first:int -> crlf:int -> Method.t * string * Version.t
     (** [decode_request_line b ~first ~crlf] decodes a request
         line that starts at [first] and whose ending CRLF starts
         at [crlf]. Raises [Failure] on errors. *)

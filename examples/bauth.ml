@@ -35,19 +35,19 @@ let check ~user ~pass = match List.assoc_opt user users with
 | None -> Error `User_unknown
 
 let admin p req user = match p with
-| [] | [""] -> Ok (Http.Resp.html Http.Status.ok_200 (Page.admin user))
-| _ -> Http.Resp.not_found_404 ()
+| [] | [""] -> Ok (Http.Response.html Http.Status.ok_200 (Page.admin user))
+| _ -> Http.Response.not_found_404 ()
 
 let service req =
-  Http.Resp.result @@ match Http.Req.path req with
+  Http.Response.result @@ match Http.Request.path req with
   | [""] ->
-      let* `GET = Http.Req.allow Http.Meth.[get] req in
-      Ok (Http.Resp.html Http.Status.ok_200 Page.home)
+      let* `GET = Http.Request.allow Http.Method.[get] req in
+      Ok (Http.Response.html Http.Status.ok_200 Page.home)
   | "admin" :: p ->
       let* user, req = Basic_auth.enticate ~check ~realm:"Service admin" req in
-      let* `GET = Http.Req.allow Http.Meth.[get] req in
+      let* `GET = Http.Request.allow Http.Method.[get] req in
       admin p req user
-  | _ -> Http.Resp.not_found_404 ()
+  | _ -> Http.Response.not_found_404 ()
 
 let main () = Webs_cli.quick_serve ~name:"bauth" service
 let () = if !Sys.interactive then () else main ()

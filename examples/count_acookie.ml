@@ -34,15 +34,15 @@ let set_expirable_count ~private_key ~now ~count r =
   Authenticated_cookie.set ~private_key ~expire ~name:cookie_name data r
 
 let service ~private_key req =
-  Http.Resp.result @@ match Http.Req.path req with
+  Http.Response.result @@ match Http.Request.path req with
   | [""] ->
-      let* `GET = Http.Req.allow Http.Meth.[get] req in
+      let* `GET = Http.Request.allow Http.Method.[get] req in
       let now = truncate (Unix.gettimeofday ()) in
       let c = get_expirable_count ~private_key ~now req in
-      let resp = Http.Resp.html Http.Status.ok_200 (count c) in
+      let resp = Http.Response.html Http.Status.ok_200 (count c) in
       Ok (set_expirable_count ~private_key ~now ~count:(c + 1) resp)
   | _ ->
-      Http.Resp.not_found_404 ()
+      Http.Response.not_found_404 ()
 
 let main () =
   let private_key = Authenticatable.random_private_key_hs256 () in

@@ -19,7 +19,7 @@ val upgradable : Http.Headers.t -> bool
 (** [upgradable hs] is [true] iff [hs] has {!Webs.Http.H.connection}
     with an ["upgrade"] and {!Webs.Http.H.upgrade} with a ["websocket"]. *)
 
-val upgrade : Http.Req.t -> Http.Resp.t
+val upgrade : Http.Request.t -> Http.Response.t
 (** [upgrade] responds to upgrade the request to a websocket.
 
     {b FIXME} handle protocols, doc details. *)

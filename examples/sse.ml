@@ -41,19 +41,19 @@ let resp_events () =
   let hs = Http.Headers.(def x_accel_buffering "no" empty) in
   let hs = Http.Headers.(def Http.cache_control "no-cache" hs) in
   let hs = Http.Headers.(def Http.content_type "text/event-stream" hs) in
-  Http.Resp.v Http.Status.ok_200 ~headers:hs
-    ~body:(Http.Resp.stream_body event_stream)
+  Http.Response.v Http.Status.ok_200 ~headers:hs
+    ~body:(Http.Response.stream_body event_stream)
 
 let service req =
-  Http.Resp.result @@ match Http.Req.path req with
+  Http.Response.result @@ match Http.Request.path req with
   | [""] ->
-      let* `GET = Http.Req.allow Http.Meth.[get] req in
-      Ok (Http.Resp.html Http.Status.ok_200 index_page)
+      let* `GET = Http.Request.allow Http.Method.[get] req in
+      Ok (Http.Response.html Http.Status.ok_200 index_page)
   | ["events"] ->
-      let* `GET = Http.Req.allow Http.Meth.[get] req in
+      let* `GET = Http.Request.allow Http.Method.[get] req in
       Ok (resp_events ())
   | _ ->
-      Http.Resp.not_found_404 ()
+      Http.Response.not_found_404 ()
 
 let main () = Webs_cli.quick_serve ~name:"sse" service
 let () = if !Sys.interactive then () else main ()

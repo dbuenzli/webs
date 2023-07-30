@@ -1,20 +1,30 @@
 {0 Webs {%html: <span class="version">%%VERSION%%</span>%}}
 
-Webs is a toolkit for programming web services in OCaml.  It provides:
+Webs is a toolkit for programming web services in OCaml.It provides:
 
 {ul
+{- Datatypes for representing HTTP requests and responses independent
+   from any IO mechanism.}
 {- A generic low-level {{!Webs.Http.section-service}interface} for
    defining web service in terms of HTTP request-responses cycles.}
 {- Optional service building blocks.
    {{!page-web_service_howto.serving_files}File serving},
    {{!Webs_kit.Authenticated_cookie}authenticated cookies},
    {{!Webs_kit.Session}sessions}, {{!Webs_html}HTML generation}, etc.}
-{- Connectors. They run services and are in charge of talking
+{- Connectors. For running services defined as function mapping
+   requests to responses. Connectors are in charge of talking
    to the HTTP gateway or client. {{!Webs_cgi}CGI} and
    {{!Webs_httpc}HTTP/1.1} gateway connectors are provided,
    but you can bring your own.}}
 
 Webs is a set of libraries and building blocks, not a framework.
+
+{1:quick_start Quick start}
+
+Consult the {{!page-web_service_howto}web service howto} for quick
+steps to run your first service. A few tools are in {!Webs_kit}
+and gateway connectors to run services can be found
+{{!page-index.connectors}here}.
 
 {1:manuals Manuals}
 

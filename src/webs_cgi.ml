@@ -108,7 +108,7 @@ let get_var var decode env = match find_var var decode env with
 let header_section_of_env ~extra_vars env =
   let hs, env = headers_of_env ~extra_vars env in
   let version = get_var "SERVER_PROTOCOL" Http.Version.decode env in
-  let meth = get_var "REQUEST_METHOD" Http.Meth.decode env in
+  let meth = get_var "REQUEST_METHOD" Http.Method.decode env in
   let request_target = get_var "REQUEST_URI" Result.ok env in
   version, meth, request_target, hs
 
@@ -119,7 +119,7 @@ let body_length hs = match Http.Headers.request_body_length hs with
 
 let read_req c env fd_in =
   try
-    let version, meth, request_target, headers =
+    let version, method', request_target, headers =
       header_section_of_env ~extra_vars:c.extra_vars env
     in
     let path, query =
@@ -142,7 +142,7 @@ let read_req c env fd_in =
       Webs_unix.Connector.req_body_reader
         ~max_req_body_byte_size ~body_length fd_in buf ~first_start ~first_len
     in
-    Ok (Http.Req.v ~body ~body_length ~headers ~meth ~path ~query
+    Ok (Http.Request.v ~body ~body_length ~headers ~method' ~path ~query
           ~request_target ~service_path ~version ())
   with
   | Failure e -> Error (`Malformed e)
@@ -167,10 +167,10 @@ let write_resp c fd resp =
   let resp, write_body = Webs_unix.Connector.resp_body_writer resp in
   (* TODO check what to do with the connection in case of upgrade *)
   let hs =
-    Http.Headers.(Http.Resp.headers resp |>
+    Http.Headers.(Http.Response.headers resp |>
                   def_if_undef Http.connection "close")
   in
-  let st = Http.Resp.status resp and reason = Http.Resp.reason resp in
+  let st = Http.Response.status resp and reason = Http.Response.reason resp in
   let sec = encode_resp_header_section st reason hs in
   let sec = Bytes.unsafe_of_string sec in
   Webs_unix.Connector.write fd sec ~start:0 ~len:(Bytes.length sec);
@@ -181,11 +181,14 @@ let write_resp c fd resp =
 let resp_of_error e =
   let reason e = if e = "" then None else Some e in
   match e with
-  | `Service -> Http.Resp.v Http.Status.server_error_500
-  | `Too_large -> Http.Resp.v Http.Status.payload_too_large_413 (* FIXME *)
-  | `Malformed e -> Http.Resp.v Http.Status.bad_request_400 ?reason:(reason e)
+  | `Service ->
+      Http.Response.v Http.Status.server_error_500
+  | `Too_large ->
+      Http.Response.v Http.Status.payload_too_large_413 (* FIXME *)
+  | `Malformed e ->
+      Http.Response.v Http.Status.bad_request_400 ?reason:(reason e)
   | `Not_implemented e ->
-      Http.Resp.v Http.Status.not_implemented_501 ?reason:(reason e)
+      Http.Response.v Http.Status.not_implemented_501 ?reason:(reason e)
 
 let apply_service c service req =
   try
