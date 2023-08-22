@@ -174,8 +174,8 @@ let read_request c env fd_in fd_out =
                       maybe we coud fail *)
       then [], [] else
       match Http.Path.strip_prefix ~prefix:c.service_path path with
-      | None -> failwith "Cannot strip service path from requested URI"
-      | Some path -> c.service_path, path
+      | [] -> failwith "Cannot strip service path from requested URI"
+      | path -> c.service_path, path
     in
     let buf = Bytes.create io_buffer_size in
     let* content_length = content_length headers in

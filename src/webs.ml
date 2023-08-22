@@ -580,13 +580,13 @@ module Path = struct
   let undot_and_compress p = _undot_and_compress ~check:(Fun.const true) p
 
   let strip_prefix ~prefix p =
-    if prefix = [] || p = [] then None else
-    if prefix = [""] then Some p else
-    let rec loop pre acc = match pre, acc with
-    | s :: pre, a :: acc when String.equal s a -> loop pre acc
-    | ([] | [""]), (_ :: _ as acc) -> Some acc
-    | [], [] -> Some [""]
-    | _ -> None
+    if prefix = [] || p = [] then [] else
+    if prefix = [""] then p else
+    let rec loop pre p = match pre, p with
+    | preseg :: pre, pseg :: p when String.equal preseg pseg -> loop pre p
+    | ([] | [""]), (_ :: _ as p) -> p
+    | [], [] -> [""]
+    | _ -> []
     in
     loop prefix p
 
@@ -1588,8 +1588,8 @@ module Request = struct
                           maybe we coud fail *)
       then [], [] else
       match Path.strip_prefix ~prefix:service_path path with
-      | None -> failwith "Cannot strip service path from requested URI"
-      | Some path -> service_path, path
+      | [] -> failwith "Cannot strip service path from requested URI"
+      | path -> service_path, path
     in
     Result.ok @@
     make ~headers ~path ~query ~service_path ~version method' ~raw_path body
@@ -1725,10 +1725,10 @@ module Request = struct
 
   let to_absolute_filepath ?(strip = [""]) ~file_root request =
     match Path.strip_prefix ~prefix:strip (path request) with
-    | None ->
+    | [] ->
         let explain = Fmt.str "could not strip prefix %a" Path.pp strip in
         Response.not_found_404 ~explain ()
-    | Some p ->
+    | p ->
         match Path.to_absolute_filepath p with
         | Error e -> Response.bad_request_400 ~explain:e ()
         | Ok filepath -> Ok (Path.prefix_filepath ~prefix:file_root filepath)

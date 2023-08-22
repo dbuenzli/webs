@@ -137,8 +137,8 @@ let read_http11_request c fd =
                         maybe we coud fail *)
         then [], [] else
         match Http.Path.strip_prefix ~prefix:c.service_path path with
-        | None -> failwith "Cannot strip service path from requested URI"
-        | Some path -> c.service_path, path
+        | [] -> failwith "Cannot strip service path from requested URI"
+        | path -> c.service_path, path
       in
       Http.Request.make
         ~headers ~path ~query ~service_path ~version method' ~raw_path

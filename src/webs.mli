@@ -314,13 +314,13 @@ module Http : sig
     (** [trace] adds [`TRACE] to the constraint set. *)
   end
 
-  (** Paths. *)
+  (** Absolute paths. *)
   module Path : sig
 
-    (** {1:paths Paths} *)
+    (** {1:paths Absolute paths} *)
 
     type t = string list
-    (** The type for absolute URI paths represented as {e non-empty}
+    (** The type for {e absolute} URI paths represented as {e non-empty}
         lists of {e percent-decoded} path segments:
         {ul
         {- The empty list denotes the absence of a path.}
@@ -349,40 +349,54 @@ module Http : sig
         {{:https://www.rfc-editor.org/rfc/rfc3986#section-5.2.4}algorithm}
         and suppresses non-final empty [""] segments. *)
 
-    val strip_prefix : prefix:t -> t -> t option
+    val strip_prefix : prefix:t -> t -> t
     (** [strip_prefix ~prefix p] removes the prefix path [prefix] from
-        [p].  If [prefix] ends with an empty segment, it matches any
-        corresponding segment at that point (so that stripping [/a/]
-        from [/a/b] results in [/b]).
+        [p].
 
-        If [p] is not prefixed by [prefix], [None] is returned. [Some
-        []] is never returned (FIXME why don't we remove the option and
-        return that instead ?).
+        If [prefix] ends with an empty segment, it matches any
+        corresponding segment at that point so that stripping [/a/]
+        from [/a/b] results in [/b]. However stripping [/a/] from [/a]
+        yields [[]] ({!none}).
 
-        Given a path [p] and the same path [p'] with a trailing
-        slash, the set of paths prefixed by [p] is the the set of
-        path prefixed by [p'] plus [p] itelf.
+        If [p] is not prefixed by [prefix], or if any of [prefix]
+        or [p] is [[]] ({!none}), [[]] is returned.
 
-        A few examples:
+        Given a path [p] and the same path [p'] with a trailing slash,
+        the set of paths prefixed by [p] is the the set of path
+        prefixed by [p'] plus [p] itelf. Stripping [p] to itself
+        yields {!root} (see {{!Webs_bazaar.Kurl.root_paths}here} for
+        why we think that's desirable).
+
+        A few examples basic edge cases {!root} and {!none}:
         {ul
-        {- [strip_prefix [""] (_ :: _ as l) = Some l]}
-        {- [strip_prefix _ [] -> None]}
-        {- [strip_prefix [] _ = None]}
-        {- [strip_prefix ["a"] ["b"] = None]}
-        {- [strip_prefix ["a"] ["a"] = Some [""]]}
-        {- [strip_prefix ["a"] ["a"; ""] = Some [""]]}
-        {- [strip_prefix ["a"] ["a"; "b"; ] = Some ["b"]]}
-        {- [strip_prefix ["a"] ["a"; "b"; ""] = Some ["b"; ""]]}
-        {- [strip_prefix ["a"] ["a"; ""; "b"] = Some [""; "b"]]}
-        {- [strip_prefix ["a"; ""] ["a"] = None]}
-        {- [strip_prefix ["a"; ""] ["a"; ""] = Some [""]]}
-        {- [strip_prefix ["a"; ""] ["a"; "b"; ] = Some ["b"]]}
-        {- [strip_prefix ["a"; ""] ["a"; "b"; ""] = Some ["b"; ""]]}
-        {- [strip_prefix ["a"; ""] ["a"; ""; "b"] = Some [""; "b"]]}} *)
+        {- [strip_prefix [""] (_ :: _ as p) = p]}
+        {- [strip_prefix (_ :: _ as p) p = [""]]}
+        {- [strip_prefix _ [] -> []]}
+        {- [strip_prefix [] _ = []]}}
+
+        Stripping a prefix [/a]:
+        {ul
+        {- [strip_prefix ["a"] [""] = []]}
+        {- [strip_prefix ["a"] ["a"] = [""]]}
+        {- [strip_prefix ["a"] ["a"; ""] = [""]]}
+        {- [strip_prefix ["a"] ["b"] = []]}
+        {- [strip_prefix ["a"] ["a"; "b"] = ["b"]]}
+        {- [strip_prefix ["a"] ["a"; "b"; ""] = ["b"; ""]]}
+        {- [strip_prefix ["a"] ["a"; ""; "b"] = [""; "b"]]}}
+
+        Stripping a prefix [/a/]:
+        {ul
+        {- [strip_prefix ["a"; ""] [""] = []]}
+        {- [strip_prefix ["a"; ""] ["a"] = []]}
+        {- [strip_prefix ["a"; ""] ["b"] = []]}
+        {- [strip_prefix ["a"; ""] ["a"; ""] = [""]]}
+        {- [strip_prefix ["a"; ""] ["a"; "b"] = ["b"]]}
+        {- [strip_prefix ["a"; ""] ["a"; "b"; ""] = ["b"; ""]]}
+        {- [strip_prefix ["a"; ""] ["a"; ""; "b"] = [""; "b"]]}} *)
 
     val concat : t -> t ->  t
     (** [concat p0 p1] concatenates [p0] and [p1]. If [p0] ends with
-        an empty segment and [p1] is non-empty that empty segment is dropped.
+        an empty segment and [p1] is not {!none} that empty segment is dropped.
         A few examples:
         {ul
         {- [concat p [] = p]}
