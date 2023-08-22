@@ -5,11 +5,11 @@ Webs is a toolkit for programming with HTTP in OCaml. It provides:
 {ul
 {- IO agnostic representations for HTTP {{!Webs.Http.Request}requests}
    and {{!Webs.Http.Response}responses}.}
-{- Optional web service building blocks.
-   {{!page-web_service_howto.serving_files}File serving},
+{- Optional HTTP service building blocks.
+   {{!page-http_service_howto.serving_files}File serving},
    {{!Webs_authenticated_cookie}authenticated cookies},
    {{!Webs_session}sessions}, etc.}
-{- Connectors for running services defined as function mapping
+{- Connectors for running HTTP services defined as function mapping
    requests to responses. {{!Webs_cgi}CGI} and
    {{!Webs_http11_gateway}HTTP/1.1 gateway} connectors are provided,
    but you can bring your own.}}
@@ -21,7 +21,7 @@ Webs is not a framework, it is a set of building blocks.
 These manuals are available:
 
 {ul
-{- The {{!page-web_service_howto}web service howto} explains how to
+{- The {{!page-http_service_howto}HTTP service howto} explains how to
    define, compile and run a service behind an HTTP gateway and let
    it serve files and webpages efficiently.}
 {- The {{!page-connector_conventions}connector conventions} explain
@@ -89,7 +89,7 @@ these current limitations:
 {- All available {{!service_connectors}connectors} do not talk directly to the
    internet and do not talk [https]. You need to pair your service
    with an HTTP gateway like Apache, nginx, etc. See the
-   {{!page-web_service_howto}webs service howto} for more details.}
+   {{!page-http_service_howto}HTTP service howto} for more details.}
 {- TODO chunked encoding}
 {- Webs supports the [application/x-www-form-urlencoded] content type for
    form posting but it's missing an implementation of the [multipart/form]

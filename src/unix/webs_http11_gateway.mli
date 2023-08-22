@@ -8,7 +8,7 @@
     This connector serves a bounded number of concurrent HTTP/1.1
     requests using one {!Thread} per request drawn from a thread pool.
 
-    See the {{!page-web_service_howto}Web service howto} for
+    See the {{!page-http_service_howto}HTTP service howto} for
     instructions to use this connector with an HTTP gateway.
 
     {b Warning.} This should only ever be used behind a proper HTTP gateway

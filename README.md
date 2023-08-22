@@ -5,7 +5,7 @@ Webs — HTTP toolkit for OCaml
 Webs is a toolkit for programming with HTTP in OCaml. It provides:
 
 * IO agnostic representations for HTTP requests and responses.
-* Optional web service building blocks. File serving, authenticated
+* Optional HTTP service building blocks. File serving, authenticated
   cookies, sessions, etc.
 * Connectors for running HTTP services defined as functions mapping
   requests to responses. CGI and HTTP/1.1 gateway connectors are

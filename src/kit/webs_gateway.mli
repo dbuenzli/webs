@@ -10,7 +10,7 @@ open Webs
 (** {1:sending_file File serving handoff}
 
     Tools for letting the gateway serve files. See
-    {{!page-web_service_howto.serving_files}this section} of the web
+    {{!page-http_service_howto.serving_files}this section} of the web
     service howto. To let the service itself send them see
     {!Webs_fs}. *)
 

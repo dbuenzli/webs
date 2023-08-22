@@ -5,8 +5,8 @@
 
 (** File system responses.
 
-    See {{!page-web_service_howto.serving_files}this section} of the
-    web service howto. See also {!Webs_gateway.send_file}.
+    See {{!page-http_service_howto.serving_files}this section} of the
+    HTTP service howto. See also {!Webs_gateway.send_file}.
 
     To use {!send_file} you need a connector that supports
     {!Webs_unix.Fd.Writer} body writers. For example {!Webs_http11_gateway} and

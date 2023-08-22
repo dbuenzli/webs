@@ -1,4 +1,4 @@
-{0 Web service howto}
+{0 HTTP service howto}
 
 This manual gets you started to connect your service to an HTTP
 gateway and how to let it {{!serving_files}serve files} and

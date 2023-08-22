@@ -5,7 +5,7 @@ description: """\
 Webs is a toolkit for programming with HTTP in OCaml. It provides:
 
 * IO agnostic representations for HTTP requests and responses.
-* Optional web service building blocks. File serving, authenticated
+* Optional HTTP service building blocks. File serving, authenticated
   cookies, sessions, etc.
 * Connectors for running HTTP services defined as functions mapping
   requests to responses. CGI and HTTP/1.1 gateway connectors are
@@ -14,8 +14,9 @@ Webs is a toolkit for programming with HTTP in OCaml. It provides:
 Webs is not a framework, it is a set of building blocks.
 
 Webs is distributed under the ISC license. The base library has no
-dependencies. Some building blocks depend on OCaml's `Unix` and
-`Thread` modules. The command line support depends on [`cmdliner`].
+dependencies. Some building blocks and the built-in gateway connectors
+depend on OCaml's `Unix` and `Thread` modules. The command line
+support depends on [`cmdliner`].
 
 Homepage: <http://erratique.ch/software/webs>  
 

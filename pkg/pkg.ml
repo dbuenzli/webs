@@ -16,8 +16,10 @@ let () =
     Pkg.mllib ~cond:cmdliner "src/cli/webs_cli.mllib" ~dst_dir:"cli";
     Pkg.bin ~cond:cmdliner "tool/webs_tool" ~dst:"webs";
     Pkg.doc "doc/index.mld" ~dst:"odoc-pages/index.mld";
-    Pkg.doc "doc/web_service_howto.mld" ~dst:"odoc-pages/web_service_howto.mld";
-    Pkg.doc "doc/connector_conventions.mld" ~dst:"odoc-pages/connector_conventions.mld";
+    Pkg.doc "doc/http_service_howto.mld"
+      ~dst:"odoc-pages/http_service_howto.mld";
+    Pkg.doc "doc/connector_conventions.mld"
+      ~dst:"odoc-pages/connector_conventions.mld";
     Pkg.doc "doc/tutorial.mld" ~dst:"odoc-pages/tutorial.mld";
     Pkg.doc "doc/todo.mld" ~dst:"odoc-pages/todo.mld";
 ]

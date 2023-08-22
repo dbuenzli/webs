@@ -1,4 +1,4 @@
-description = "Web service toolkit"
+description = "HTTP toolkit"
 version = "%%VERSION_NUM%%"
 
 requires = ""
