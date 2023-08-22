@@ -1,0 +1,74 @@
+{0 TODO}
+
+{1:bodies Bodies}
+
+- Need to support chunked encoding bodies
+- Need to implement multipart/form-data
+  {:https://www.rfc-editor.org/rfc/rfc7578}
+- For now we integrated the [content-type] and [content-length]
+  headers as field of bodies rather than have them in the [headers]
+  of response and requests. It's a bit unclear whether should be follow that
+  strategy further with other headers, where do we stop ?
+
+The error strategy still needs clarifications.
+
+- Should {!Webs.Http.Body.type-writer} return an error ?
+- Something must be said about {!Webs.Http.Body.byte_writer}
+  and {!Webs.Http.Body.byte_reader} possibly raising.
+- In outbound body writing we might mislabel unexpected service
+  exceptions as connector exception, fix that.
+
+The ressource strategy may still need tweaking.
+
+- On {!Webs.Http.Body.type-writer} we indicate that writers should
+  be self contained as far as ressources are concerned.
+  That may be inconvenient. We could add a body dismiss
+  function, but applications discarding bodies should then
+  explicitely call it. Let's see how inconvenient the current
+  strategy is first. In a simple webapp like [hyperbib] we
+  mostly use {!Webs.Http.Body.of_string}.
+
+{1:tool [webs] tool}
+
+Things that could be done.
+
+- Directory, indexes.
+- Under a cli flag, PUTing files.
+
+{1:brain_dump Brain dump}
+
+- Which decoding bits should we keep in [Webs] ? Some could
+  be moved to {!Webs_http11_gateway}.
+- Add connector support for
+  {:https://w3c.github.io/server-timing/#the-server-timing-header-field}
+- Make the login example bearable
+- Websocket upgrading or SSE works. However in simple connectors like
+  {!Webs_http11_gateway} this will monopolize a connection out of the limited
+  pool. A new body case could be used to detach  Read
+  again https://tools.ietf.org/html/rfc7230#section-6 and 6.7.
+- In general custom content body cases can be used to communicate between
+  services and connectors. It may feel hackish but it's quite clean
+  in practice. For example we could have a generic [Detach]
+  case for WebsSocket and SSE or even spawning new processes in certain
+  cases.
+- Keep-alive, we can likely hide that in the connector we just need
+  to fit it in the picture with connection limits.
+- Look into clone()/chroot isolation, also systemd provides
+  tools for that see `systemd-analyze security`.
+- Review and strictly validate request_target on [Request.make] at the moment
+  it seems to accept spaces. The function should likely return an
+  error or introduce an indirect type for the constructor.
+- Do not trip too much on Resp.t -> Req.t and middelware model. In particular
+  it makes erroring paths obscure. Rather look into composing function
+  that construct ('a, Resp.t) result which end with (Resp.t, Resp.t) result.
+  However that beaks once we meld sessions in, review that.
+- Sessions, nonces + csrf.
+  {:https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html}
+  {:https://en.wikipedia.org/wiki/Cross-site_request_forgery}
+  Distinguish actions from users.
+
+
+{1:design Design}
+
+- Still unclear whether moving content_type and content_length to
+  bodies was a good move.

@@ -8,18 +8,6 @@ plugin(byte) = "webs.cma"
 plugin(native) = "webs.cmxs"
 exists_if = "webs.cma"
 
-package "connector" (
-  description = "Webs connector tools"
-  version = "%%VERSION_NUM%%"
-  directory = "connector"
-  requires = "webs"
-  archive(byte) = "webs_connector.cma"
-  archive(native) = "webs_connector.cmxa"
-  plugin(byte) = "webs_connector.cma"
-  plugin(native) = "webs_connector.cmxs"
-  exists_if = "webs_connector.cma"
-)
-
 package "kit" (
   description = "Webs toolkit"
   version = "%%VERSION_NUM%%"
@@ -32,23 +20,11 @@ package "kit" (
   exists_if = "webs_kit.cma"
 )
 
-package "websocket" (
-  description = "Webs websocket library"
-  version = "%%VERSION_NUM%%"
-  directory = "websocket"
-  requires = "webs webs.kit"
-  archive(byte) = "webs_websocket.cma"
-  archive(native) = "webs_websocket.cmxa"
-  plugin(byte) = "webs_websocket.cma"
-  plugin(native) = "webs_websocket.cmxs"
-  exists_if = "webs_websocket.cma"
-)
-
 package "unix" (
   description = "Webs unix tooling"
   version = "%%VERSION_NUM%%"
   directory = "unix"
-  requires = "unix webs"
+  requires = "webs unix threads"
   archive(byte) = "webs_unix.cma"
   archive(native) = "webs_unix.cmxa"
   plugin(byte) = "webs_unix.cma"
@@ -56,47 +32,11 @@ package "unix" (
   exists_if = "webs_unix.cma"
 )
 
-package "cgi" (
-  description = "Webs CGI connector"
-  version = "%%VERSION_NUM%%"
-  directory = "cgi"
-  requires = "unix webs webs.connector webs.kit webs.unix"
-  archive(byte) = "webs_cgi.cma"
-  archive(native) = "webs_cgi.cmxa"
-  plugin(byte) = "webs_cgi.cma"
-  plugin(native) = "webs_cgi.cmxs"
-  exists_if = "webs_cgi.cma"
-)
-
-package "tpool" (
-  description = "Webs thread pool"
-  version = "%%VERSION_NUM%%"
-  directory = "tpool"
-  requires = "threads.posix"
-  archive(byte) = "webs_tpool.cma"
-  archive(native) = "webs_tpool.cmxa"
-  plugin(byte) = "webs_tpool.cma"
-  plugin(native) = "webs_tpool.cmxs"
-  exists_if = "webs_tpool.cma"
-)
-
-package "httpc" (
-  description = "Webs HTTP/1.1 connector"
-  version = "%%VERSION_NUM%%"
-  directory = "httpc"
-  requires = "threads.posix unix webs webs.connector webs.unix webs.tpool"
-  archive(byte) = "webs_httpc.cma"
-  archive(native) = "webs_httpc.cmxa"
-  plugin(byte) = "webs_httpc.cma"
-  plugin(native) = "webs_httpc.cmxs"
-  exists_if = "webs_httpc.cma"
-)
-
 package "cli" (
   description = "Webs command line interface support"
   version = "%%VERSION_NUM%%"
   directory = "cli"
-  requires = "cmdliner webs webs.unix webs.httpc"
+  requires = "webs webs.unix cmdliner"
   archive(byte) = "webs_cli.cma"
   archive(native) = "webs_cli.cmxa"
   plugin(byte) = "webs_cli.cma"

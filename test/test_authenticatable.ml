@@ -4,7 +4,6 @@
   ---------------------------------------------------------------------------*)
 
 open Webs
-open Webs_kit
 
 let alter_data s =
   let d = Bytes.of_string (Http.Base64.url_decode s |> Result.get_ok) in
@@ -17,16 +16,16 @@ let alter_expires s =
   Http.Base64.url_encode (Bytes.unsafe_to_string d)
 
 let test_authenticatable () =
-  print_endline "Test Authenticatable.";
-  let k0 = Authenticatable.random_private_key_hs256 () in
-  let k1 = Authenticatable.random_private_key_hs256 () in
+  print_endline "Test Webs_authenticatable.";
+  let k0 = Webs_authenticatable.Private_key.random_hs256 () in
+  let k1 = Webs_authenticatable.Private_key.random_hs256 () in
   let data = "Try changing that." in
   let expire = Some 3 in
-  let m0 = Authenticatable.encode ~private_key:k0 ~expire data in
-  let m1 = Authenticatable.encode ~private_key:k1 ~expire:None data in
+  let m0 = Webs_authenticatable.encode ~private_key:k0 ~expire data in
+  let m1 = Webs_authenticatable.encode ~private_key:k1 ~expire:None data in
   let m0_a0 = alter_data m0 in
   let m0_a1 = alter_expires m0 in
-  let decode = Authenticatable.decode in
+  let decode = Webs_authenticatable.decode in
   assert (decode ~private_key:k0 ~now:None m0 = Error (`Missing_now_for 3));
   assert (decode ~private_key:k0 ~now:(Some 1) m0 = Ok (Some 3, data));
   assert (decode ~private_key:k0 ~now:(Some 3) m0 = Error (`Expired 3));

@@ -1,24 +1,26 @@
 {0 Web service howto}
 
 This manual gets you started to connect your service to an HTTP
-gateway.
+gateway and how to let it {{!serving_files}serve files} and
+{{!serving_webpages}webpages} efficiently.
 
 {1:service Define your service}
 
-In this example we use the pre-canned {!val:Webs.Req.echo} service
-which writes back requests and their bodies as 404. We use
-{!Webs_cli.quick_serve} function, it kills a bit of boilerplate and
-setups a basic command line interface. The function uses the
-HTTP/1.1 {!Webs_httpc} gateway connector which makes it for convenient
-local testing.
+In this example we use the pre-canned {!Webs.Http.Request.val-echo}
+service which writes back requests and their bodies as 404 responses.
+
+We use the {!Webs_quick.serve} function, it kills a bit of boilerplate and
+setups a basic command line interface to run a service. The function uses
+the HTTP/1.1 {!Webs_http11_gateway} gateway connector which is convenient
+for local testing. Create the [min.ml] source file:
 
 {[
 cat - > min.ml <<EOF
 open Webs
 
-let service = Http.Req.echo
-let main () = Webs_cli.quick_serve ~name:"min" service
-let () = if !Sys.interactive then () else main ()
+let service = Http.Request.echo
+let main () = Webs_quick.serve service
+let () = if !Sys.interactive then () else exit (main ())
 EOF
 ]}
 
@@ -29,11 +31,12 @@ ocamlfind ocamlopt -linkpkg -thread -g -package webs,webs.cli -o min min.ml
 v}
 
 Now run the service and check it works correctly. By default
-{!Webs_cli.quick_serve} bind [localhost] on the port [8000] so try:
+{!Webs_quick.serve} bind [localhost] on the port [8000] so try:
 
 {v
 ./min --service-path /myservice/ &
 curl -i http://localhost:8000/myservice/
+killall min    # Once you done testing
 v}
 
 You should get a response like:
@@ -41,33 +44,37 @@ You should get a response like:
 {v
 HTTP/1.1 404 Not Found
 content-type: text/plain;charset=utf-8
-content-length: 192
-connection: close
+content-length: 238
 
-(body-length 0)
-(accept "*/*")
-(host "localhost:8000")
-(user-agent "curl/7.64.1")
 (method GET)
 (path "")
-(query )
-(service-path "myservice" "")
+(query <none>)
 (version HTTP/1.1)
-(request-target /myservice/)
+(raw-path "/myservice/")
+(service-path "myservice" "")
+(accept "*/*")
+(host "localhost:8000")
+(user-agent "curl/7.88.1")
+(body <byte_reader type:application/octet-stream length:0>)
 v}
+
+Now the {!Webs_http11_gateway} connector used by {!Webs_quick.serve} is not
+made to be run directly on the network. It's made to be used in
+conjunction with a gateway. See the next section for instructions on how
+to connect it to your gatway.
 
 {1:gateway Connect the gateway}
 
-If you can't find instructions for your web server
-below you should be able to apply those of Nginx {e mutatis mutandis}.
+If you can't find instructions for your web server below you should be
+able to apply those of nginx {e mutatis mutandis}.
 
 {2:nginx Nginx}
 
-We assume you are running Nginx to serve the [https://example.org]
-web site and that you want to bind your service using
+We assume you are running nginx to serve the [https://example.org]
+website and that you want to bind your service using
 [https://example.org/myservice/] as the root for requests.
 
-Edit the configuration file of your web site in
+Edit the configuration file of your website in
 [/etc/nginx/sites-available/example.org] and add the
 following location block:
 
@@ -82,6 +89,11 @@ location /myservice/ {
 }
 ]}
 
+There are quite a few things that can be tweaked in that [proxy_pass]
+location block, see the nginx
+{{:https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/}reverse
+proxy manual} for details.
+
 Now reload the web server configuration. One of the following two should
 do.
 
@@ -90,23 +102,14 @@ systemctl reload nginx   # If you are using systemd
 nginx -s reload          # Otherwise
 v}
 
-Your service must now be connected to the interwebs over HTTPS. Try:
+Start your service. It should be connected to the interwebs over HTTPS. Try:
 {[
+./min --service-path /myservice/ &
 curl -i https://example.org/myservice/hello
+killall min   # Once you are done testing
 ]}
 to see if you get a response. If not you may want to dig into nginx's
 error logs, for example in [/var/logs/nginx] or [journalctl -u nginx.service].
-
-There are quite a few things that can be tweaked in that [proxy_pass]
-location block, for example to add custom request headers for your
-service, see the nginx
-{{:https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/}reverse
-proxy manual} for details.
-
-{2:bind Service path}
-
-TODO add a little discussion about [--service-path] and
-{!Req.service_path}.
 
 {1:serving_files Serving files}
 
@@ -116,11 +119,12 @@ File serving over HTTP should correctly handle:
 {- {{:https://en.wikipedia.org/wiki/Directory_traversal_attack}
    Directory traversals} exploits. That is make sure only files from
    a given dedicated directory are being served. For this use
-   {!Webs.Http.Path.to_absolute_filepath} to transform request
-   targets into file paths.}
+   {!Webs.Http.Request.to_absolute_filepath} to transform requests
+   into file paths.}
 {- Etags and range requests for efficient and restartable transfers.}}
 
-You can use {!Webs_unix.send_file} to serve files with your
+If your connector supports the {!Webs_unix.Fd.Writer} custom body writer,
+you can use {!Webs_fs.send_file} to serve files with your
 service. This takes care of these points and transmits the file with
 the {{:https://linux.die.net/man/2/sendfile}[sendfile(2)]} system call
 if available. The advantage of this approach is that it keeps your
@@ -128,90 +132,321 @@ gateway configuration simple.
 
 Alternatively most gateways let backend services handoff requests back
 to the gateway by writing special headers in the response. Use the
-function {!Webs_kit.Gateway.send_file} for this. How to use it exactly
-depends on your gateway. The advantage of this approach is that your
-service doesn't depend on the {!Unix} module (you may care) and it allows
-to take advantage of your gateway's load balancing capabilities.
+function {!Webs_gateway.send_file} for this. How to use it exactly
+depends on your gateway. The advantage of this approach is that it
+allows to take advantage of your gateway's load balancing
+capabilities.
 
 These two alternatives are detailed on a simple example below.
 
 {2:service_files Via the service}
 
-In this example any [GET] request of the form [/assets/*] is
-looked up as the [/my/files/*] file and directly served by the
-service.
+In this example a request for the path [/assets/$FILE] is looked up as the
+file [$FILE] in the [file_root] directory specified on the command line.
 
 {[
+cat - > min.ml <<EOF
 open Webs
-open Webs_kit
 let ( let* ) = Result.bind
 
-let root = "/my/files"
-let service r =
-  Http.Resp.result @@ match Http.Req.path r with
-  | "assets" as pre :: _ ->
-      let* `GET = Http.Req.allow Http.Meth.[get] r in
-      let* file = Http.Req.to_absolute_filepath ~strip:[pre] ~root r in
-      Webs_unix.send_file r file
-  | _ ->
-      Http.Resp.not_found_404 ()
+let send_asset ~strip ~file_root request =
+  let* file = Http.Request.to_absolute_filepath ~strip ~file_root request in
+  Webs_fs.send_file request file
 
-let main () = Webs_cli.quick_serve ~name:"files_unix" service
-let () = if !Sys.interactive then () else main ()
+let service file_root request =
+  Http.Response.result @@ match Http.Request.path request with
+  | "assets" as pre :: _ -> send_asset ~strip:[pre] ~file_root request
+  | _ -> Http.Response.not_found_404 ()
+
+let main () =
+  let conf = Webs_quick.conf_docroot () in
+  Webs_quick.serve' ~conf service
+
+let () = if !Sys.interactive then () else exit (main ())
+EOF
 ]}
+
+Compile, run and query your service:
+
+{v
+ocamlfind ocamlopt -linkpkg -thread -g -package webs,webs.unix,webs.cli \
+                   -o min min.ml
+./min --service-path /myservice/ -d /my/files &
+
+# Ask for a file that you have in /my/files
+curl -i http://localhost:8000/myservice/assets/file.txt
+killall min   # Once you are done testing
+v}
+
+Note that {!Webs_fs.send_file} function handles the logic for etags
+and range requests.
 
 {2:gateway_files Via the gateway}
 
-In this example the service runs with Nginx on [/myservice] and any
-[GET] request on the service of the form [/assets/*] is served by the
-gateway as the [/my/files/*] file.
+In this example the service runs with nginx on [/myservice/] using the
+instructions {{!nginx}given above} and requests for the path
+[/assets/$FILE] ends up being served by the gateway as the
+[/my/files/$FILE] file.
 
-We start by configuring Nginx as follows:
+We start adding the following to the nginx configuration:
 
 {v
-location /myservice/ {
-   proxy_http_version 1.1;
-   proxy_pass http://localhost:8000/; # final slash is important
-}
-
-location /myservice-files/assets
+location /myservice-files/
 {
   internal;
-  alias /my/files;
+  alias /my/files/; # final slash is important
 }
 v}
 
 With this configuration internal redirects of the form
-[/myservice-files/assets/*] serve the file [/my/files/*].
+[/myservice-files/$FILE] serve the file [/my/files/$FILE]. Reload the
+webserver configuration. One of the following two should do:
 
-Now our Webs service just captures [/assets/*] requests and internally
-redirects them to [/myservice-files/assets/*] by using
-{!Webs_kit.Gateway.send_file} with the Nginx specific
-{!Webs_kit.Gateway.x_accel_redirect} header.
+{v
+systemctl reload nginx   # If you are using systemd
+nginx -s reload          # Otherwise
+v}
+
+Now our service just captures [/assets/$FILE] requests and internally
+redirects them to [/myservice-files/$FILE] by using
+{!Webs_gateway.send_file} with the nginx specific
+{!Webs_gateway.x_accel_redirect} header.
 
 {[
+cat - > min.ml <<EOF
 open Webs
-open Webs_kit
 let ( let* ) = Result.bind
 
-let root = "/myservice-files"
-let service r =
-  Http.Resp.result @@ match Http.Req.path r with
-  | "assets" as pre :: _ ->
-      let* `GET = Http.Req.Allow.(meths [get] r) in
-      let* file = Http.Req.to_absolute_filepath ~strip:[pre] ~root r in
-      Gateway.send_file ~header:Gateway.x_accel_redirect r file
-  | _ ->
-      Ok (Http.Resp.v Http.not_found_404)
+let send_header = Webs_gateway.x_accel_redirect
+let file_root = "/myservice-files"
 
-let main () = Webs_cli.quick_serve ~name:"files_gateway" service
-let () = if !Sys.interactive then () else main ()
+let send_asset ~strip ~file_root request =
+  let* file = Http.Request.to_absolute_filepath ~strip ~file_root request in
+  Webs_gateway.send_file ~header:send_header file
+
+let service request =
+  Http.Response.result @@ match Http.Request.path request with
+  | "assets" as pre :: _ -> send_asset ~strip:[pre] ~file_root request
+  | _ -> Http.Response.not_found_404 ()
+
+let main () = Webs_quick.serve service
+let () = if !Sys.interactive then () else exit (main ())
+EOF
 ]}
 
-Note that if your Nginx gateway is configured to do so this properly
-handles [etags] and range requests.
+Compile, run and query your service:
 
-{2:caching Caching}
+{v
+ocamlfind ocamlopt -linkpkg -thread -g -package webs,webs.kit,webs.cli \
+                   -o min min.ml
+./min --service-path /myservice/ &
 
-Explain a bit of the caching stuff. In particular if your webs log is
-full of HTML page asset requests (even 302), something is likely wrong.
+# Ask for a file that you have in /my/files
+curl -i https://example.org/myservice/assets/file.txt
+killall min   # Once you are done testing
+v}
+
+If your nginx gateway is configured to do so this should properly
+handles etags and range requests.
+
+{1:serving_webpages Serving webpages}
+
+{2:serving_webpages_naively Naively}
+
+In theory there's nothing particular to be done to serve webpages. Simply
+return responses with {!Webs.Media_type.text_html} bodies. Here's an example:
+{[
+cat - > min.ml <<EOF
+open Webs
+let ( let* ) = Result.bind
+
+let css = "h1 { color: #1a7b1a }"
+let css_href = "style.css"
+let css_response request =
+  let content_type = Media_type.text_css in
+  Ok (Http.Response.content ~content_type Http.Status.ok_200 css)
+
+let html = Printf.sprintf {|<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><title>Webpage</title>
+<link rel="stylesheet" type="text/css" href="%s">
+</head>
+<body><h1>Hello!</h1></body></html>|} css_href
+
+let html_response request =
+  let* `GET = Http.Request.allow Http.Method.[get] request in
+  Ok (Http.Response.html Http.Status.ok_200 html)
+
+let service request =
+  Http.Response.result @@ match Http.Request.path request with
+  | [""] -> html_response request
+  | [seg] when seg = css_href -> css_response request
+  | _ -> Http.Response.not_found_404 ()
+
+let main () = Webs_quick.serve service
+let () = if !Sys.interactive then () else exit (main ())
+EOF
+]}
+
+Compile and run it with:
+
+{v
+ocamlfind ocamlopt -linkpkg -thread -g -package webs,webs.cli -o min min.ml
+./min
+v}
+
+Now load {:http://localhost:8000/} in your browser, this loads the
+page and its asset [style.css]. Reload the page and notice that it
+does so again.
+
+Since page assets tend to remain constants across pages and page
+updates this is quite wasteful in practice. A first step is to use the
+{{:https://www.rfc-editor.org/rfc/rfc9110#name-etag} etag} header to
+only transmit the body of assets when they change.
+
+{2:serving_webpages_adding_etags Adding etags}
+
+We tweak the previous example to add a [css_version] value to use as
+an [etag] and use the {!Webs.Http.Request.eval_if_none_match}
+combinator to handle the conditional logic. This combinator will
+respond with an empty {!Webs.Http.Status.not_modified_304} response
+with the given headers if client presents an etag that matches
+ours. If not it returns a headers value updated with our etag which we
+can use to construct a response with the body.
+
+{[
+cat - > min.ml <<EOF
+open Webs
+let ( let* ) = Result.bind
+
+let css_version = "v1" (* Change that when the CSS changes *)
+let css = "h1 { color: #1a7b1a }"
+let css_href = "style.css"
+let css_response request =
+  let etag = Http.Etag.make ~weak:false css_version in
+  let headers = Http.Headers.empty in
+  let* headers = Http.Request.eval_if_none_match request etag ~headers in
+  let content_type = Media_type.text_css in
+  Ok (Http.Response.content ~headers ~content_type Http.Status.ok_200 css)
+
+let html = Printf.sprintf {|<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><title>Webpage</title>
+<link rel="stylesheet" type="text/css" href="%s">
+</head>
+<body><h1>Hello!</h1></body></html>|} css_href
+
+let html_response request =
+  let* `GET = Http.Request.allow Http.Method.[get] request in
+  Ok (Http.Response.html Http.Status.ok_200 html)
+
+let service request =
+  Http.Response.result @@ match Http.Request.path request with
+  | [""] -> html_resposne request
+  | [seg] when seg = css_href -> css_response request
+  | _ -> Http.Response.not_found_404 ()
+
+let main () = Webs_quick.serve service
+let () = if !Sys.interactive then () else exit (main ())
+EOF
+]}
+
+Compile and run it with:
+
+{v
+ocamlfind ocamlopt -linkpkg -thread -g -package webs,webs.cli -o min min.ml
+./min
+v}
+
+Now load {:http://localhost:8000/} in your browser, this loads the
+page and its asset [style.css]. Reload the page. This time the browser
+should send back the etag and the service responds with a
+{!Webs.Http.Status.not_modified_304} which avoids resending the
+body. Try changing the [version] value, the body of [style.css] should
+be sent again in a {!Webs.Http.Status.ok_200} response.
+
+Note that if you serve your page assets with files using using one of
+the techniques mentioned in the {{!serving_files}preceding section}
+this logic happen automatically with etags derived from the file system
+metadata ({{!Webs_fs.default_etagger}details}).
+
+{b However this is still too chatty for loading a webpage}. Assets do
+not change often and they can be plentiful.
+
+{2:serving_webpage_adding_forever_caching Adding forever caching}
+
+One solution to get rid of all these
+{!Webs.Http.Status.not_modified_304} responses of the previous section
+is to version your asset URLs with a query parameter in the HTML sources
+and instruct clients to cache the asset responses forever.
+
+
+The following code adds that logic to the previous example. The
+interesting bits are in [css_href_versioned] now used in the html
+source and the addition of the [cache_control] header to the response.
+
+{[
+cat - > min.ml <<EOF
+open Webs
+let ( let* ) = Result.bind
+
+let css_version = "v1" (* Change that when the CSS changes *)
+let css = "h1 { color: #1a7b1a }"
+let css_href = "style.css"
+let css_href_versioned = String.concat "?" ["style.css"; css_version]
+let css_response request =
+  let etag = Http.Etag.make ~weak:false css_version in
+  let forever = "public, max-age=31536000, immutable" in
+  let headers = Http.Headers.(def cache_control) forever Http.Headers.empty in
+  let* headers = Http.Request.eval_if_none_match request etag ~headers in
+  let content_type = Media_type.text_css in
+  Ok (Http.Response.content ~headers ~content_type Http.Status.ok_200 css)
+
+let html = Printf.sprintf {|<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><title>Webpage</title>
+<link rel="stylesheet" type="text/css" href="%s">
+</head>
+<body><h1>Hello!</h1></body></html>|} css_href_versioned
+
+let html_response request =
+  let* `GET = Http.Request.allow Http.Method.[get] request in
+  Ok (Http.Response.html Http.Status.ok_200 html)
+
+let service request =
+  Http.Response.result @@ match Http.Request.path request with
+  | [""] -> html_response request
+  | [seg] when seg = css_href -> css_response request
+  | _ -> Http.Response.not_found_404 ()
+
+let main () = Webs_quick.serve service
+let () = if !Sys.interactive then () else exit (main ())
+EOF
+]}
+
+Compile and run it with:
+
+{v
+ocamlfind ocamlopt -linkpkg -thread -g -package webs,webs.cli -o min min.ml
+./min
+v}
+
+Now load {:http://localhost:8000/} in your browser, this loads the
+page and its asset [style.css]. Reload the page. This time only the
+webpage should reload with a {!Webs.Http.Status.ok_200} (note that in
+practice, you could also apply the techniques seen so far to the
+page). There should be no other request. Try changing the [css_version]
+value and the [style.css] shoulde be sent again with a
+{!Webs.Http.Status.ok_200}.
+
+In practice you will likely want to derive these [css_version] values by
+hashing your data during the build or at runtime, or relate them to
+changes in your system (e.g. a logical clock).
+
+Note that if you use {!Webs_fs} to serve assets it only handles the
+etag and range request logic, it does not provide a scheme for forever
+caching. You should add it yourself on its responses see the docs
+of {!Webs_fs.send_file} for an example.

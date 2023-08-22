@@ -1,1 +1,1 @@
-(srcs-x B0.ml attic pkg test)
+(srcs-x B0.ml pkg test)

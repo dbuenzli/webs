@@ -1,59 +1,104 @@
 {0 Webs {%html: <span class="version">%%VERSION%%</span>%}}
 
-Webs is a toolkit for programming web services in OCaml.It provides:
+Webs is a toolkit for programming with HTTP in OCaml. It provides:
 
 {ul
-{- Datatypes for representing HTTP requests and responses independent
-   from any IO mechanism.}
-{- A generic low-level {{!Webs.Http.section-service}interface} for
-   defining web service in terms of HTTP request-responses cycles.}
-{- Optional service building blocks.
+{- IO agnostic representations for HTTP {{!Webs.Http.Request}requests}
+   and {{!Webs.Http.Response}responses}.}
+{- Optional web service building blocks.
    {{!page-web_service_howto.serving_files}File serving},
-   {{!Webs_kit.Authenticated_cookie}authenticated cookies},
-   {{!Webs_kit.Session}sessions}, etc.}
-{- Connectors. For running services defined as function mapping
-   requests to responses. Connectors are in charge of talking
-   to the HTTP gateway or client. {{!Webs_cgi}CGI} and
-   {{!Webs_httpc}HTTP/1.1} gateway connectors are provided,
+   {{!Webs_authenticated_cookie}authenticated cookies},
+   {{!Webs_session}sessions}, etc.}
+{- Connectors for running services defined as function mapping
+   requests to responses. {{!Webs_cgi}CGI} and
+   {{!Webs_http11_gateway}HTTP/1.1 gateway} connectors are provided,
    but you can bring your own.}}
 
-Webs is a set of libraries and building blocks, not a framework.
-
-{1:quick_start Quick start}
-
-Consult the {{!page-web_service_howto}web service howto} for quick
-steps to run your first service. A few tools are in {!Webs_kit}
-and gateway connectors to run services can be found
-{{!page-index.connectors}here}.
+Webs is not a framework, it is a set of building blocks.
 
 {1:manuals Manuals}
 
 These manuals are available:
+
 {ul
-{- The {{!page-web_service_howto}Web service howto} explains how to compile
-   and run your OCaml service behind an HTTP gateway.}}
+{- The {{!page-web_service_howto}web service howto} explains how to
+   define, compile and run a service behind an HTTP gateway and let
+   it serve files and webpages efficiently.}
+{- The {{!page-connector_conventions}connector conventions} explain
+   how service and client connectors construct and interpret request
+   and response values. It's a good idea to read it to understand how
+   connectors behave in certain edge cases.}
+{- The {{!page-tutorial}tutorial} is a more involved example to get you
+   started.}
+{- The {{!current_limitations}current limitations} should help you
+   deciding whether Webs is suitable for you.}
+{- The {{!page-todo}TODO} is a few things that are todo}}
 
-{1:webs Basic libraries}
+The {{:https://github.com/dbuenzli/webs/tree/master/examples}examples}
+directory of the repository has a few simple examples that use the
+APIs.
 
-Each of the following modules are defined in their own corresponding
-[webs.*] library. Except for {!Webs_unix}, these modules do not depend on [Unix].
+{1:webs Library [webs]}
+
+{!modules: Webs}
+
+{1:webs_kit Library [webs.kit]}
 
 {!modules:
-Webs
-Webs_kit
-Webs_websocket
+Webs_gateway
+Webs_hash
+Webs_authenticatable
+Webs_authenticated_cookie
+Webs_session
+Webs_basic_auth
+Webs_bazaar
+}
+
+{1:webs_unit Library [webs.unix]}
+
+Provides tools to send files and simple connectors. Depends on OCaml's
+[unix] library.
+
+{!modules:
 Webs_unix
-Webs_tpool
+Webs_thread_pool
+Webs_listener
+Webs_fs
 }
 
-{1:connectors Connectors}
+{2:service_connectors Service connectors}
+{!modules:
+Webs_cgi
+Webs_http11_gateway}
 
-Each of the following modules are defined in their own corresponding
-[webs.*] library.
+{1:webs_cli Library [webs.cli]}
+
+Standard command line options and quick service setup.
 
 {!modules:
-Webs_connector
-Webs_cgi
-Webs_httpc
 Webs_cli
+Webs_quick
 }
+
+{1:current_limitations Current limitations}
+
+Before using Webs for your project you should be aware of
+these current limitations:
+
+{ul
+{- All available {{!service_connectors}connectors} do not talk directly to the
+   internet and do not talk [https]. You need to pair your service
+   with an HTTP gateway like Apache, nginx, etc. See the
+   {{!page-web_service_howto}webs service howto} for more details.}
+{- TODO chunked encoding}
+{- Webs supports the [application/x-www-form-urlencoded] content type for
+   form posting but it's missing an implementation of the [multipart/form]
+   body content type (e.g. to upload files). This will be added in the future
+   so that {!Webs.Http.Request.to_query} eventually abstracts over all forms of
+   queries.}
+{- The architecture of the {!Webs_http11_gateway} connector will not
+   fare well if you need to support WebSockets or SSE at scale.}
+{- There is no connector for supporting the client view.}}
+
+Finally note that while Webs is unlikely to change drastically, making
+some breaking changes in the future is not excluded.

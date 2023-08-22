@@ -1,10 +1,12 @@
 (*---------------------------------------------------------------------------
    Copyright (c) 2020 The webs programmers. All rights reserved.
-   SPDX-License-Identifier: ISC
+   SPDX-License-Identifier: CC0-1.0
   ---------------------------------------------------------------------------*)
+
+(* A minimal example. *)
 
 open Webs
 
 let service = Http.Request.echo
-let main () = Webs_cli.quick_serve ~name:"min" service
-let () = if !Sys.interactive then () else main ()
+let main () = Webs_quick.serve service
+let () = if !Sys.interactive then () else exit (main ())

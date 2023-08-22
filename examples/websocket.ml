@@ -3,15 +3,17 @@
    SPDX-License-Identifier: ISC
   ---------------------------------------------------------------------------*)
 
-open Webs
+(* Performs the upgrade logic for a websocket.
+   No support is provided to interact with websocket for now. *)
 
-let ( let*) = Result.bind
+open Webs
+let ( let* ) = Result.bind
 
 let index = {|
 <!DOCTYPE html>
 <html lang="en">
-  <head> <meta charset="utf-8"> <title>Websocket</title></head>
-  <body>
+<head><meta charset="utf-8"> <title>Websocket</title></head>
+<body>
   <h1>Websocket</h1>
   <button id="close">Close connection</button>
   <ol id="msgs"></ol>
@@ -31,20 +33,20 @@ let index = {|
     };
     but.onclick = function () { console.log ("closing!"); sock.close (); };
   </script>
-  </body>
+</body>
 </html>
 |}
 
-let service req =
-  Http.Response.result @@ match Http.Request.path req with
+let service request =
+  Http.Response.result @@ match Http.Request.path request with
   | [""] ->
-      let* `GET = Http.Request.allow Http.Method.[get] req in
+      let* `GET = Http.Request.allow Http.Method.[get] request in
       Ok (Http.Response.html Http.Status.ok_200 index)
   | ["websocket"] ->
-      let* `GET = Http.Request.allow Http.Method.[get] req in
-      Ok (Webs_websocket.upgrade req)
+      let* `GET = Http.Request.allow Http.Method.[get] request in
+      Webs_bazaar.Websocket.upgrade request
   | _ ->
       Http.Response.not_found_404 ()
 
-let main () = Webs_cli.quick_serve ~name:"websocket" service
-let () = if !Sys.interactive then () else main ()
+let main () = Webs_quick.serve service
+let () = if !Sys.interactive then () else exit (main ())

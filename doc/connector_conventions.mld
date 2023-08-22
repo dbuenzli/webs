@@ -1,0 +1,242 @@
+{0 Connector conventions}
+
+These conventions should be followed by connector implementations to
+make it easier for users to swap them without fuss.
+
+The conventions may evolve in the future to adapt to new connector
+architectures.
+
+{1:service_connectors Service connectors}
+
+Service connectors should run services defined as a {e service
+function} of the following type:
+
+{[Http.Request.t -> Http.Response.t]}
+
+The duty of the connector is to receive requests from an interface,
+construct suitable {!Webs.Http.Request.t} value for them, call them on
+the service function to get a {!Webs.Http.Response.t} value to send
+back on the interface.
+
+Service functions are not expected to raise exceptions. If a service
+function is unable to fulfill its duty it should error with a suitable
+{{!Webs.Http.Status.server_error}server error} HTTP response. However
+connectors should be prepared to catch any unexpected exception raised
+from the service function and log it somewhere, e.g. via
+{!Webs.Http.Connector.Log.msg}.
+
+The suggested base signature of connectors is:
+{[
+open Webs
+
+type t
+(** The type for service connectors. *)
+
+val make :
+  ?log:(Http.Connector.Log.msg -> unit) ->
+  ?service_path:Http.Path.t -> unit -> t
+(** [make ()] is a new service connector. *)
+
+val serve : t -> (Http.Request.t -> Http.Response.t) -> (unit, string) result
+(** [serve c service] serves one or more requests with [service]. *)
+]}
+
+A service connector should also properly document how it handles
+parallelism and concurrency whenever it calls the service function.
+
+{2:service_connector_properties Connector properties}
+
+{ol
+{- A connector should have a [service_path] property to indicate
+   the root path on which the service is attached. This is used
+   to derive the {!Webs.Http.Request.path} value of requests
+   and makes it easier to relocate services. See for example
+   {!Webs_http11_gateway.service_path}.}
+{- If applicable connector limits should follow the names and defaults
+   established in {!Webs.Http.Connector.Default} and support
+   a {!Webs.Http.Connector.Log.msg} log. The
+   {!Webs_http11_gateway} connector can be used as a blueprint.}}
+
+{2:service_requests Service requests}
+
+The request value constructed by the connector should satisfy the
+following constraints.
+
+{ol
+{- {!Webs.Http.Request.raw_path} should be the
+   {{:https://www.rfc-editor.org/rfc/rfc9112#name-request-target}request
+   target} (HTTP/1.1) or
+   {{:https://www.rfc-editor.org/rfc/rfc9113#section-8.3.1-2.4.1}
+   [:path]} pseudo-header (HTTP/2, HTTP/3) of the request.}
+{- {!Webs.Http.Request.service_path} should be the service
+   path of the connector. This indicates the root path on which the service
+   is attached.}
+{- {!Webs.Http.Request.path} should be the decoded path of
+   {!Webs.Http.Request.raw_path} stripped by the
+   {!Webs.Http.Request.service_path}. If this
+   operation fails, the connector should respond with a
+   {!Webs.Http.Status.bad_gateway_502} and not call the service since
+   this indicates a misconfiguration in the service setup (e.g.
+   the gateway and the service disagree on the service path).}
+{- {!Webs.Http.Request.query} should represent the raw query of
+   {!Webs.Http.Request.raw_path} (if any).}
+{- {!Webs.Http.Request.version} not very important in practice but it
+   should be the HTTP version of the request made on the connector. If the
+   connector interfaces with a gateway this may be different from the actual
+   version used by the gateway with the client.}
+{- {!Webs.Http.Request.headers} and {!Webs.Http.Request.body} constraints:
+{ol
+{- {!Webs.Http.Headers.content_type}. If such a header exists
+   in {!Webs.Http.Request.headers}, it must be added to the request's
+   {!Webs.Http.Body.t} value.}
+{- {!Webs.Http.Headers.content_length}. If such a header exists
+   in {!Webs.Http.Request.headers}, it must be added to request's
+   {!Webs.Http.Body.t} value.}
+{- {!Webs.Http.Headers.host}, for HTTP/2 and HTTP/3 connectors, if no
+   such header is present in the request, it should add them
+   with the value of the
+   {{:https://www.rfc-editor.org/rfc/rfc9113#section-8.3.1-2.3.1}
+   [:authority]} pseudo-header value.}}}}
+
+If the connector fails to create a request value to give to the service
+function it should respond itself according to the
+{{!service_connector_responses}connector response conventions}.
+
+Except for the point 6.3, the function
+{!Webs.Http.Request.for_service_connector} constructs a request value
+that satisfies these constraints.
+
+{2:service_responses Service responses}
+
+When sending the service response, connectors should treat these
+headers of the response specially:
+
+{ul
+{- {!Webs.Http.Headers.content_type}. If such a header exists
+   in {!Webs.Http.Response.headers}, this value must be written
+   in the response. Otherwise the value found in
+   {!Webs.Http.Body.content_type}
+   must be used. In both cases if the value found is {!Webs.Media_type.none},
+   no header should be output.}
+{- {!Webs.Http.Headers.content_length}, if such a header exists
+   in {!Webs.Http.Response.headers}, this value must be written in the response.
+   Otherwise the value found in {!Webs.Http.Body.content_length} must be
+   used (if any). If the value found is [""] or [None], no header should
+   be output.}}
+
+The function {!Webs.Http.Headers.for_connector} returns a
+{!Webs.Http.Headers.t} value for which that logic has been performed.
+
+Note that in general it's better if responses constructed by service
+functions let the content type and length be defined by bodies: it's
+less error prone when the responses get massaged with
+{!Webs.Http.Response.with_body}.
+
+{2:service_connector_responses Connector responses}
+
+Connectors may need to respond to a request without passing them to
+the service function. For example because they are unable to parse the
+request into a request value. When they do, they should do so as follows:
+
+{ul
+{- If the connector cannot parse the request it should respond with
+   {!Webs.Http.Status.bad_request_400}.}
+{- If the connector cannot create a request value because the connector
+   service path cannot be stripped to create the {!Webs.Http.Request.path}
+   value it should respond with {!Webs.Http.Status.bad_gateway_502}.
+   This indicates a misconfiguration in the service setup
+   (e.g. the gateway and the connector disagree on the service path).}
+{- If the connector limits enforced on the request are exceeded
+   the connector should responds to the client with a
+   {!Webs.Http.Status.content_too_large_413}.
+   Example of limits are
+   {!Webs.Http.Connector.Default.max_request_headers_byte_size}
+   and
+   {!Webs.Http.Connector.Default.max_request_body_byte_size}.}
+{- If the service function raises an exception it should respond with
+   {!Webs.Http.Status.server_error_500}.}
+{- For HTTP/1.1 connectors, if a {!Webs.Http.Headers.expect} header
+   with [100-continue] is found in the request then it should handle
+   and hide the
+   {{:https://www.rfc-editor.org/rfc/rfc9110#name-expect}[Expect]}
+   response dance (see
+   {{:https://daniel.haxx.se/blog/2020/02/27/expect-tweaks-in-curl/}other}
+   {{:https://everything.curl.dev/http/post/expect100}explanations}).
+   This can be done by either:
+   {ul
+   {- Sending a response with status {!Webs.Http.Status.continue_100}
+      once the service function starts reading the request body. For the
+      sake of transparency, the header should still be as kept as is in the
+      request value headers. This allows services functions to know the
+      connector did that. The {!Webs_http11_gateway} does that.}
+   {- Respond with a {!Webs.Http.Status.expectation_failed_417} without
+      invoking the service function. A well behaved client should try again
+      without the header. The {!Webs_cgi} connector does that.}}
+
+   Note that if your connector interacts with a gateway you may well never
+   see that header. For example {{:https://trac.nginx.org/nginx/ticket/493}
+   it seems} nginx will automatically send a 100-continue response itself.
+   Finally this issue is irrelevant for HTTP/2 and HTTP/3.}}
+
+{1:client_connectors Client connectors}
+
+Client connectors should fetch requests by taking a {!Webs.Http.Scheme}
+and {!Webs.Http.Request.t} value and returning a {!Webs.Http.Response.t}
+value.
+
+The suggested signature to do so is:
+{[
+open Webs
+
+type t
+(** The type for client connectors. *)
+
+val fetch :
+  t -> Http.Scheme.t -> Http.Request.t -> (Http.Response.t, string) result
+(** [fetch c scheme r] fetches [r] using scheme [scheme]. *)
+]}
+
+{2:client_requests Client requests}
+
+The server and port to connect to should be derived from the client
+request value by looking up the {!Webs.Http.Headers.host} header.  If
+no port is found a default one should be derived from the provided
+scheme. The function {!Webs.Http.Headers.get_host} performs that
+logic.
+
+When writing the client request, connectors should treat these headers
+of the request specially:
+{ul
+{- {!Webs.Http.Headers.content_type}. If such a header exists
+   in {!Webs.Http.Request.headers}, this value must be written
+   in the request. Otherwise the value found in
+   {!Webs.Http.Body.content_type}
+   must be used. In both cases if the value found is {!Webs.Media_type.none},
+   no header should be output.}
+{- {!Webs.Http.Headers.content_length}, if such a header exists
+   in {!Webs.Http.Request.headers}, this value must be written in the response.
+   Otherwise the value found in {!Webs.Http.Body.content_length} must be
+   used (if any). If the value found is [""] or [None], no header should
+   be output.}}
+
+The function {!Webs.Http.Headers.for_connector} returns a
+{!Webs.Http.Headers.t} value for which that logic has been performed.
+
+Note that in general it's better if one lets the content type and
+length be defined by bodies: it's less error prone if the request body
+gets changed.  gets changed by them with
+{!Webs.Http.Response.with_body}.
+
+The function {!Webs.Http.Headers.for_connector} performs the logic
+for the for the content headers.
+
+{2:client_responses Client responses}
+
+The response value constructed by the connector should satisfy the
+following constraints:
+
+{ol
+{- {!Webs.Http.Response.headers} and {!Webs.Http.Response.body} constraints.
+   The {!Webs.Http.Headers.content_type} and
+   {!Webs.Http.Headers.content_length} should not be part of the response
+   headers they should only be added on the response body value.}}

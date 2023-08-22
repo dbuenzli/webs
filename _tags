@@ -1,18 +1,19 @@
 true : bin_annot, safe_string
 <_b0> : -traverse
 <src> : include
-<src/vendor> : include
-<src/webs_cgi*> : package(unix)
-<src/webs_tpool*> : thread, package(threads.posix)
-<src/webs_httpc*> : thread, package(threads.posix, unix)
-<src/webs_unix*> : package(unix)
-<src/webs_unix.{cma,cmxa}> : record_webs_unix_stubs
-<src/webs_unix.cmxs> : link_webs_unix_stubs
-<src/webs_kit.{cma,cmxa}> : record_webs_kit_stubs
-<src/webs_kit.cmxs> : link_webs_kit_stubs
-<src/webs_cli*> : package(cmdliner)
-<test> : include
-<test/*> : package(unix), use_webs_unix_stubs, use_webs_kit_stubs
-<examples/*> : package(unix), use_webs_unix_stubs, use_webs_kit_stubs
-<examples/{httpc,multic}*> : thread, package(threads.posix)
-<examples/webs_tool*> : thread, package(threads.posix), package(cmdliner)
+
+<src/kit> : include
+<src/kit/vendor> : include
+<src/kit/webs_kit.{cma,cmxa}> : record_webs_kit_stubs
+<src/kit/webs_kit.cmxs> : link_webs_kit_stubs
+
+<src/unix> : include
+<src/unix/**> : thread, package(unix), package(threads.posix)
+<src/unix/webs_unix.{cma,cmxa}> : record_webs_unix_stubs
+<src/unix/webs_unix.cmxs> : link_webs_unix_stubs
+
+<src/cli> : include
+<src/cli/**> : package(cmdliner)
+
+<tool/webs_tool*> : thread, package(threads.posix), package(cmdliner), \
+                    use_webs_unix_stubs, use_webs_kit_stubs

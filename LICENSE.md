@@ -1,10 +1,10 @@
 # Webs copyrights 
 
 All sources except files in 
-[`src/vendor/](src/vendor/)
+[`src/kit/vendor/](src/kit/vendor/)
 are distributed under the following license:
 
-Copyright (c) 2012-2020 The webs programmers
+Copyright (c) 2012-2023 The webs programmers
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above

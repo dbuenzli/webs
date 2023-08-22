@@ -57,8 +57,8 @@ let test_method () =
 
 let test_headers_case () =
   log "Webs.Http.headers case";
-  let hs = Http.Headers.(empty |> def (Http.Name.v "ha") "ho") in
-  assert (Http.Headers.(mem (Http.Name.v "Ha") hs));
+  let hs = Http.Headers.empty |> Http.Headers.(def (name "ha") "ho") in
+  assert (Http.Headers.(mem (Http.Headers.name "Ha") hs));
   ()
 
 let test_path () =
@@ -146,10 +146,13 @@ let test_path () =
   assert (Http.Path.concat [] [""] = [""]);
   assert (Http.Path.concat [""] [""] = [""]);
   assert (Http.Path.concat [] ["a"] = ["a"]);
+  assert (Http.Path.concat [] ["a"; "b"] = ["a"; "b"]);
   assert (Http.Path.concat ["a"] [] = ["a"]);
   assert (Http.Path.concat ["a"] [""] = ["a"; ""]);
   assert (Http.Path.concat ["a"; ""] [""] = ["a"; ""]);
+  assert (Http.Path.concat ["a"; "b"] ["c"; "d"] = ["a"; "b"; "c"; "d"]);
   assert (Http.Path.concat ["a"; "b"; ""] [] = ["a"; "b"; ""]);
+  assert (Http.Path.concat ["a"; "b"; ""] ["c"; "d"] = ["a"; "b"; "c"; "d"]);
   assert (Http.Path.concat ["a"; "b"; ""] [""] = ["a"; "b"; ""]);
   assert (Http.Path.concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]);
   log "Webs.Http.Path.undot_and_compress";
@@ -277,7 +280,7 @@ let test_ranges () =
   ()
 
 let test_etags () =
-  let etags t = Http.Etag.v ~weak:false t, Http.Etag.v ~weak:true t in
+  let etags t = Http.Etag.make ~weak:false t, Http.Etag.make ~weak:true t in
   let empty, w_empty = etags "" in
   let xyzzy, w_xyzzy = etags "xyzzy" in
   let r2d2xxxx, w_r2d2xxxx = etags "r2d2xxxx" in

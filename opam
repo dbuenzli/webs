@@ -1,27 +1,29 @@
 opam-version: "2.0"
 name: "webs"
-synopsis: "Web service toolkit for OCaml"
+synopsis: "HTTP toolkit for OCaml"
 description: """\
-Webs is a toolkit for programming web services in OCaml. It provides:
+Webs is a toolkit for programming with HTTP in OCaml. It provides:
 
-* A generic low-level interface for defining web services in terms
-  of HTTP request-responses cycles.
-* Optional service building blocks. File serving, authenticated
-  cookies, sessions, HTML generation, etc.
-* Connectors. They run services and are in charge of talking 
-  to the HTTP gateway or client. CGI and HTTP/1.1 gateway
-  connectors are provided, but you can bring your own.
+* IO agnostic representations for HTTP requests and responses.
+* Optional web service building blocks. File serving, authenticated
+  cookies, sessions, etc.
+* Connectors for running HTTP services defined as functions mapping
+  requests to responses. CGI and HTTP/1.1 gateway connectors are
+  provided, but you can bring your own.
 
-Webs is a set of libraries and building block, not a framework.
+Webs is not a framework, it is a set of building blocks.
 
-Webs is distributed under the ISC license. It has no dependencies. The
-connector libraries depend on OCaml's `Unix` and `Thread` modules.
+Webs is distributed under the ISC license. The base library has no
+dependencies. Some building blocks depend on OCaml's `Unix` and
+`Thread` modules. The command line support depends on [`cmdliner`].
 
-Home page: http://erratique.ch/software/webs"""
+Homepage: <http://erratique.ch/software/webs>  
+
+[`cmdliner`]: https://erratique.ch/software/cmdliner"""
 maintainer: "Daniel Bünzli <daniel.buenzl i@erratique.ch>"
 authors: "The webs programmers"
 license: "ISC"
-tags: ["www" "webserver" "org:erratique"]
+tags: ["web" "webserver" "http" "org:erratique"]
 homepage: "https://erratique.ch/software/webs"
 doc: "https://erratique.ch/software/webs/doc"
 bug-reports: "https://github.com/dbuenzli/webs/issues"
