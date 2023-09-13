@@ -37,7 +37,7 @@ let webs_cli_lib =
 let webs_tool =
   let srcs = Fpath.[`File (v "tool/webs_tool.ml")] in
   let requires = [cmdliner; webs; webs_kit; webs_unix; webs_cli] in
-  B0_ocaml.exe "webs" ~doc:"Webs HTTP/1.1 server" ~srcs ~requires
+  B0_ocaml.exe "webs" ~public:true ~doc:"Webs HTTP tool" ~srcs ~requires
 
 (* Tests *)
 
@@ -83,27 +83,28 @@ let webpage_cache = example "webpage_cache" ~requires:quick_libs
 
 let default =
   let meta =
-    let open B0_meta in
-    empty
-    |> add authors ["The webs programmers"]
-    |> add maintainers ["Daniel Bünzli <daniel.buenzl i@erratique.ch>"]
-    |> add homepage "https://erratique.ch/software/webs"
-    |> add online_doc "https://erratique.ch/software/webs/doc"
-    |> add licenses ["ISC"]
-    |> add repo "git+https://erratique.ch/repos/webs.git"
-    |> add issues "https://github.com/dbuenzli/webs/issues"
-    |> add description_tags ["web"; "webserver"; "http"; "org:erratique"; ]
-    |> add B0_opam.Meta.build
+    B0_meta.empty
+    |> B0_meta.(add authors) ["The webs programmers"]
+    |> B0_meta.(add maintainers)
+       ["Daniel Bünzli <daniel.buenzl i@erratique.ch>"]
+    |> B0_meta.(add homepage) "https://erratique.ch/software/webs"
+    |> B0_meta.(add online_doc) "https://erratique.ch/software/webs/doc"
+    |> B0_meta.(add licenses) ["ISC"]
+    |> B0_meta.(add repo) "git+https://erratique.ch/repos/webs.git"
+    |> B0_meta.(add issues) "https://github.com/dbuenzli/webs/issues"
+    |> B0_meta.(add description_tags)
+      ["web"; "webserver"; "http"; "org:erratique"; ]
+    |> B0_meta.tag B0_opam.tag
+    |> B0_meta.add B0_opam.build
       {|[["ocaml" "pkg/pkg.ml" "build" "--dev-pkg" "%{dev}%"
           "--with-cmdliner" "%{cmdliner:installed}%"]]|}
-    |> add B0_opam.Meta.depopts ["cmdliner", ""]
-    |> add B0_opam.Meta.conflicts [ "cmdliner", {|< "1.0.0"|}]
-    |> add B0_opam.Meta.depends
+    |> B0_meta.add B0_opam.depopts ["cmdliner", ""]
+    |> B0_meta.add B0_opam.conflicts [ "cmdliner", {|< "1.0.0"|}]
+    |> B0_meta.add B0_opam.depends
       [ "ocaml", {|>= "4.14.0"|};
         "ocamlfind", {|build|};
         "ocamlbuild", {|build|};
         "topkg", {|build & >= "1.0.3"|}; ]
-    |> tag B0_opam.tag
   in
-  B0_pack.v "default" ~doc:"webs package" ~meta ~locked:true @@
+  B0_pack.make "default" ~doc:"webs package" ~meta ~locked:true @@
   B0_unit.list ()
