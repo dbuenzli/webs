@@ -27,28 +27,38 @@ let absolute_docroot = function
 
 (* Service *)
 
-let service ~docroot ~dir_response req =
+let service ~docroot ~dir_response ~clean_urls req =
   Http.Response.result @@ match docroot with
   | None -> Http.Response.not_found_404 ()
   | Some docroot ->
       let* `GET = Http.Request.allow Http.Method.[get] req in
       let* file = Http.Request.to_absolute_filepath ~file_root:docroot req in
-      Webs_fs.send_file ~dir_response req file
+      let resp = Webs_fs.send_file ~dir_response req file in
+      if not clean_urls then resp else
+      match resp with
+      | Ok _ -> resp
+      | Error r ->
+          if Http.Response.status r <> Http.Status.not_found_404 then resp else
+          match Webs_fs.send_file ~dir_response req (file ^ ".html") with
+          | Ok _ as v -> v
+          | _ -> resp
 
 (* Server *)
 
-let serve quiet listener docroot dir_index =
+let serve quiet listener docroot dir_index clean_urls =
   quiet_log := quiet;
   log_if_error ~use:Cmdliner.Cmd.Exit.some_error @@
   let* docroot = absolute_docroot docroot in
   let* dir_response = match dir_index with
   | "/dev/null" -> Ok Webs_fs.dir_404
+  | "NUL" when Sys.win32 -> Ok Webs_fs.dir_404
   | file -> Webs_fs.dir_index_file file
   in
   log_docroot docroot;
   let s = Webs_http11_gateway.make ~listener () in
   log "Listening on \x1B[1mhttp://%a\x1B[0m" Webs_listener.pp listener;
-  let* () = Webs_http11_gateway.serve s (service ~docroot ~dir_response) in
+  let service = service ~docroot ~dir_response ~clean_urls in
+  let* () = Webs_http11_gateway.serve s service in
   Ok 0
 
 (* Command line interface *)
@@ -59,8 +69,13 @@ let listener = Webs_cli.listener ()
 let docroot = Webs_cli.docroot ()
 let quiet = Arg.(value & flag & info ["q";"quiet"] ~doc:"Be quiet.")
 let dir_index =
-  let doc = "The file to read for directory indexes. Use /dev/null to 404." in
+  let doc = "The file to read for directory indexes. Use $(b,/dev/null) \
+             to 404, on Windows $(b,NUL) works too." in
   Arg.(value & opt string "index.html" & info ["i"; "dir-index"] ~doc)
+
+let clean_urls =
+  let doc = "If an URL does not exist try with URL.html" in
+  Arg.(value & flag & info ["c"; "clean-urls"] ~doc)
 
 let serve_cmd =
   let doc = "HTTP/1.1 file server" in
@@ -71,7 +86,7 @@ let serve_cmd =
     `P "to serve the files in $(b,/var/www/html)."; ]
   in
   Cmd.v (Cmd.info "serve" ~version:"%%VERSION%%" ~doc ~man)
-    Term.(const serve $ quiet $ listener $ docroot $ dir_index)
+    Term.(const serve $ quiet $ listener $ docroot $ dir_index $ clean_urls)
 
 let cmd =
   let doc = "HTTP tools" in
