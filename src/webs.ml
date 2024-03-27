@@ -1761,8 +1761,8 @@ module Connector = struct
       let dur =
         if Int64.(equal zero dur_ns) then "" else
         match Int64.compare dur_ns 1_000_000L (* < 1ms *) with
-        | -1 -> strf " % 3Luµs" (Int64.unsigned_div dur_ns 1_000L)
-        | _ -> strf " % 3Lums" (Int64.unsigned_div dur_ns 1_000_000L)
+        | -1 -> strf " %3Luµs" (Int64.unsigned_div dur_ns 1_000L)
+        | _ -> strf " %3Lums" (Int64.unsigned_div dur_ns 1_000_000L)
       in
       let method' req = match Request.method' req with
       | `POST | `PUT | `DELETE | `PATCH as m ->
