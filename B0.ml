@@ -29,14 +29,14 @@ let webs_unix_lib =
 
 let webs_cli_lib =
   let srcs = [`Dir (Fpath.v "src/cli")] in
-  let requires = [webs; webs_unix; cmdliner] in
+  let requires = [webs; webs_unix; cmdliner; unix] in
   B0_ocaml.lib webs_cli ~doc:"Webs command line library" ~srcs ~requires
 
 (* Tools *)
 
 let webs_tool =
   let srcs = Fpath.[`File (v "tool/webs_tool.ml")] in
-  let requires = [cmdliner; webs; webs_kit; webs_unix; webs_cli] in
+  let requires = [cmdliner; unix; webs; webs_kit; webs_unix; webs_cli] in
   B0_ocaml.exe "webs" ~public:true ~doc:"Webs HTTP tool" ~srcs ~requires
 
 (* Tests *)
@@ -53,13 +53,13 @@ let test_authenticatable = test "test_authenticatable" ~requires:[webs;webs_kit]
 
 let base_libs = [webs; webs_kit]
 let quick_libs = webs_cli :: base_libs
-let unix_libs = webs_unix :: base_libs
+let unix_libs = webs_unix :: unix :: base_libs
 
 let example ?doc base ~requires =
   let srcs = Fpath.[`File (v (Fmt.str "examples/%s.ml" base))] in
   B0_ocaml.exe base ?doc ~srcs ~requires
 
-let authedcookie = example "authedcookie" ~requires:quick_libs
+let authedcookie = example "authedcookie" ~requires:(unix :: quick_libs)
 let basicauth = example "basicauth" ~requires:quick_libs
 let basicauth_sloppy = example "basicauth_sloppy" ~requires:quick_libs
 let cgi = example "cgi" ~requires:unix_libs
@@ -72,7 +72,7 @@ let min = example "min" ~requires:quick_libs
 let multiconnector = example "multiconnector" ~requires:unix_libs
 let naive_fetch = example "naive_fetch" ~requires:(cmdliner :: unix_libs)
 let session = example "session" ~requires:quick_libs
-let sse = example "sse" ~requires:quick_libs
+let sse = example "sse" ~requires:(unix :: quick_libs)
 let unix_send_file = example "unix_send_file" ~requires:(webs_unix::quick_libs)
 let websocket = example "websocket" ~requires:quick_libs
 let webpage = example "webpage" ~requires:quick_libs

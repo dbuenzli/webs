@@ -1,45 +1,44 @@
-description = "HTTP toolkit"
+description = "HTTP toolkit for OCaml"
 version = "%%VERSION_NUM%%"
-
 requires = ""
 archive(byte) = "webs.cma"
 archive(native) = "webs.cmxa"
 plugin(byte) = "webs.cma"
 plugin(native) = "webs.cmxs"
-exists_if = "webs.cma"
+exists_if = "webs.cma webs.cmxa"
+
+package "cli" (
+  directory = "cli"
+  description = "Webs command line library"
+  version = "%%VERSION_NUM%%"
+  requires = "webs webs.unix cmdliner unix"
+  archive(byte) = "webs_cli.cma"
+  archive(native) = "webs_cli.cmxa"
+  plugin(byte) = "webs_cli.cma"
+  plugin(native) = "webs_cli.cmxs"
+  exists_if = "webs_cli.cma webs_cli.cmxa"
+)
 
 package "kit" (
-  description = "Webs toolkit"
-  version = "%%VERSION_NUM%%"
   directory = "kit"
+  description = "Webs toolkit library"
+  version = "%%VERSION_NUM%%"
   requires = "webs"
   archive(byte) = "webs_kit.cma"
   archive(native) = "webs_kit.cmxa"
   plugin(byte) = "webs_kit.cma"
   plugin(native) = "webs_kit.cmxs"
-  exists_if = "webs_kit.cma"
+  exists_if = "webs_kit.cma webs_kit.cmxa"
 )
 
 package "unix" (
-  description = "Webs unix tooling"
-  version = "%%VERSION_NUM%%"
   directory = "unix"
-  requires = "webs unix threads"
+  description = "Webs unix library"
+  version = "%%VERSION_NUM%%"
+  requires = "webs unix threads.posix"
   archive(byte) = "webs_unix.cma"
   archive(native) = "webs_unix.cmxa"
   plugin(byte) = "webs_unix.cma"
   plugin(native) = "webs_unix.cmxs"
-  exists_if = "webs_unix.cma"
-)
-
-package "cli" (
-  description = "Webs command line interface support"
-  version = "%%VERSION_NUM%%"
-  directory = "cli"
-  requires = "webs webs.unix cmdliner"
-  archive(byte) = "webs_cli.cma"
-  archive(native) = "webs_cli.cmxa"
-  plugin(byte) = "webs_cli.cma"
-  plugin(native) = "webs_cli.cmxs"
-  exists_if = "webs_cli.cma"
+  exists_if = "webs_unix.cma webs_unix.cmxa"
 )
