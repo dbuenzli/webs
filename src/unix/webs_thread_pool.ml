@@ -17,7 +17,7 @@ let rec worker pool =
   let task = Queue.take_opt pool.tasks in
   Mutex.unlock pool.m;
   match task with
-  | None -> Thread.exit ()
+  | None -> raise Thread.Exit
   | Some task -> task (); worker pool
 
 let make n =
