@@ -40,7 +40,9 @@ APIs.
 
 {1:webs Library [webs]}
 
-{!modules: Webs}
+{!modules:
+Webs_url
+Webs}
 
 {1:webs_kit Library [webs.kit]}
 

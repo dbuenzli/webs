@@ -18,7 +18,7 @@ dependencies. Some building blocks and the built-in gateway connectors
 depend on OCaml's `Unix` and `Thread` modules. The command line
 support depends on [`cmdliner`].
 
-Homepage: <http://erratique.ch/software/webs>  
+Homepage: <http://erratique.ch/software/webs>
 
 [`cmdliner`]: https://erratique.ch/software/cmdliner"""
 maintainer: "Daniel Bünzli <daniel.buenzl i@erratique.ch>"
@@ -36,7 +36,7 @@ depends: [
 ]
 depopts: ["cmdliner"]
 conflicts: [
-  "cmdliner" {< "1.0.0"}
+  "cmdliner" {< "1.3.0"}
 ]
 build: [
   "ocaml"

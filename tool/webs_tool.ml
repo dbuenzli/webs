@@ -61,9 +61,33 @@ let serve quiet listener docroot dir_index clean_urls =
   let* () = Webs_http11_gateway.serve s service in
   Ok 0
 
+(* Scrape URLs *)
+
+let scrape_urls ~file ~rel =
+  let read_file file =
+    let read file ic = try Ok (In_channel.input_all ic) with
+    | Sys_error e -> Error (Printf.sprintf "%s: %s" file e)
+    in
+    let binary_stdin () = In_channel.set_binary_mode In_channel.stdin true in
+    try match file with
+    | "-" -> binary_stdin (); read file In_channel.stdin
+    | file -> In_channel.with_open_bin file (read file)
+    with Sys_error e -> Error e
+  in
+  log_if_error ~use:Cmdliner.Cmd.Exit.some_error @@
+  let* data = read_file file in
+  let urls = Webs_url.list_of_text_scrape data in
+  let urls =
+    if rel then urls else
+    List.filter (fun u -> Webs_url.classify u = `Url) urls
+  in
+  (if urls = [] then print_endline "" else List.iter print_endline urls);
+  Ok 0
+
 (* Command line interface *)
 
 open Cmdliner
+open Cmdliner.Term.Syntax
 
 let listener = Webs_cli.listener ()
 let docroot = Webs_cli.docroot ()
@@ -85,8 +109,31 @@ let serve_cmd =
     `P "   $(iname) $(b,-d /var/www/html)";
     `P "to serve the files in $(b,/var/www/html)."; ]
   in
-  Cmd.v (Cmd.info "serve" ~version:"%%VERSION%%" ~doc ~man)
-    Term.(const serve $ quiet $ listener $ docroot $ dir_index $ clean_urls)
+  Cmd.v (Cmd.info "serve" ~doc ~man) @@
+  Term.(const serve $ quiet $ listener $ docroot $ dir_index $ clean_urls)
+
+let scrape_urls_cmd =
+  let doc = "Scrape URLs from text" in
+  let man = [
+    `S Manpage.s_description;
+    `P "$(iname) scrapes URL from a given file or $(b,stdin). It assumes \
+        the text is in an US-ASCII compatible encoding like UTF-8. For \
+        example:";
+    `Pre "$(b,curl -L https://example.org) | $(iname)"; `Noblank;
+    `Pre "$(iname) $(b,README.md)";
+  ]
+  in
+  Cmd.v (Cmd.info "scrape-urls" ~doc ~man) @@
+  let+ file =
+    let doc = "The text file to scrape. Reads from $(b,stdin) if unspecified."in
+    Arg.(value & pos 0 string "-" & info [] ~doc ~docv:"FILE")
+  and+ rel =
+    let doc = "Also output relative URLs." in
+    Arg.(value & flag & info ["a"; "include-relative"] ~doc)
+  in
+  scrape_urls ~file ~rel
+
+let cmds = [serve_cmd; scrape_urls_cmd]
 
 let cmd =
   let doc = "HTTP tools" in
@@ -95,8 +142,7 @@ let cmd =
       `P "This program is distributed with the Webs OCaml library.
         See https://erratique.ch/software/webs for contact information."; ]
   in
-  Cmd.group (Cmd.info "webs" ~version:"%%VERSION%%" ~doc ~man)
-    [serve_cmd]
+  Cmd.group (Cmd.info "webs" ~version:"%%VERSION%%" ~doc ~man) cmds
 
-
-let () = if !Sys.interactive then () else exit (Cmd.eval' cmd)
+let main () = Cmd.eval' cmd
+let () = if !Sys.interactive then () else exit (main ())
