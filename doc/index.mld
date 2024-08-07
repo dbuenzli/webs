@@ -2,19 +2,23 @@
 
 Webs is a toolkit for programming with HTTP in OCaml. It provides:
 
-{ul
-{- IO agnostic representations for HTTP {{!Webs.Http.Request}requests}
-   and {{!Webs.Http.Response}responses}.}
-{- Optional HTTP service building blocks.
-   {{!page-http_service_howto.serving_files}File serving},
-   {{!Webs_authenticated_cookie}authenticated cookies},
-   {{!Webs_session}sessions}, etc.}
-{- Connectors for running HTTP services defined as function mapping
-   requests to responses. {{!Webs_cgi}CGI} and
-   {{!Webs_http11_gateway}HTTP/1.1 gateway} connectors are provided,
-   but you can bring your own.}}
+- IO and HTTP version agnostic representations for HTTP
+  {{!Webs.Http.Request}requests} and {{!Webs.Http.Response}responses}.
+- A client connector abstraction for making
+  {{!Webs.Http_client}HTTP client requests} with HTTP client implementations.
+- A service connector abstraction for running HTTP services defined as
+  functions mapping requests to responses. Simple
+  {{!Webs_cgi}CGI} and {{!Webs_http11_gateway}HTTP/1.1 gateway}
+  connectors are provided, but you can bring your own.
+- Optional HTTP service building blocks.
+  {{!page-http_service_howto.serving_files}File serving},
+  {{!Webs_authenticated_cookie}authenticated cookies},
+  {{!Webs_session}sessions}, etc.
 
 Webs is not a framework, it is a set of building blocks.
+
+See the {{!quick_start}quick start} and the
+{{:current_limitations}limitations}
 
 {1:manuals Manuals}
 
@@ -30,8 +34,6 @@ These manuals are available:
    connectors behave in certain edge cases.}
 {- The {{!page-tutorial}tutorial} is a more involved example to get you
    started.}
-{- The {{!current_limitations}current limitations} should help you
-   deciding whether Webs is suitable for you.}
 {- The {{!page-todo}TODO} is a few things that are todo}}
 
 The {{:https://github.com/dbuenzli/webs/tree/master/examples}examples}
@@ -41,8 +43,8 @@ APIs.
 {1:webs Library [webs]}
 
 {!modules:
-Webs_url
-Webs}
+Webs
+Webs_url}
 
 {1:webs_kit Library [webs.kit]}
 
@@ -56,7 +58,7 @@ Webs_basic_auth
 Webs_bazaar
 }
 
-{1:webs_unit Library [webs.unix]}
+{1:webs_unix Library [webs.unix]}
 
 Provides tools to send files and simple connectors. Depends on OCaml's
 [unix] library.
@@ -68,10 +70,14 @@ Webs_listener
 Webs_fs
 }
 
-{2:service_connectors Service connectors}
+{2:unix_service_connectors Service connectors}
 {!modules:
 Webs_cgi
 Webs_http11_gateway}
+
+{2:unix_client_connectors Client connectors}
+{!modules:
+Webs_spawn_client}
 
 {1:webs_cli Library [webs.cli]}
 
@@ -82,16 +88,62 @@ Webs_cli
 Webs_quick
 }
 
-{1:current_limitations Current limitations}
+{1:quick_start Quick start}
+
+Fetch an URL with this [fetch.ml] file:
+{[
+open Webs
+
+let main () =
+  let httpc = Webs_spawn_client.make () in
+  let url = Sys.argv.(1) in
+  match Http_client.get httpc ~follow:true ~url with
+  | Error e -> prerr_endline e; 1
+  | Ok page -> print_endline page; 0
+
+let () = if !Sys.interactive then () else exit (main ())
+]}
+
+Make a minimal server with this [serve.ml] file:
+{[
+open Webs
+
+let service = Http.Request.echo
+let main () = Webs_quick.serve service
+let () = if !Sys.interactive then () else exit (main ())
+]}
+
+Compile that with
+{[
+ocamlfind ocamlopt -pkg webs,webs.unix -o fetch fetch.ml
+ocamlfind ocamlopt -pkg webs,webs.http11,webs.cli -o serve serve.ml
+]}
+
+Let them talk (you will need [curl] in your [PATH]):
+{[
+./serve &
+./fetch http://localhost:8000/hey
+./fetch http://localhost:8000/ho
+pkill serve
+serve --help
+]}
+
+See also the
+{{:https://github.com/dbuenzli/webs?tab=readme-ov-file#sample-programs}
+samples} in the repo.
+
+{1:limitations Limitations}
 
 Before using Webs for your project you should be aware of
-these current limitations:
+these current limitations, some of which will be lifted in the future.
 
 {ul
-{- All available {{!service_connectors}connectors} do not talk directly to the
-   internet and do not talk [https]. You need to pair your service
-   with an HTTP gateway like Apache, nginx, etc. See the
-   {{!page-http_service_howto}HTTP service howto} for more details.}
+{- All available {{!unix_service_connectors}service connectors} do not talk
+   directly to the internet and do not talk [https]. You need to pair
+   your service with an HTTP gateway like Apache, nginx, etc. See the
+   {{!page-http_service_howto}HTTP service howto} for more details.
+   Alternatively you can develop your own connector with your own concurrency
+   model.}
 {- TODO chunked encoding}
 {- Webs supports the [application/x-www-form-urlencoded] content type for
    form posting but it's missing an implementation of the [multipart/form]
@@ -100,7 +152,8 @@ these current limitations:
    queries.}
 {- The architecture of the {!Webs_http11_gateway} connector will not
    fare well if you need to support WebSockets or SSE at scale.}
-{- There is no connector for supporting the client view.}}
+{- For now the only client connector is {!Webs_spawn_client} which is
+   only ok for scripting or lightweight needs.}}
 
 Finally note that while Webs is unlikely to change drastically, making
 some breaking changes in the future is not excluded.

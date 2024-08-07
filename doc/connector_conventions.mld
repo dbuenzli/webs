@@ -180,33 +180,22 @@ request into a request value. When they do, they should do so as follows:
 
 {1:client_connectors Client connectors}
 
-Client connectors should fetch requests by taking a {!Webs.Http.Scheme}
-and {!Webs.Http.Request.t} value and returning a {!Webs.Http.Response.t}
-value.
-
-The suggested signature to do so is:
-{[
-open Webs
-
-type t
-(** The type for client connectors. *)
-
-val fetch :
-  t -> Http.Scheme.t * Http.Request.t -> (Http.Response.t, string) result
-(** [fetch c scheme r] fetches [r] using scheme [scheme]. *)
-]}
+It is advised for client connectors to implement the
+{!Webs.Http_client.T} signature.
 
 {2:client_requests Client requests}
 
-The server and port to connect to should be derived from the client
-request value by looking up the {!Webs.Http.Headers.host} header.  If
-no port is found a default one should be derived from the provided
-scheme. The function {!Webs.Http.Headers.get_host} performs that
-logic.
+The scheme of the request must be derived from
+{!Webs.Http.Request.scheme}. The server and port to connect to should
+be derived from the client request value by looking up the
+{!Webs.Http.Headers.host} header and the request
+{!Webs.Http.Request.scheme}. If no port is found a default one should
+be derived from the scheme. The function
+{!Webs.Http.Headers.decode_host} performs that logic.
 
 When writing the client request, connectors should treat these headers
 of the request specially:
-{ul
+{ol
 {- {!Webs.Http.Headers.content_type}. If such a header exists
    in {!Webs.Http.Request.headers}, this value must be written
    in the request. Otherwise the value found in

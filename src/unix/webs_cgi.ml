@@ -12,7 +12,7 @@ module String_map = Map.Make (String)
 
 let chop_prefix ~prefix s =
   if not (String.starts_with ~prefix s) then s else
-  Http.Private.string_subrange ~first:(String.length prefix) s
+  Http.Connector.Private.string_subrange ~first:(String.length prefix) s
 
 let io_buffer_size = 65536 (* IO_BUFFER_SIZE 4.0.0 *)
 
@@ -107,7 +107,7 @@ let headers_of_env ~extra_vars env =
   let add_var ~add_empty env hs (var, name) =
     match String_map.find_opt var env with
     | Some v when add_empty || v <> "" ->
-        Http.Headers.def name (Http.Private.trim_ows v) hs
+        Http.Headers.def name (Http.Connector.Private.trim_ows v) hs
     | _ -> hs
   in
   let rec loop i max env hs others =
@@ -116,15 +116,17 @@ let headers_of_env ~extra_vars env =
     match String.index_opt b '=' with
     | None -> failwith err_malformed_env
     | Some eq ->
-        let var = Http.Private.string_subrange ~last:(eq - 1) b in
-        let value = Http.Private.string_subrange ~first:(eq + 1) b in
+        let var = Http.Connector.Private.string_subrange ~last:(eq - 1) b in
+        let value = Http.Connector.Private.string_subrange ~first:(eq + 1) b in
         match is_http_var var with
         | false -> loop (i + 1) max env hs (String_map.add var value others)
         | true ->
             match http_var_to_header_name var with
             | Error e -> failwith e
             | Ok v ->
-                let hs = Http.Headers.def v (Http.Private.trim_ows value) hs in
+                let hs =
+                  Http.Headers.def v (Http.Connector.Private.trim_ows value) hs
+                in
                 loop (i + 1) max env hs others
   in
   let max = Array.length env - 1 in

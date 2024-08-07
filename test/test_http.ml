@@ -3,19 +3,21 @@
    SPDX-License-Identifier: ISC
   ---------------------------------------------------------------------------*)
 
+open B0_testing
 open Webs
-
-let log = print_endline
 
 let raises_invalid f = try f (); assert false with Invalid_argument _ -> ()
 
 let test_version () =
-  log "Webs.Http.Version.{encode,decode}";
+  Test.test "Http.Version.{encode,decode}" @@ fun () ->
   assert (Http.Version.decode "HTTP/0.9" = Ok (0, 9));
   assert (Http.Version.decode "HTTP/1.0" = Ok (1, 0));
   assert (Http.Version.decode "HTTP/1.1" = Ok (1, 1));
   assert (Http.Version.decode "HTTP/1.2" = Ok (1, 2));
   assert (Http.Version.decode "HTTP/2.2" = Ok (2, 2));
+  (* curl -i gives us HTTP/2 so we accept single digits. *)
+  assert (Http.Version.decode "HTTP/2" = Ok (2, 0));
+  assert (Http.Version.decode "HTTP/3" = Ok (3, 0));
   assert (Result.is_error @@ Http.Version.decode "HTTP /1.1");
   assert (Result.is_error @@ Http.Version.decode "HTTP/1.1 ");
   assert (Result.is_error @@ Http.Version.decode "HTTP/1.10");
@@ -24,10 +26,12 @@ let test_version () =
   assert (Http.Version.encode (1, 0) = "HTTP/1.0");
   assert (Http.Version.encode (1, 1) = "HTTP/1.1");
   assert (Http.Version.encode (2, 2) = "HTTP/2.2");
+
+
   ()
 
 let test_method () =
-  log "Webs.Http.Method.{encode,decode}";
+  Test.test "Http.Method.{encode,decode}" @@ fun () ->
   assert (Http.Method.decode "GET" = Ok `GET);
   assert (Http.Method.decode "HEAD" = Ok `HEAD);
   assert (Http.Method.decode "POST" = Ok `POST);
@@ -56,13 +60,14 @@ let test_method () =
   ()
 
 let test_headers_case () =
-  log "Webs.Http.headers case";
+  Test.test "Http.headers case" @@ fun () ->
   let hs = Http.Headers.empty |> Http.Headers.(def (name "ha") "ho") in
   assert (Http.Headers.(mem (Http.Headers.name "Ha") hs));
   ()
 
-let test_path () =
-  log "Webs.Http.Path.{encode,decode,strip_prefix,filpath_ext}";
+let test_path_encode_decode () =
+  Test.test  "Http.Path.{encode,decode}" @@
+  fun () ->
   assert (Http.Path.decode "/" = Ok [""]);
   assert (Http.Path.decode "//" = Ok ["";""]);
   assert (Http.Path.decode "//a" = Ok ["";"a"]);
@@ -98,7 +103,10 @@ let test_path () =
   assert (Http.Path.encode ["a"; "/"; "b"] = "/a/%2F/b");
   assert (Http.Path.encode ["a"; "a,b;c=3"; "c"] = "/a/a,b;c=3/c");
   assert (Http.Path.encode [] = "");
-  log "Webs.Http.Path.strip_prefix";
+  ()
+
+let test_path_strip_prefix () =
+  Test.test "Http.Path.strip_prefix" @@ fun () ->
   assert (Http.Path.strip_prefix ~prefix:[""] [] = []);
   assert (Http.Path.strip_prefix ~prefix:[""] [""] = [""]);
   assert (Http.Path.strip_prefix ~prefix:[""] ["a"] = ["a"]);
@@ -133,7 +141,10 @@ let test_path () =
   assert (Http.Path.strip_prefix ~prefix:["a"; ""] ["a"; "b"; ""] = ["b"; ""]);
   assert (Http.Path.strip_prefix ~prefix:["a"] ["a"; ""; "b"] = [""; "b"]);
   assert (Http.Path.strip_prefix ~prefix:["a"; ""] ["a"; "b"; "c"] = ["b";"c"]);
-  log "Webs.Http.Path.filepath_ext";
+  ()
+
+let test_path_filepath_ext () =
+  Test.test "Http.Path.filepath_ext" @@ fun () ->
   assert (Http.Path.filepath_ext "" = "");
   assert (Http.Path.filepath_ext "/" = "");
   assert (Http.Path.filepath_ext "/.bla" = "");
@@ -144,7 +155,10 @@ let test_path () =
   assert (Http.Path.filepath_ext "a.bla/a" = "");
   assert (Http.Path.filepath_ext "/a.bla/a" = "");
   assert (Http.Path.filepath_ext "/a.bla/a.ext" = ".ext");
-  log "Webs.Http.Path.concat";
+  ()
+
+let test_path_concat () =
+  Test.test "Http.Path.concat" @@ fun () ->
   assert (Http.Path.concat [] [] = []);
   assert (Http.Path.concat [""] [] = [""]);
   assert (Http.Path.concat [] [""] = [""]);
@@ -159,12 +173,18 @@ let test_path () =
   assert (Http.Path.concat ["a"; "b"; ""] ["c"; "d"] = ["a"; "b"; "c"; "d"]);
   assert (Http.Path.concat ["a"; "b"; ""] [""] = ["a"; "b"; ""]);
   assert (Http.Path.concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]);
-  log "Webs.Http.Path.undot_and_compress";
+  ()
+
+let test_path_undot_and_compress () =
+  Test.test "Http.Path.undot_and_compress" @@ fun () ->
   assert (Http.Path.undot_and_compress ["a"; "b"; "."] = ["a"; "b"; ""]);
   assert (Http.Path.undot_and_compress
             ["a"; "."; "b"; "."; "."] = ["a"; "b"; ""]);
   assert (Http.Path.undot_and_compress [".."] = [""]);
-  log "Webs.Http.Path.relativize";
+  ()
+
+let test_path_relativize () =
+  Test.test "Http.Path.relativize" @@ fun () ->
   let str l = "/" ^ String.concat "/" l and rel_str l = String.concat "/" l in
   let concat_rel ~root rel = match root, rel with
   | [], _ | _, [] -> assert false
@@ -250,7 +270,7 @@ let test_path () =
   ()
 
 let test_digits () =
-  log "Webs.Http.Digit.{decode,encode}";
+  Test.test "Http.Digit.{decode,encode}" @@ fun () ->
   let overflow = (Format.asprintf "%d0" max_int) in
   assert (Http.Digits.decode "0" = Ok 0);
   assert (Http.Digits.decode "42" = Ok 42);
@@ -266,8 +286,29 @@ let test_digits () =
   raises_invalid (fun () -> Http.Digits.encode min_int);
   ()
 
+let test_etags () =
+  Test.test "Http.Etag.{decode,decode_cond}" @@ fun () ->
+  let etags t = Http.Etag.make ~weak:false t, Http.Etag.make ~weak:true t in
+  let empty, w_empty = etags "" in
+  let xyzzy, w_xyzzy = etags "xyzzy" in
+  let r2d2xxxx, w_r2d2xxxx = etags "r2d2xxxx" in
+  let c3piozzzz, w_c3piozzzz = etags "c3piozzzz" in
+  assert (Http.Etag.decode {|"xyzzy"|} = Ok xyzzy);
+  assert (Http.Etag.decode {|W/"xyzzy"|} = Ok w_xyzzy);
+  assert (Http.Etag.decode {|""|} = Ok empty);
+  assert (Http.Etag.decode_cond {|"xyzzy"|} = Ok (`Etags [xyzzy]));
+  assert (Http.Etag.decode_cond {|"xyzzy", "r2d2xxxx", "c3piozzzz"|}
+          = Ok (`Etags [xyzzy; r2d2xxxx; c3piozzzz]));
+  assert (Http.Etag.decode_cond {|W/"xyzzy", W/"r2d2xxxx", W/"c3piozzzz"|}
+          = Ok (`Etags [w_xyzzy; w_r2d2xxxx; w_c3piozzzz]));
+  assert (Http.Etag.decode_cond "*" = Ok `Any);
+  assert (Result.is_error @@ Http.Etag.decode_cond " * ");
+  assert (Result.is_error @@ Http.Etag.decode_cond " *.");
+  assert (Result.is_error @@ Http.Etag.decode_cond "");
+  ()
+
 let test_ranges () =
-  log "Webs.Http.Range.decode";
+  Test.test "Http.Range.decode" @@ fun () ->
   let r0_499 = `Range (0, 499) in
   let r500_999 = `Range (500, 999) in
   let last500 = `Last 500 in
@@ -283,36 +324,21 @@ let test_ranges () =
   assert (Http.Range.decode "unit=1-2" = Ok (`Other ("unit", "1-2")));
   ()
 
-let test_etags () =
-  let etags t = Http.Etag.make ~weak:false t, Http.Etag.make ~weak:true t in
-  let empty, w_empty = etags "" in
-  let xyzzy, w_xyzzy = etags "xyzzy" in
-  let r2d2xxxx, w_r2d2xxxx = etags "r2d2xxxx" in
-  let c3piozzzz, w_c3piozzzz = etags "c3piozzzz" in
-  log "Webs.Http.Etag.decode";
-  assert (Http.Etag.decode {|"xyzzy"|} = Ok xyzzy);
-  assert (Http.Etag.decode {|W/"xyzzy"|} = Ok w_xyzzy);
-  assert (Http.Etag.decode {|""|} = Ok empty);
-  log "Webs.Http.Etag.decode_cond";
-  assert (Http.Etag.decode_cond {|"xyzzy"|} = Ok (`Etags [xyzzy]));
-  assert (Http.Etag.decode_cond {|"xyzzy", "r2d2xxxx", "c3piozzzz"|}
-          = Ok (`Etags [xyzzy; r2d2xxxx; c3piozzzz]));
-  assert (Http.Etag.decode_cond {|W/"xyzzy", W/"r2d2xxxx", W/"c3piozzzz"|}
-          = Ok (`Etags [w_xyzzy; w_r2d2xxxx; w_c3piozzzz]));
-  assert (Http.Etag.decode_cond "*" = Ok `Any);
-  assert (Result.is_error @@ Http.Etag.decode_cond " * ");
-  assert (Result.is_error @@ Http.Etag.decode_cond " *.");
-  assert (Result.is_error @@ Http.Etag.decode_cond "");
-  ()
-
 let main () =
+  Test.main @@ fun () ->
+  Test.log "Testing Webs.Http module";
   test_version ();
   test_method ();
   test_headers_case ();
-  test_path ();
+  test_path_encode_decode ();
+  test_path_strip_prefix ();
+  test_path_filepath_ext ();
+  test_path_concat ();
+  test_path_undot_and_compress ();
+  test_path_relativize ();
   test_digits ();
   test_etags ();
   test_ranges ();
-  print_endline "All tests succeeded."
+  ()
 
-let () = main ()
+let () = if !Sys.interactive then () else exit (main ())

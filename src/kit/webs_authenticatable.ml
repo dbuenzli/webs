@@ -21,8 +21,8 @@ module Private_key = struct
   let of_ascii_string s = match String.index_opt s ':' with
   | None -> Error (strf "missing ':' separator")
   | Some i ->
-      let scheme = Http.Private.string_subrange ~last:(i - 1) s in
-      let d = Http.Private.string_subrange ~first:(i + 1) s in
+      let scheme = Http.Connector.Private.string_subrange ~last:(i - 1) s in
+      let d = Http.Connector.Private.string_subrange ~first:(i + 1) s in
       match scheme with
       | "HS256" ->
           let* k = Http.Base64.url_decode d |> Http.Base64.error_string in
@@ -76,20 +76,20 @@ let decode_hmac s = match Http.Base64.url_decode s with
 | Error e -> Error (`Base64url e)
 | Ok s ->
     if String.length s < 6 then Error (`Scheme None) else
-    let algo = Http.Private.string_subrange ~last:4 s in
+    let algo = Http.Connector.Private.string_subrange ~last:4 s in
     let is_hs256 = String.equal algo hs256 && s.[5] = ':' in
     if not is_hs256 then Error (`Scheme (Some algo)) else
     if String.length s < 39 then Error (`Scheme (Some hs256)) else
     let hmac = String.sub s 6 32 (* Length of sha-256 hashes *) in
     let hmac = Webs_hash.Sha_256.of_binary_string hmac |> Result.get_ok in
-    let msg = Http.Private.string_subrange ~first:38 s in
+    let msg = Http.Connector.Private.string_subrange ~first:38 s in
     Ok (hmac, msg)
 
 let decode_msg msg = match String.index_opt msg ':' with
 | None -> Error (`Scheme (Some hs256))
 | Some i ->
-    let expire = Http.Private.string_subrange ~last:(i - 1) msg in
-    let data = Http.Private.string_subrange ~first:(i + 1) msg in
+    let expire = Http.Connector.Private.string_subrange ~last:(i - 1) msg in
+    let data = Http.Connector.Private.string_subrange ~first:(i + 1) msg in
     if String.equal expire "" then Ok (None, data) else
     match int_of_string_opt expire with
     | None -> Error (`Scheme (Some hs256))

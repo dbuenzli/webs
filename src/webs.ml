@@ -47,7 +47,7 @@ module Fmt = struct
   let nl = Format.pp_print_newline
   let string = Format.pp_print_string
   let qstring ppf s = pf ppf "%S" s
-  let field f pp_v ppf v = pf ppf "@[<h>(%s %a)@]" f pp_v v
+  let field f pp_v ppf v = pf ppf "@[<h>%s: %a@]" f pp_v v
   let list = Format.pp_print_list
   let exn_backtrace ~kind ppf (exn, bt) =
     let pp_exn ppf e = string ppf (Printexc.to_string e) in
@@ -100,9 +100,10 @@ let err_path_seg_stray_dir_sep = "stray directory separator in path segment"
 let err_path_empty = "empty list of segments"
 let err_rl_garbage = "remaining garbage on the request line"
 let err_st_garbage = "remaining garbage on the status line"
+let err_header_miss_name = "missing header name"
 let err_header_undefined n = Fmt.str "header %s undefined" n
 let err_header_miss_delim = "missing ':' delimiter in header"
-let err_header_value_char c = "%C not a header value character"
+let err_header_value_char c = Fmt.str "%C not a header value character" c
 let err_headers_length_conflicts = "conflicting body length specification"
 let err_headers_length = "cannot determine body length"
 let err_empty_multi_value = "multi value cannot be the empty list"
@@ -209,6 +210,7 @@ let decode_header_field b ~first ~crlf =
   | None -> failwith err_header_miss_delim
   | Some i ->
       let name = token_to_lower (Bytes.sub b first (i - first)) in
+      if name = "" then failwith err_header_miss_name else
       let j = skip_ows b ~start:(i + 1) ~max:(crlf - 1) in
       let k = rskip_ows b ~min:(j + 1) ~start:(crlf - 1) in
       let value = decode_field_value b ~first:j ~last:k in
@@ -490,16 +492,24 @@ module Version = struct
   let v30 = (3, 0)
 
   let decode_of_bytes b ~first ~max =
-    if max - first + 1 < 8 then failwith err_version else
+    let len = max - first + 1 in
+    if len < 6 then failwith err_version else
     let[@inline] c b i = Bytes.get b (first + i) in
     if c b 0 = 'H' && c b 1 = 'T' && c b 2 = 'T' && c b 3 = 'P' &&
-       c b 4 = '/' && is_digit (c b 5) && c b 6 = '.' && is_digit (c b 7)
-    then first + 8, (digit_to_int (c b 5), digit_to_int (c b 7))
-    else failwith err_version
+       c b 4 = '/' && is_digit (c b 5)
+    then begin
+      if len = 6 then (first + 6, (digit_to_int (c b 5), 0)) else
+      let sep = c b 6 in
+      if sep = ' ' then (first + 6, (digit_to_int (c b 5), 0)) else
+      if len >= 8 && sep = '.' && is_digit (c b 7)
+      then first + 8, (digit_to_int (c b 5), digit_to_int (c b 7))
+      else failwith err_version
+    end else failwith err_version
 
   let decode s =
-    if String.length s <> 8 then Error err_version else
-    match decode_of_bytes (Bytes.unsafe_of_string s) ~first:0 ~max:7 with
+    let len = String.length s in
+    if not (len = 8 || len = 6) then Error err_version else
+    match decode_of_bytes (Bytes.unsafe_of_string s) ~first:0 ~max:(len - 1)with
     | exception Failure e -> Error e | (_, v) -> Ok v
 
   let encode (maj, min) =
@@ -962,7 +972,7 @@ module Scheme = struct
   type t = [ `Http | `Https ]
 
   let encode = function `Http -> "http" | `Https -> "https"
-
+  let pp ppf s = Fmt.string ppf (encode s)
   let tcp_port = function `Http -> 80 | `Https -> 443
   let split ~url =
     let https = "https://" and http = "http://" in
@@ -970,7 +980,7 @@ module Scheme = struct
     then (`Https, string_chop_known_prefix ~prefix:https url) else
     if String.starts_with ~prefix:http url
     then (`Http, string_chop_known_prefix ~prefix:http url)
-    else Fmt.failwith "URL '%s': not an HTTP URL" url
+    else Fmt.failwith "Not an HTTP URL"
 end
 
 module Status = struct
@@ -1128,6 +1138,7 @@ module Headers = struct
   let last_modified = "last-modified"
   let location = "location"
   let max_forwards = "max-forwards"
+  let origin = "origin"
   let pragma = "pragma"
   let proxy_authenticate = "proxy-authenticate"
   let proxy_authorization = "proxy-authorization"
@@ -1195,6 +1206,15 @@ module Headers = struct
 
   let value_is_token = is_token
 
+  let decode_http11_header s =
+    let crlf = String.length s in
+    match decode_header_field (Bytes.unsafe_of_string s) ~first:0 ~crlf with
+    | exception Failure e -> Error e | n, v -> Ok (Name.v n, v)
+
+  let pp_header ppf (n, p) = Format.fprintf ppf "%s: %s" n p
+
+  (* Encoding *)
+
   let pp ppf hs =
     let pp_header ppf (n, v)  =
       if not (n = "set-cookie") then Fmt.field n Fmt.qstring ppf v else
@@ -1202,6 +1222,16 @@ module Headers = struct
       List.iter (Fmt.field "set-cookie" Fmt.qstring ppf) cs
     in
     Fmt.list pp_header ppf (String_map.bindings hs)
+
+  let encode_http11_header n v acc =
+    let encode n acc v = n :: ": " :: v :: crlf :: acc in
+    if not (String.equal n set_cookie) then encode n acc v else
+    let vs = values_of_set_cookie_value v in
+    List.fold_left (encode set_cookie) acc vs
+
+  let encode_http11 hs = String.concat "" (fold encode_http11_header hs [])
+
+
 
   (* Predicates *)
 
@@ -1223,7 +1253,7 @@ module Headers = struct
         let chunked = String.equal "chunked" (List.hd (List.rev tes)) in
         if chunked then Ok `Chunked else Error err_headers_length
 
-  let get_host scheme hs =
+  let decode_host scheme hs =
     let find_hostname_port scheme host = match String.rindex_opt host ':' with
     | None -> Ok (host, Scheme.tcp_port scheme)
     | Some j ->
@@ -1488,6 +1518,21 @@ module Response = struct
     Fmt.field "body" Body.pp ppf response.body;
     Format.pp_close_box ppf ()
 
+  let encode_http11 ~include_body response =
+    let ( let* ) = Result.bind in
+    let version = Version.encode response.version in
+    let status = string_of_int response.status in
+    let reason = response.reason in
+    let headers = response.headers in
+    let headers = Headers.encode_http11 headers in
+    let* body = if include_body then Body.to_string response.body else Ok "" in
+    let msg =
+      version :: " " :: status :: " " :: reason :: "\r\n" ::
+      headers :: "\r\n" :: [body]
+    in
+    Ok (String.concat "" msg)
+
+
   (* Properties *)
 
   let version response = response.version
@@ -1574,17 +1619,20 @@ module Request = struct
       path : Path.t;
       query : string option;
       raw_path : string;
+      scheme : Scheme.t;
       service_path : Path.t;
       version : Version.t; }
 
   let make
       ?(headers = Headers.empty) ?(path = Path.root) ?(query = None)
-      ?(service_path = Path.root) ~version method' ~raw_path body
+      ?(scheme = `Https) ?(service_path = Path.root) ~version method'
+      ~raw_path body
     =
-    { body; headers; method'; path; query; raw_path; service_path; version }
+    { body; headers; method'; path; query; raw_path; scheme; service_path;
+      version }
 
   let for_service_connector
-      ~service_path ~version method' ~raw_path ~headers body =
+      ?scheme ~service_path ~version method' ~raw_path ~headers body =
     let path, query =
       match Path.and_query_string_of_request_target raw_path with
       | Ok v -> v | Error e -> failwith e
@@ -1598,13 +1646,15 @@ module Request = struct
       | path -> service_path, path
     in
     Result.ok @@
-    make ~headers ~path ~query ~service_path ~version method' ~raw_path body
+    make ?scheme ~headers ~path ~query ~service_path ~version method'
+      ~raw_path body
 
   let of_url
       ?(body = Body.empty) ?(headers = Headers.empty) ?(version = Version.v11)
       method' ~url
     =
     try
+      (* TODO use Webs_url ? *)
       let find_host_path ~target = match String.index_opt target '/' with
       | None -> target, "/"
       | Some i ->
@@ -1615,23 +1665,35 @@ module Request = struct
       in
       let scheme, target = Scheme.split ~url in
       let host, raw_path = find_host_path ~target in
-      let headers = Headers.(def host) host Headers.empty in
+      let headers = Headers.(def host) host headers in
       let service_path = Path.root in
       let path, query =
         match Path.and_query_string_of_request_target raw_path with
         | Ok v -> v | Error e -> Fmt.failwith "URL '%s': %s" url e
       in
       let request =
-        make ~version ~headers ~service_path ~path ~query method' ~raw_path body
+        make ~version ~headers ~scheme ~service_path ~path ~query method'
+          ~raw_path body
       in
-      Ok (scheme, request)
+      Ok request
     with
     | Failure e -> Error e
 
-  let to_url (scheme, request) = match Headers.(find' host) request.headers with
+  let _to_url ~host request =
+    let scheme = Scheme.encode request.scheme in
+    String.concat "" [scheme; "://"; host; request.raw_path]
+
+  let to_url request = match Headers.(find' host) request.headers with
   | Error _ as e -> e
-  | Ok host ->
-      Ok (Fmt.str "%s://%s%s" (Scheme.encode scheme) host request.raw_path)
+  | Ok host -> Ok (_to_url ~host request)
+
+  let to_url' request =
+    _to_url ~host:(Headers.(get host) request.headers) request
+
+  let with_body body request = { request with body }
+  let with_headers headers request = { request with headers }
+  let override_headers ~by:headers request =
+    { request with headers = Headers.override request.headers ~by:headers }
 
   let pp_query ppf = function
   | None -> Fmt.pf ppf "<none>" | Some q -> Fmt.pf ppf "%S" q
@@ -1643,6 +1705,7 @@ module Request = struct
     Fmt.field "query" pp_query ppf request.query; Fmt.cut ppf ();
     Fmt.field "version" Version.pp ppf request.version; Fmt.cut ppf ();
     Fmt.field "raw-path" Fmt.qstring ppf request.raw_path; Fmt.cut ppf ();
+    Fmt.field "scheme" Scheme.pp ppf request.scheme; Fmt.cut ppf ();
     Fmt.field "service-path" Path.pp_dump ppf request.service_path;
     Fmt.cut ppf ();
     Headers.pp ppf request.headers;
@@ -1658,6 +1721,7 @@ module Request = struct
   let path request = request.path
   let query request = request.query
   let raw_path request = request.raw_path
+  let scheme request = request.scheme
   let service_path request = request.service_path
   let version request = request.version
 
@@ -1831,29 +1895,6 @@ module Connector = struct
     let max_request_headers_byte_size = 64 * 1024
     let max_request_body_byte_size = 10 * 1024 * 1024
   end
-end
-
-module Http = struct
-  module Base64 = Base64
-  module Pct = Pct
-  module Digits = Digits
-  module Version = Version
-  module Method = Method
-  module Path = Path
-  module Query = Query
-  module Scheme = Scheme
-  module Status = Status
-  module Body = Body
-
-  module Headers = Headers
-  module Cookie = Cookie
-  module Etag = Etag
-  module Range = Range
-
-  module Response = Response
-  module Request = Request
-
-  module Connector = Connector
 
   module Private = struct
     let string_subrange = string_subrange
@@ -1942,23 +1983,154 @@ module Http = struct
         in
         loop Headers.empty None b ~first:(crlf + 2)
 
-    let encode_http11_header n v acc =
-      let encode n acc v = n :: ": " :: v :: crlf :: acc in
-      if not (String.equal n Headers.set_cookie) then encode n acc v else
-      let vs = Headers.values_of_set_cookie_value v in
-      List.fold_left (encode Headers.set_cookie) acc vs
-
-    let encode_http11_headers hs =
-      String.concat "" (Headers.fold encode_http11_header hs [])
-
     let encode_http11_response_head status ~reason hs =
       let status = string_of_int status in
-      let hs = Headers.fold encode_http11_header hs [crlf] in
+      let hs = Headers.fold Headers.encode_http11_header hs [crlf] in
       String.concat "" ("HTTP/1.1 " :: status :: " " :: reason :: crlf :: hs)
 
     let encode_http11_request_head method' ~request_target:trgt hs =
       let method' = Method.encode method' in
-      let hs = Headers.fold encode_http11_header hs [crlf] in
+      let hs = Headers.fold Headers.encode_http11_header hs [crlf] in
       String.concat "" (method' :: " " :: trgt :: " HTTP/1.1" :: crlf :: hs)
   end
+end
+
+module Http = struct
+  module Base64 = Base64
+  module Pct = Pct
+  module Digits = Digits
+  module Version = Version
+  module Method = Method
+  module Path = Path
+  module Query = Query
+  module Scheme = Scheme
+  module Status = Status
+  module Body = Body
+
+  (* Headers *)
+
+  module Headers = Headers
+  module Cookie = Cookie
+  module Etag = Etag
+  module Range = Range
+
+  (* Reponses and requests *)
+
+  module Response = Response
+  module Request = Request
+
+  (* Connector tools. *)
+
+  module Connector = Connector
+end
+
+module Http_client = struct
+  let ( let* ) = Result.bind
+
+  module type T = sig
+    type t
+    val id : t -> string
+    val request : t -> Http.Request.t -> (Http.Response.t, string) result
+  end
+
+  type t = V : (module T with type t = 'a) * 'a -> t
+  let make m c = V (m, c)
+
+  let id (V ((module C), c)) = C.id c
+
+  (* TODO we could likely expose some of the redirection logic here. *)
+
+  let find_rel_location ~loc rel request response =
+    let scheme = Http.Scheme.encode (Http.Request.scheme request) in
+    let* host = Http.Headers.(find' host) (Http.Request.headers request) in
+    try match rel with
+    | `Abs_path -> Ok (String.concat "" [scheme; "://"; host; loc])
+    | `Rel_path ->
+        let path = Http.Request.raw_path request in
+        begin match String.rindex_opt path '/' with
+        | None -> Ok (String.concat "" [scheme; "://"; host; "/"; loc])
+        | Some i ->
+            let path = String.sub path 0 i in
+            Ok (String.concat "" [scheme; "://"; host; path; "/"; loc ])
+        end
+        | `Empty | `Scheme -> raise Exit
+    with
+    | Exit ->
+        let retract = Http.Response.result in
+        Fmt.error "Could not construct redirect from %s to %s"
+          (Http.Request.to_url request |> retract)
+          loc
+
+  let find_location request response =
+    let* loc = Http.Headers.(find' location) (Http.Response.headers response) in
+    match Webs_url.kind loc with
+    | `Abs -> Ok loc
+    | `Rel rel -> find_rel_location ~loc rel request response
+
+  let request_host request =
+    let scheme = Http.Request.scheme request in
+    Http.Headers.decode_host scheme (Http.Request.headers request)
+
+  let unconditional_redirection_drops headers =
+    headers
+    |> Http.Headers.(undef referer)
+    |> Http.Headers.(undef origin)
+    |> Http.Headers.(undef connection)
+    |> Http.Headers.(undef if_match)
+    |> Http.Headers.(undef if_none_match)
+    |> Http.Headers.(undef if_modified_since)
+    |> Http.Headers.(undef if_unmodified_since)
+    |> Http.Headers.(undef if_range)
+
+  let host_change_drops headers =
+    headers
+    |> Http.Headers.(undef authorization)
+    |> Http.Headers.(undef proxy_authorization)
+    |> Http.Headers.(undef cookie)
+
+  let redirect_response visited request response =
+    match Http.Response.status response with
+    | 301 | 302 | 303 | 305 | 307 | 308 ->
+        let* url = find_location request response in
+        if List.mem url visited then Fmt.error "Redirection loop: %s" url else
+        let version = Http.Request.version request in
+        let method' = Http.Request.method' request in
+        let headers = Http.Request.headers request in
+        let headers = unconditional_redirection_drops headers in
+        let* last_host = request_host request in
+        let* request = Http.Request.of_url ~headers ~version method' ~url in
+        let* new_host = request_host request in
+        let request =
+          if last_host = new_host then request else
+          let headers = host_change_drops (Http.Request.headers request) in
+          Request.with_headers headers request
+        in
+        Ok (Some (url, request))
+    | _ -> Ok None
+
+  let default_max_redirection = 10
+
+  let request
+      ?(max_redirections = default_max_redirection) (V ((module C), c)) ~follow
+      request
+    =
+    let rec loop n follow visited request =
+      if n <= 0 then Fmt.error "Too many redirects (%d)" max_redirections else
+      let method' = Http.Request.method' request in
+      let follow = match method' with `GET | `HEAD -> follow | _ -> false in
+      let* response = C.request c request in
+      if not follow then Ok response else
+      let* redirect = redirect_response visited request response in
+      match redirect with
+      | None -> Ok response
+      | Some (url, request) -> loop (n - 1) follow (url :: visited) request
+    in
+    loop max_redirections follow [] request
+
+  let get httpc ~follow ~url =
+    let* request' = Http.Request.of_url `GET ~url in
+    let* response = request httpc ~follow request' in
+    match Http.Response.status response with
+    | 200 -> Http.Body.to_string (Http.Response.body response)
+    | st -> Error (Format.asprintf "%a" Http.Status.pp st)
 end

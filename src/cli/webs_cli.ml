@@ -38,8 +38,8 @@ let service_path ?(opts = ["service-path"]) ?docs () =
 let docroot ?(opts = ["d"; "docroot"]) ?docs () =
   let doc = "Use $(docv) as a document root for serving files." in
   let docv = "DIR" in
-  let arg_info = Arg.info opts ?docs ~doc ~docv in
-  Arg.(value & opt (some ~none:"none" string) None & arg_info)
+  let arg_info = Arg.info opts ?docs ~doc ~docv ~absent:"no file served" in
+  Arg.(value & opt (some string) None & arg_info)
 
 let positive =
   let parse s = match int_of_string_opt s with

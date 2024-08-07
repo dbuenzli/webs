@@ -97,7 +97,9 @@ module Fd = struct
     let request_target = Http.Request.raw_path request in
     let hs = Http.Request.headers request in
     let hs = Http.Headers.for_connector hs (Http.Request.body request) in
-    let head = Http.Private.encode_http11_request_head m ~request_target hs in
+    let head =
+      Http.Connector.Private.encode_http11_request_head m ~request_target hs
+    in
     let head = Bytes.unsafe_of_string head and length = String.length head in
     write fd head ~start:0 ~length;
     write_body fd

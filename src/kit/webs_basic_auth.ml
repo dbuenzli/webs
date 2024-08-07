@@ -16,7 +16,7 @@ type check = username:username -> password:password -> (unit, error) result
 let decode_basic_authentication credentials =
   match Http.Headers.values_of_string ~sep:' ' credentials with
   | scheme :: credentials :: _ ->
-      let scheme = Http.Private.string_lowercase scheme in
+      let scheme = Http.Connector.Private.string_lowercase scheme in
       if scheme <> "basic"
       then Error (strf "auth-scheme %s: unsupported" scheme) else
       let* credentials =
@@ -26,8 +26,12 @@ let decode_basic_authentication credentials =
       begin match String.index_opt credentials ':' with
       | None -> Error ("No ':' found in basic authentication credentials")
       | Some i ->
-          let u = Http.Private.string_subrange ~last:(i - 1) credentials in
-          let p = Http.Private.string_subrange ~first:(i + 1) credentials in
+          let u =
+            Http.Connector.Private.string_subrange ~last:(i - 1) credentials
+          in
+          let p =
+            Http.Connector.Private.string_subrange ~first:(i + 1) credentials
+          in
           Ok (u, p)
       end
   | _ -> Error ("Not a basic auth-scheme")

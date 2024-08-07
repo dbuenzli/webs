@@ -46,8 +46,8 @@ let of_string ~default_port s =
       match String.index_from_opt s i ']' with (* beware IPv6 addresses *)
       | Some _ -> Ok (`Host (s, default_port))
       | None ->
-          let host = Http.Private.string_subrange ~last:(i - 1) s in
-          let port = Http.Private.string_subrange ~first:(i + 1) s in
+          let host = Http.Connector.Private.string_subrange ~last:(i - 1) s in
+          let port = Http.Connector.Private.string_subrange ~first:(i + 1) s in
           match int_of_string port with
           | port -> Ok (`Host (host, port))
           | exception Failure _ ->

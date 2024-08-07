@@ -2,6 +2,7 @@
 
 {1:bodies Bodies}
 
+- Integrate [bytesrw].
 - Need to support chunked encoding bodies
 - Need to implement multipart/form-data
   {:https://www.rfc-editor.org/rfc/rfc7578}
@@ -34,11 +35,19 @@ Things that could be done.
 
 - Directory, indexes.
 - Under a cli flag, PUTing files.
+- Add resolve relative to scrape-urls
 
 {1:brain_dump Brain dump}
 
 - Which decoding bits should we keep in [Webs] ? Some could
-  be moved to {!Webs_http11_gateway}.
+  be moved to {!Webs_http11_gateway}. On the other hand the http11
+  serialization being readable is nice in all some of debug UI contexts.
+  We likely want to get rid of Webs.Connector.Private by moving
+
+- When we pass optional headers to logics should the headers
+  be overriden or should they override ? Note we have the same
+  problem in b0.
+
 - Add connector support for
   {:https://w3c.github.io/server-timing/#the-server-timing-header-field}
 - Make the login example bearable
@@ -66,7 +75,8 @@ Things that could be done.
   {:https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html}
   {:https://en.wikipedia.org/wiki/Cross-site_request_forgery}
   Distinguish actions from users.
-
+- HTTP/1.1 connector should we handle timeouts or just
+  assume the gateway does it ?
 
 {1:design Design}
 

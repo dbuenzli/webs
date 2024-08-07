@@ -3,6 +3,8 @@
    SPDX-License-Identifier: ISC
   ---------------------------------------------------------------------------*)
 
+open B0_testing
+
 open Webs_hash
 
 let hash_vecs =
@@ -128,7 +130,7 @@ let pbkdf2_hmac_vecs = (* from https://stackoverflow.com/a/5136918 *)
      \x3c\x69\x62\x26\x65\x0a\x86\x87"; ]
 
 let test_hash () =
-  print_endline "Testing hash vectors.";
+  Test.test "Hash vectors" @@ fun () ->
   let assert_vec (msg, h_hex) =
     let h = Sha_256.of_hex h_hex |> Result.get_ok in
     let h' = Sha_256.hash msg in
@@ -140,7 +142,7 @@ let test_hash () =
   List.iter assert_vec hash_vecs
 
 let test_hmac () =
-  print_endline "Testing hmac vectors.";
+  Test.test "HMAC vectors" @@ fun () ->
   let assert_vec (k, msg, h_hex) =
     let h = Sha_256.of_hex h_hex |> Result.get_ok in
     let h' = Sha_256.hmac ~key:k msg in
@@ -152,7 +154,7 @@ let test_hmac () =
   List.iter assert_vec hmac_vecs
 
 let test_pbkdf2_hmac () =
-  print_endline "Testing pbkdf2-hmac vectors.";
+  Test.test "pbkdf2-hmac vectors (be patient…)" @@ fun () ->
   let assert_vec (password, salt, iterations, key_length, key) =
     let key' =
       Sha_256.pbkdf2_hmac ~key_length ~iterations ~password ~salt ()
@@ -162,9 +164,10 @@ let test_pbkdf2_hmac () =
   List.iter assert_vec pbkdf2_hmac_vecs
 
 let main () =
+  Test.main @@ fun () ->
   test_hash ();
   test_hmac ();
   test_pbkdf2_hmac ();
-  print_endline "All tests succeeded."
+  ()
 
-let () = main ()
+let () = if !Sys.interactive then () else exit (main ())

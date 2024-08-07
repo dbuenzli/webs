@@ -73,7 +73,9 @@ let write_http11_response fd response =
   let hs = Http.Response.headers response in
   let hs = Http.Headers.for_connector hs (Http.Response.body response) in
 (*  let hs = Http.Headers.(def_if_undef connection "close") hs in *)
-  let head = Http.Private.encode_http11_response_head status ~reason hs in
+  let head =
+    Http.Connector.Private.encode_http11_response_head status ~reason hs
+  in
   let head = Bytes.unsafe_of_string head and length = String.length head in
   Webs_unix.Fd.write fd head ~start:0 ~length;
   write_body fd
@@ -109,9 +111,9 @@ let read_http11_request c fd =
     in
     let method', raw_path, version =
       let crlf = List.hd crlfs in
-      Http.Private.decode_request_line buf ~first:0 ~crlf
+      Http.Connector.Private.decode_request_line buf ~first:0 ~crlf
     in
-    let headers = Http.Private.decode_headers buf ~crlfs in
+    let headers = Http.Connector.Private.decode_headers buf ~crlfs in
     let* content_length = content_length headers in
     let lowervalue = true in
     let content_type = Http.Headers.(find ~lowervalue content_type) headers in

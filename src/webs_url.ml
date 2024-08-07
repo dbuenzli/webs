@@ -19,6 +19,8 @@ let digit = function '0' .. '9' -> true | _ -> false
 
 (* URL munging *)
 
+type relative_kind = [ `Scheme | `Abs_path | `Rel_path | `Empty ]
+type kind = [ `Abs | `Rel of relative_kind ]
 type t = string
 
 let scheme_char c =
@@ -32,8 +34,16 @@ let find_scheme_colon u =
   while !i <= max && scheme_char u.[!i] do incr i done;
   if !i > max || u.[!i] <> ':' then None else Some !i
 
-let classify s = match find_scheme_colon s with
-| None -> `Rel | Some _ -> `Url
+let relative_kind s =
+  let len = String.length s in
+  if len = 0 then `Empty else
+  if s.[0] = '/'
+  then (if len > 1 && s.[1] = '/' then `Scheme else `Abs_path)
+  else `Rel_path
+
+let kind s = match find_scheme_colon s with
+| Some _ -> `Abs
+| None -> `Rel (relative_kind s)
 
 let scheme u = match find_scheme_colon u with
 | None -> None | Some i -> Some (String.sub u 0 i)

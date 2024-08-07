@@ -3,6 +3,7 @@
    SPDX-License-Identifier: ISC
   ---------------------------------------------------------------------------*)
 
+open B0_testing
 open Webs
 
 let alter_data s =
@@ -16,7 +17,7 @@ let alter_expires s =
   Http.Base64.url_encode (Bytes.unsafe_to_string d)
 
 let test_authenticatable () =
-  print_endline "Test Webs_authenticatable.";
+  Test.test "Webs_authenticatable." @@ fun () ->
   let k0 = Webs_authenticatable.Private_key.random_hs256 () in
   let k1 = Webs_authenticatable.Private_key.random_hs256 () in
   let data = "Try changing that." in
@@ -42,7 +43,8 @@ let test_authenticatable () =
   ()
 
 let main () =
+  Test.main @@ fun () ->
   test_authenticatable ();
-  print_endline "All tests succeeded."
+  ()
 
-let () = main ()
+let () = if !Sys.interactive then () else exit (main ())

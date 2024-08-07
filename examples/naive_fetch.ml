@@ -33,9 +33,9 @@ let read_http11_response fd  =
     in
     let version, status, reason =
       let crlf = List.hd crlfs in
-      Http.Private.decode_status_line buf ~first:0 ~crlf
+      Http.Connector.Private.decode_status_line buf ~first:0 ~crlf
     in
-    let headers = Http.Private.decode_headers buf ~crlfs in
+    let headers = Http.Connector.Private.decode_headers buf ~crlfs in
     let* content_length = content_length headers in
     let content_type =
       Http.Headers.(find ~lowervalue:true content_type) headers
@@ -52,9 +52,11 @@ let read_http11_response fd  =
 
 let fetch url =
   log_if_error @@
-  let* scheme, request = Http.Request.of_url `GET ~url in
+  let* request = Http.Request.of_url `GET ~url in
   let headers = Http.Request.headers request in
-  let* host, port = Http.Headers.get_host scheme headers in
+  let* host, port =
+    Http.Headers.decode_host (Http.Request.scheme request) headers
+  in
   let* addr = match Unix.gethostbyname host with
   | exception Not_found -> error "Host %s not found" host
   | exception Unix.Unix_error (e, _, _) -> uerror e
@@ -84,7 +86,7 @@ open Cmdliner
 
 let main () =
   let url =
-    let doc = "Fetch $(docv). Only http is supported." in
+    let doc = "Fetch $(docv). Only the http scheme is supported." in
     Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"URL")
   in
   let name = Filename.basename Sys.executable_name in

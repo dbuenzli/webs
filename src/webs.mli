@@ -3,9 +3,9 @@
    SPDX-License-Identifier: ISC
   ---------------------------------------------------------------------------*)
 
-(** HTTP requests and responses.
+(** HTTP interactions.
 
-    Open the module to use it. It defines only the modules in your scope. *)
+    Open the module to use it. It defines only these modules in your scope. *)
 
 (** Media type constants and file extensions. *)
 module Media_type : sig
@@ -220,7 +220,9 @@ module Http : sig
     (** {1:converting Converting} *)
 
     val decode : string -> (t, string) result
-    (** [decode s] decodes a version from [s]. *)
+    (** [decode s] decodes a version from [s]. Single digit versions
+        are also parsed, some serializations (e.g. the [curl] tool) do
+        that. *)
 
     val encode : t -> string
     (** [encode v] encodes the version [v]. Assumes correct integer ranges. *)
@@ -610,6 +612,9 @@ module Http : sig
 
     val tcp_port : t -> int
     (** [tcp_port s] is [80] for [`Http] and 443 for [`Https]. *)
+
+    val pp : Format.formatter -> t -> unit
+    (** [pp] formats schemes for inspection. *)
   end
 
   (** Status codes. *)
@@ -1009,6 +1014,11 @@ module Http : sig
     (** [pp ppf hs] prints an unspecified representation of [hs]
         on [ppf]. *)
 
+    val encode_http11 : t -> string
+    (** [encode_http11 hs] is [hs] as sequence of crlf terminated
+        HTTP/1.1 headers. This correctly handles the
+        {!Headers.set_cookie} header. *)
+
     (** {1:lookups Lookups} *)
 
     val find : ?lowervalue:bool -> Name.t -> t -> string option
@@ -1042,8 +1052,8 @@ module Http : sig
         HTTP/1.1 specification}, by looking at the {!content_type} and
         {!transfer_encoding} in [hs]. *)
 
-    val get_host : Scheme.t -> t -> (string * int, string) result
-    (** [get_host scheme r] decodes the {!host} header into a
+    val decode_host : Scheme.t -> t -> (string * int, string) result
+    (** [decode_host scheme r] decodes the {!host} header into a
         hostname and a port number. If no port number is found in the
         header one is derived from [scheme] with {!Scheme.tcp_port}.
         Errors if the header is missing or on decoding errors. *)
@@ -1079,6 +1089,12 @@ module Http : sig
     val value_is_token : string -> bool
     (** [value_is_token s] is [true] iff [s] in an HTTP
         a {{:https://www.rfc-editor.org/rfc/rfc9110#name-tokens}token}. *)
+
+    val decode_http11_header : string -> (Name.t * string, string) result
+    (** [decode_http11_header s] decodes a header from [s]. *)
+
+    val pp_header : Format.formatter -> (Name.t * string) -> unit
+    (** [pp_header] formats a header for inspection with HTTP/1.1 syntax. *)
 
     (** {1:predicates Predicates} *)
 
@@ -1202,6 +1218,9 @@ module Http : sig
     val max_forwards : Name.t
     (** {{:https://www.rfc-editor.org/rfc/rfc9110#name-max-forwards}
         [max-forwards]} *)
+
+    val origin : Name.t
+    (** {{:https://www.rfc-editor.org/rfc/rfc6454#section-7}[origin]}. *)
 
     val pragma : Name.t
     (** {{:https://www.rfc-editor.org/rfc/rfc9111#name-pragma}[pragma]} *)
@@ -1485,6 +1504,12 @@ module Http : sig
     (** [pp] formats responses for inspection. Guarantees not consume
         the {!val-body}. *)
 
+    val encode_http11 : include_body:bool -> t -> (string, string) result
+    (** [encode_http11 ~include_body response] encodes [response] to an
+        HTTP/1.1 response. If [include_body] is [true] the body is consumed
+        and included in the result. If [false] the body is left untouched
+        and the encoding stops after the header final double CRLF. *)
+
     (** {1:properties Properties} *)
 
     val body : t -> Body.t
@@ -1657,8 +1682,8 @@ module Http : sig
 
     val make :
       ?headers:Headers.t -> ?path:Path.t -> ?query:string option ->
-      ?service_path:Path.t -> version:Version.t -> Method.t ->
-      raw_path:string -> Body.t -> t
+      ?scheme:Scheme.t -> ?service_path:Path.t -> version:Version.t ->
+      Method.t -> raw_path:string -> Body.t -> t
     (** [make method' ~raw_path body] is a request with given [method'],
         [raw_path] and [body] and:
 
@@ -1670,6 +1695,8 @@ module Http : sig
            requests conventions}.}
         {- [path], see {!path}. Defaults to {!Path.none}.}
         {- [query], see {!query}. Defaults to [None].}
+        {- [scheme] is the scheme of the request, see {!scheme}.
+           Defaults to [`Https].}
         {- [service_path], see {!service_path}. Defaults to {!Path.root}.}
         {- [version], the HTTP version, see {!version}.}}
 
@@ -1678,7 +1705,7 @@ module Http : sig
         are computed correctly. *)
 
     val for_service_connector :
-      service_path:Path.t -> version:Version.t ->
+      ?scheme:Scheme.t -> service_path:Path.t -> version:Version.t ->
       Method.t -> raw_path:string -> headers:Headers.t -> Body.t ->
       (t, Response.t) result
     (** [for_service_connector ~service_path ~version method'
@@ -1693,7 +1720,7 @@ module Http : sig
 
     val of_url :
       ?body:Body.t -> ?headers:Headers.t -> ?version:Version.t -> Method.t ->
-      url:string -> (Scheme.t * t, string) result
+      url:Webs_url.t -> (t, string) result
     (** [of_url method' ~url body] is a scheme and [method'] request
         on [url] ensuring that the request satsifies the
         {{!page-connector_conventions.client_requests}client request
@@ -1707,10 +1734,24 @@ module Http : sig
         [https] or if a decoding error occurs. Both {!path} and
         {!query} are derived with a {!service_path} of {!Path.root}. *)
 
-    val to_url : Scheme.t * t -> (string, string) result
-    (** [to_url (scheme, request)] is an URL for [r] of the given
+    val to_url : t -> (Webs_url.t, string) result
+    (** [to_url request] is an URL for [r] of the given
         scheme. This can be seen as the inverse of {!of_url}. This errors
         if no {!host} header can be found in the request header. *)
+
+    val to_url' : t -> Webs_url.t
+    (** [to_url'] is like {!to_url} but raises [Invalid_argument] if
+        there is no {!host} header. *)
+
+    val with_body : Body.t -> t -> t
+    (** [with_body b request]  is [request] with body [b]. *)
+
+    val with_headers : Headers.t -> t -> t
+    (** [with_headers hs request] is [request] with headers [hs]. *)
+
+    val override_headers : by:Headers.t -> t -> t
+    (** [override_headers ~by request] is [request] with headers
+        {!Headers.override}[ (headers response) ~by]. *)
 
     val pp : Format.formatter -> t -> unit
     (** [pp] formats responses for inspection. Guarantees not to
@@ -1752,6 +1793,14 @@ module Http : sig
         {!val-query} which are derived from this value as this makes
         the service insensitive to where it is attached, see
         {!service_path}. *)
+
+    val scheme : t -> Scheme.t
+    (** [scheme request] is the scheme of the request. {b Note that
+        this is indicative}. In particular services should not rely on
+        this as this may depend on the way you are proxied or not be
+        set by the connector. It it is mainly used by client
+        connectors to be able to reconstruct the requested URL for
+        example to follow redirections. *)
 
     val service_path : t -> Path.t
     (** [service_path r] is service path of [r].
@@ -1916,7 +1965,7 @@ module Http : sig
 
   (** {1:connector_tools Connector tools} *)
 
-  (** Connectors tools. *)
+  (** Tool for connectors. *)
   module Connector : sig
 
     (** Connector log messages.
@@ -1957,65 +2006,169 @@ module Http : sig
       val max_request_body_byte_size : int
       (** [default_max_body_byte_size] s 10Mo in bytes. *)
     end
-  end
-  (** {1:private_codecs Private codecs} *)
 
-  (** Private codecs (unstable).
+    (** Private codecs (unstable).
 
-      {b Warning.} This API is unstable. It may change between
-      minor versions of the library. Use at your own risk. *)
-  module Private : sig
+        {b Warning.} This API is unstable. It may change between
+        minor versions of the library. Use at your own risk. *)
+    module Private : sig
 
-    (**/**)
-    val string_subrange : ?first:int -> ?last:int -> string -> string
-    val string_lowercase : string -> string
-    (**/**)
+      (**/**)
+      val string_subrange : ?first:int -> ?last:int -> string -> string
+      val string_lowercase : string -> string
+      (**/**)
 
-    val trim_ows : string -> string
-    (** [trim_ows] trims starting and ending HTTP ows. *)
+      val trim_ows : string -> string
+      (** [trim_ows] trims starting and ending HTTP ows. *)
 
-    val decode_request_line :
-      bytes -> first:int -> crlf:int -> Method.t * string * Version.t
-    (** [decode_request_line b ~first ~crlf] decodes a request line
-        that starts at [first] and whose ending CRLF starts at
-        [crlf]. Raises [Failure] on errors. *)
+      val decode_request_line :
+        bytes -> first:int -> crlf:int -> Method.t * string * Version.t
+      (** [decode_request_line b ~first ~crlf] decodes a request line
+          that starts at [first] and whose ending CRLF starts at
+          [crlf]. Raises [Failure] on errors. *)
 
-    val decode_status_line :
-      bytes -> first:int -> crlf:int -> Version.t * Status.t * string
-    (** [decode_status_line b ~first ~crlf] decodes a status line
-        that starts at [first] and whose ending CRLF starts at [crlf].
-        Raises [Failure] on errors. *)
+      val decode_status_line :
+        bytes -> first:int -> crlf:int -> Version.t * Status.t * string
+      (** [decode_status_line b ~first ~crlf] decodes a status line
+          that starts at [first] and whose ending CRLF starts at [crlf].
+          Raises [Failure] on errors. *)
 
-    val decode_header_field :
-      bytes -> first:int -> crlf:int -> Headers.Name.t * string
-    (** [decode_header_field b ~first ~crlf] decodes a header field
-        that starts at [first] and whose ending CRLF starts at
-        [crlf]. Raises [Failure] on errors. *)
+      val decode_header_field :
+        bytes -> first:int -> crlf:int -> Headers.Name.t * string
+      (** [decode_header_field b ~first ~crlf] decodes a header field
+          that starts at [first] and whose ending CRLF starts at
+          [crlf]. Raises [Failure] on errors. *)
 
-    val decode_headers : bytes -> crlfs:int list -> Headers.t
-    (** [decode_headers b crlfs] decodes the headers. [b] has the
-        header section with the start line (either request or status
-        line) or finished by the first [crlfs]. *)
+      val decode_headers : bytes -> crlfs:int list -> Headers.t
+      (** [decode_headers b crlfs] decodes the headers. [b] has the
+          header section with the start line (either request or status
+          line) or finished by the first [crlfs]. *)
 
-    val decode_http11_response : bytes -> first:int -> Response.t
-    (** [decode_http11_response b ~first] decodes an HTTP/1.1 full
-        response from [b] starting at [first]. The result satisfies
-        {{!page-connector_conventions.client_responses}client
-        responses}.  Raises [Failure] on errors. *)
+      val decode_http11_response : bytes -> first:int -> Response.t
+      (** [decode_http11_response b ~first] decodes an HTTP/1.1 full
+          response from [b] starting at [first]. The result satisfies
+          {{!page-connector_conventions.client_responses}client
+          responses}.  Raises [Failure] on errors. *)
 
-    val encode_http11_headers : Headers.t -> string
-   (** [encode_http11_response_headers hs] are the HTTP/1.1 headers
-       for a response with given headers. This correctly handles
-       the {!Headers.set_cookie} header. *)
+      val encode_http11_response_head :
+        Status.t -> reason:string -> Headers.t -> string
+      (** [encode_http11_response_head] is the HTTP/1.1 head for a response
+          with the given parameters. This has the final double CRLF. *)
 
-    val encode_http11_response_head :
-      Status.t -> reason:string -> Headers.t -> string
-    (** [encode_http11_response_head] is the HTTP/1.1 head for a response
-        with the given parameters. This has the final double CRLF. *)
-
-    val encode_http11_request_head :
-      Method.t -> request_target:string -> Headers.t -> string
+      val encode_http11_request_head :
+        Method.t -> request_target:string -> Headers.t -> string
       (** [encode_http11_request_head] is the HTTP/1.1 head for a request
           with the given paramters. This has the final double CRLF. *)
+    end
   end
+end
+
+(** HTTP clients.
+
+    See {{!Http_client.examples}examples}. *)
+module Http_client : sig
+
+  (** {1:clients Clients} *)
+
+  val default_max_redirection : int
+  (** [default_max_redirection] is the default maximal number of
+      redirections when they are followed, see {!val-request}. *)
+
+  type t
+  (** The type for HTTP clients.  *)
+
+  val id : t -> string
+  (** [id httpc] identifies the underlying implementation of [httpc]. *)
+
+  val request :
+    ?max_redirections:int -> t -> follow:bool ->
+    Http.Request.t -> (Http.Response.t, string) result
+  (** [request httpc ~follow request] performs request [request] via
+      [httpc]. To construct a request from an URL use
+      {!Http.Request.of_url}.  Read more details about how [request]
+      is interpreted by client connectors in the
+      {{!page-connector_conventions.client_connectors}client connector
+      conventions}.
+
+      If [follow] is [true] and the request is [GET] or [HEAD], HTTP
+      responses are automatically
+      {{:https://www.rfc-editor.org/rfc/rfc9110#name-redirection-3xx}
+      redirected} on 301, 302, 303, 305, 307 and 308. In this case the
+      the original request is modified as follows:
+      {ul
+      {- The headers {!Http.Headers.referer}, {!Http.Headers.origin},
+         {!Http.Headers.connection} and the conditional request
+         headers {!Http.Headers.if_match}
+         {!Http.Headers.if_none_match}, {!Http.Headers.if_modified_since}
+         {!Http.Headers.if_unmodified_since}, {!Http.Headers.if_range}
+         are dropped}
+      {- If the host changes, the {!Http.Headers.authorization},
+         {!Http.Headers.proxy_authorization} and
+         {!Http.Headers.cookie} are dropped}} *)
+
+  val get : t -> follow:bool -> url:Webs_url.t -> (string, string) result
+  (** [get c ~follow ~url] is the body of a [GET] request on [url].
+      For the semantics of [follow] see {!request}.
+
+      {b Note.} This is voluntarily kept bare bones (e.g. no headers
+      can be specified). Anything more complex should use {!request}. *)
+
+  (** {1:examples Examples}
+
+      This fetches {:https://example.org} with {!Webs_spawn_client}
+      and {!Http_client.get}.
+ {[
+ open Webs
+
+ let main () =
+   let httpc = Webs_spawn_client.make () in
+   let url = "https://example.org" in
+   match Http_client.get httpc ~follow:true ~url with
+   | Error e -> prerr_endline e; 1
+   | Ok page -> print_endline page; 0
+
+ let () = if !Sys.interactive then () else exit (main ())
+]}
+
+    This shows how to use {!Http_client.request} to implement
+    {!Http_client.get}.
+{[
+open Webs
+let ( let* ) = Result.bind
+
+let get httpc ~follow ~url =
+  let* request = Http.Request.of_url `GET ~url in
+  let* response = Http_client.request httpc ~follow req in
+  match Http.Response.status response with
+  | 200 -> Http.Body.to_string (Http.Response.body response)
+  | st -> Error (Format.asprintf "%a" Http.Status.pp st)
+]}
+*)
+
+  (** {1:connectors Client connectors}
+
+      If you devise your own HTTP client it should provide constructor
+      functions that return {!Http_client.t} values directly.  These
+      values are constructed with {!make}. *)
+
+  (** Client connector. *)
+  module type T = sig
+
+    type t
+    (** The type for HTTP clients. *)
+
+    val id : t -> string
+    (** See {!Webs.Http_client.id}. *)
+
+    val request : t -> Http.Request.t -> (Http.Response.t, string) result
+    (** [request httpc request] perform request [request] with [httpc].
+
+        This function should follow the
+        {{!page-connector_conventions.client_connectors}client
+        connector conventions}. *)
+  end
+
+  val make : (module T with type t = 'a) -> 'a -> t
+  (** [make impl httpc] packs an HTTP client implementation [impl] and
+      its specific implementation [httpc]. *)
 end
