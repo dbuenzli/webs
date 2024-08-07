@@ -214,7 +214,7 @@ of the request specially:
    must be used. In both cases if the value found is {!Webs.Media_type.none},
    no header should be output.}
 {- {!Webs.Http.Headers.content_length}, if such a header exists
-   in {!Webs.Http.Request.headers}, this value must be written in the response.
+   in {!Webs.Http.Request.headers}, this value must be written in the request.
    Otherwise the value found in {!Webs.Http.Body.content_length} must be
    used (if any). If the value found is [""] or [None], no header should
    be output.}}
@@ -224,11 +224,7 @@ The function {!Webs.Http.Headers.for_connector} returns a
 
 Note that in general it's better if one lets the content type and
 length be defined by bodies: it's less error prone if the request body
-gets changed.  gets changed by them with
-{!Webs.Http.Response.with_body}.
-
-The function {!Webs.Http.Headers.for_connector} performs the logic
-for the for the content headers.
+gets changed by them with {!Webs.Http.Response.with_body}.
 
 {2:client_responses Client responses}
 

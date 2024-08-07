@@ -1997,6 +1997,17 @@ module Http : sig
         header section with the start line (either request or status
         line) or finished by the first [crlfs]. *)
 
+    val decode_http11_response : bytes -> first:int -> Response.t
+    (** [decode_http11_response b ~first] decodes an HTTP/1.1 full
+        response from [b] starting at [first]. The result satisfies
+        {{!page-connector_conventions.client_responses}client
+        responses}.  Raises [Failure] on errors. *)
+
+    val encode_http11_headers : Headers.t -> string
+   (** [encode_http11_response_headers hs] are the HTTP/1.1 headers
+       for a response with given headers. This correctly handles
+       the {!Headers.set_cookie} header. *)
+
     val encode_http11_response_head :
       Status.t -> reason:string -> Headers.t -> string
     (** [encode_http11_response_head] is the HTTP/1.1 head for a response

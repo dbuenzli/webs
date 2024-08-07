@@ -1693,7 +1693,6 @@ module Request = struct
   | Error allow ->
       Response.method_not_allowed_405 ~allowed:(List.map fst allow) ()
 
-
   let find_cookie ~name request =
     let cs = match Headers.(find cookie) (headers request) with
     | None -> Ok []
@@ -1904,20 +1903,62 @@ module Http = struct
       in
       loop Headers.empty buf (List.hd crlfs) (List.tl crlfs)
 
-    let encode_header n v acc =
+    let find_crlf b ~first =
+      let max_min_1 = Bytes.length b - 2 in
+      let i = ref first in
+      try
+        while !i <= max_min_1 do
+          if Bytes.get b !i = '\r' && Bytes.get b (!i + 1) = '\n'
+          then raise_notrace Exit else incr i
+        done;
+        None
+      with
+      | Exit -> Some !i
+
+    let decode_http11_response b ~first = match find_crlf b ~first with
+    | None -> failwith "No status line found"
+    | Some crlf ->
+        let version, status, reason = decode_status_line b ~first ~crlf in
+        let rec loop acc ctype b ~first = match find_crlf b ~first with
+        | None -> failwith "End of headers not found"
+        | Some crlf when crlf = first ->
+            let body_start = crlf + 2 in
+            let body_len = Bytes.length b - body_start in
+            let body = Bytes.sub_string b body_start body_len in
+            let body = Body.of_string ?content_type:ctype body in
+            Response.make ~headers:acc ~version status body
+        | Some crlf ->
+            let name, value = decode_header_field b ~first ~crlf in
+            let first = crlf + 2 in
+            if Headers.Name.equal name Headers.content_type
+            then loop acc (Some value) b ~first else
+            let acc =
+              (* This looks ok according to RFC 7230 3.2.2 *)
+              if Headers.Name.equal name Headers.set_cookie
+              then Headers.add_set_cookie value acc
+              else Headers.add_value name value acc
+            in
+            loop acc ctype b ~first
+        in
+        loop Headers.empty None b ~first:(crlf + 2)
+
+    let encode_http11_header n v acc =
       let encode n acc v = n :: ": " :: v :: crlf :: acc in
       if not (String.equal n Headers.set_cookie) then encode n acc v else
       let vs = Headers.values_of_set_cookie_value v in
       List.fold_left (encode Headers.set_cookie) acc vs
 
+    let encode_http11_headers hs =
+      String.concat "" (Headers.fold encode_http11_header hs [])
+
     let encode_http11_response_head status ~reason hs =
       let status = string_of_int status in
-      let hs = Headers.fold encode_header hs [crlf] in
+      let hs = Headers.fold encode_http11_header hs [crlf] in
       String.concat "" ("HTTP/1.1 " :: status :: " " :: reason :: crlf :: hs)
 
     let encode_http11_request_head method' ~request_target:trgt hs =
       let method' = Method.encode method' in
-      let hs = Headers.fold encode_header hs [crlf] in
+      let hs = Headers.fold encode_http11_header hs [crlf] in
       String.concat "" (method' :: " " :: trgt :: " HTTP/1.1" :: crlf :: hs)
   end
 end
