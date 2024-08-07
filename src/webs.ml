@@ -961,6 +961,8 @@ end
 module Scheme = struct
   type t = [ `Http | `Https ]
 
+  let encode = function `Http -> "http" | `Https -> "https"
+
   let tcp_port = function `Http -> 80 | `Https -> 443
   let split ~url =
     let https = "https://" and http = "http://" in
@@ -1171,6 +1173,10 @@ module Headers = struct
   | true -> Option.map string_lowercase (String_map.find_opt n hs)
   | false -> String_map.find_opt n hs
 
+  let find' ?lowervalue n hs = match find ?lowervalue n hs with
+  | None -> Fmt.error "%a: No such header" Name.pp n
+  | Some v -> Ok v
+
   let get ?lowervalue n hs = match find ?lowervalue n hs with
   | None -> invalid_arg (err_header_undefined n)
   | Some v -> v
@@ -1229,9 +1235,9 @@ module Headers = struct
         | None -> (* IPv6 without port gets here *)
             Ok (host, (Scheme.tcp_port scheme))
     in
-    match find host hs with
-    | None -> Fmt.error "Missing host header"
-    | Some host -> find_hostname_port scheme host
+    match find' host hs with
+    | Error _ as e -> e
+    | Ok  host -> find_hostname_port scheme host
 
   let for_connector headers body =
     let def_content_type c =
@@ -1621,6 +1627,11 @@ module Request = struct
       Ok (scheme, request)
     with
     | Failure e -> Error e
+
+  let to_url (scheme, request) = match Headers.(find' host) request.headers with
+  | Error _ as e -> e
+  | Ok host ->
+      Ok (Fmt.str "%s://%s%s" (Scheme.encode scheme) host request.raw_path)
 
   let pp_query ppf = function
   | None -> Fmt.pf ppf "<none>" | Some q -> Fmt.pf ppf "%S" q

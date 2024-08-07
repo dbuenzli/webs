@@ -192,7 +192,7 @@ type t
 (** The type for client connectors. *)
 
 val fetch :
-  t -> Http.Scheme.t -> Http.Request.t -> (Http.Response.t, string) result
+  t -> Http.Scheme.t * Http.Request.t -> (Http.Response.t, string) result
 (** [fetch c scheme r] fetches [r] using scheme [scheme]. *)
 ]}
 

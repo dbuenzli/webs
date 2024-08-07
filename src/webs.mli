@@ -605,6 +605,9 @@ module Http : sig
         {{:https://www.rfc-editor.org/rfc/rfc9110#name-http-related-uri-schemes}
         HTTP URI schemes}. *)
 
+    val encode : t -> string
+    (** [encode s] encoes [s] as a lowercase US-ASCII token. *)
+
     val tcp_port : t -> int
     (** [tcp_port s] is [80] for [`Http] and 443 for [`Https]. *)
   end
@@ -1016,6 +1019,10 @@ module Http : sig
         If [n] is a multi-valued header use {!values_of_string} on
         the result. If [n] is {!set_cookie} you must use
         {!values_of_set_cookie_value}. *)
+
+    val find' : ?lowervalue:bool -> Name.t -> t -> (string, string) result
+    (** [find'] is like {!find}. Except if the header is absent it
+        returns an error message of the form ["%s: No such header"]. *)
 
     val get : ?lowervalue:bool -> Name.t -> t -> string
     (** [get n hs] is like {!find} but raises [Invalid_argument] if [n]
@@ -1699,6 +1706,11 @@ module Http : sig
         An error is returned if the scheme is neither [http] or
         [https] or if a decoding error occurs. Both {!path} and
         {!query} are derived with a {!service_path} of {!Path.root}. *)
+
+    val to_url : Scheme.t * t -> (string, string) result
+    (** [to_url (scheme, request)] is an URL for [r] of the given
+        scheme. This can be seen as the inverse of {!of_url}. This errors
+        if no {!host} header can be found in the request header. *)
 
     val pp : Format.formatter -> t -> unit
     (** [pp] formats responses for inspection. Guarantees not to
