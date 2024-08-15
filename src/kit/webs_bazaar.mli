@@ -261,7 +261,8 @@ module Kurl : sig
     (** [of_req_referer ~ext r] is a bare URL request from [r]. {!Bare.method'}
         is [meth] (defaults to {!Webs.Http.Request.method'}[ r]),
         {!Bare.path} and {!Bare.query} are derived from the
-        {!Webs.Http.Headers.referer} header. Errors if [r] has no such
+        {!Webs.Http.Headers.referer} header. The request service path is
+        stripped from the path. Errors if [r] has no such
         header or if its parsing fails. *)
 
     val pp : Format.formatter -> bare -> unit

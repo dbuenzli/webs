@@ -154,16 +154,22 @@ module Kurl = struct
       bare ?ext ~query (Http.Request.method' r) (Http.Request.path r)
 
     let of_req_referer ?ext ?method' r =
-      match Http.Headers.(find referer (Http.Request.headers r)) with
-      | None -> Error ("referer: not found in request")
-      | Some ref ->
+      match Http.Headers.(find' referer (Http.Request.headers r)) with
+      | Error _ as e -> e
+      | Ok ref ->
           match Http.Path.and_query_string_of_request_target ref with
           | Error e -> Error (strf "referer: %s" e)
-          | Ok (p, q) ->
-              let none = Http.Query.empty in
-              let query = Option.fold ~none ~some:Http.Query.decode q in
-              let m = Option.value ~default:(Http.Request.method' r) method' in
-              Ok (bare ?ext ~query m p)
+          | Ok (path, q) ->
+              let prefix = Http.Request.service_path r in
+              match Http.Path.strip_prefix ~prefix path with
+              | [] -> Error "Cannot strip service path from referer"
+              | path ->
+                  let none = Http.Query.empty in
+                  let query = Option.fold ~none ~some:Http.Query.decode q in
+                  let m =
+                    Option.value ~default:(Http.Request.method' r) method'
+                  in
+                  Ok (bare ?ext ~query m path)
 
     let pp ppf b =
       let pp_field f pp_v ppf v =
