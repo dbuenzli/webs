@@ -31,7 +31,7 @@ val default_etagger : etagger
 (** {1:dir_resp Directory responses} *)
 
 type dir_response =
-  etagger:etagger -> media_types:Media_type.file_ext_map option ->
+  etagger:etagger -> media_types:Media_type.of_file_ext_map option ->
   Http.Request.t -> Http.Path.fpath -> Unix.file_descr -> Unix.stats ->
   (Http.Response.t, Http.Response.t) result
 (** The type for functions for directory responses.
@@ -61,7 +61,7 @@ val dir_index_file : string -> (dir_response, string) result
 
 val send_file :
   ?dir_response:dir_response -> ?etagger:etagger ->
-  ?media_types:Media_type.file_ext_map -> Http.Request.t ->
+  ?media_types:Media_type.of_file_ext_map -> Http.Request.t ->
   Http.Path.fpath -> (Http.Response.t, Http.Response.t) result
 (** [send_file request file] responds to request [request] by sending
     the file [file]. Use {!Webs.Http.Request.to_absolute_filepath} to
@@ -113,7 +113,7 @@ val send_file :
 
     The content type of the response body is determined using
     {!Webs.Media_type.of_filepath} with [mime_types] (defaults to
-    {!Webs.Media_type.default_file_ext_map}) and [file].  The body is
+    {!Webs.Media_type.default_of_file_ext_map}) and [file].  The body is
     sent using a {!Webs_unix.Fd.Writer} custom body content with the
     {!Webs_unix.val-sendfile} system call or a fallback if not
     available.

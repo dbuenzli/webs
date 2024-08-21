@@ -56,12 +56,12 @@ module Media_type : sig
   val get_type : t -> string
   (** [get_type t] is a lenient parser for the [type/subtype] part of the
       {{:https://www.rfc-editor.org/rfc/rfc9110#name-media-type}[media-type]}
-      [t]. This parses and returns one or two
+      [t] (i.e. it drops the parameters). This parses and returns one or two
       {{:https://www.rfc-editor.org/rfc/rfc9110#name-tokens}tokens}
       separated by [/]. Can be used on lowercased
       {!Http.Headers.content_type} header values to match types. *)
 
-  (** {1:from_exts From file extensions} *)
+  (** {1:exts Converting with file extensions} *)
 
   type fpath = string
   (** The type for file paths. *)
@@ -69,21 +69,34 @@ module Media_type : sig
   type file_ext = string
   (** The type for file extensions, including the [.] character. *)
 
-  type file_ext_map = t Map.Make(String).t
+  type of_file_ext_map = t Map.Make(String).t
   (** The type for maps from {{!file_ext}file extensions} to media types. *)
 
-  val default_file_ext_map : file_ext_map
-  (** [default_file_ext_map] is a default extension map. The map is
-      documented by its implementation (sorry). Non self-describing
-      [text/*] media types have the parameter [charset=utf-8]. *)
-
-  val of_file_ext : ?map:file_ext_map -> file_ext -> t
+  val of_file_ext : ?map:of_file_ext_map -> file_ext -> t
   (** [of_file_ext ~map ext] is the value of [ext] in [map] or
       ["application/octet-stream"] if [ext] is unbound in [map].
       [map] defaults to {!default_file_ext_map}. *)
 
-  val of_filepath : ?map:file_ext_map -> fpath -> t
+  val of_filepath : ?map:of_file_ext_map -> fpath -> t
   (** [of_filepath ~map f] is [of_file_ext ~map (Http.Path.filepath_ext f)]. *)
+
+  val default_of_file_ext_map : of_file_ext_map
+  (** [default_to_file_ext_map] is a default extension to media type
+      map. The map is documented by its implementation (sorry). Non
+      self-describing [text/*] media types have the parameter
+      [charset=utf-8]. *)
+
+  type to_file_ext_map = file_ext Map.Make(String).t
+  (** The type for maps from media types to {{!file_ext}file extensions}. *)
+
+  val to_file_ext : ?map:to_file_ext_map -> t -> file_ext
+  (** [to_file_ext ~map t] is the value [t] in [map] or [".bin"] if both [t]
+      and [to_type t] are unbound in [map]. [map] defaults to
+      {!default_to_file_ext_map}. *)
+
+  val default_to_file_ext_map : of_file_ext_map
+  (** [default_to_file_ex_map] is a default media type to extension map.
+      The map is documented by its implementation (sorry). *)
 end
 
 (** HTTP requests and responses.
@@ -1737,11 +1750,11 @@ module Http : sig
     val to_url : t -> (Webs_url.t, string) result
     (** [to_url request] is an URL for [r] of the given
         scheme. This can be seen as the inverse of {!of_url}. This errors
-        if no {!host} header can be found in the request header. *)
+        if no {!Headers.host} header can be found in the request header. *)
 
     val to_url' : t -> Webs_url.t
     (** [to_url'] is like {!to_url} but raises [Invalid_argument] if
-        there is no {!host} header. *)
+        there is no {!Headers.host} header. *)
 
     val with_body : Body.t -> t -> t
     (** [with_body b request]  is [request] with body [b]. *)

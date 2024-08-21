@@ -242,64 +242,82 @@ module Media_type = struct
 
   type fpath = Fpath.t
   type file_ext = Fpath.file_ext
-  type file_ext_map = t String_map.t
+  type of_file_ext_map = t String_map.t
+  type to_file_ext_map = file_ext String_map.t
 
-  let default_file_ext_map =
-    String_map.empty
-    |> String_map.add ".aac"  "audio/aac"
-    |> String_map.add ".avi"  "video/x-msvideo"
-    |> String_map.add ".bin"  "application/octet-stream"
-    |> String_map.add ".bmp"  "image/bmp"
-    |> String_map.add ".bz"   "application/x-bzip"
-    |> String_map.add ".bz2"  "application/x-bzip2"
-    |> String_map.add ".css"  "text/css"
-    |> String_map.add ".gz"   "application/gzip"
-    |> String_map.add ".gif"  "image/gif"
-    |> String_map.add ".htm"  "text/html"
-    |> String_map.add ".html" "text/html"
-    |> String_map.add ".ics"  "text/calendar"
-    |> String_map.add ".jpeg" "image/jpeg"
-    |> String_map.add ".jpg"  "image/jpeg"
-    |> String_map.add ".js"   "text/javascript"
-    |> String_map.add ".json" "application/json"
-    |> String_map.add ".jsonldx" "application/ld+json"
-    |> String_map.add ".md"   "text/markdown;charset=utf-8"
-    |> String_map.add ".midi" "audio/midi audio/x-midi"
-    |> String_map.add ".mjs"  "text/javascript"
-    |> String_map.add ".mp3"  "audio/mpeg"
-    |> String_map.add ".mpeg" "video/mpeg"
-    |> String_map.add ".oga"  "audio/ogg"
-    |> String_map.add ".ogv"  "video/ogg"
-    |> String_map.add ".ogx"  "application/ogg"
-    |> String_map.add ".opus" "audio/opus"
-    |> String_map.add ".otf"	"font/otf"
-    |> String_map.add ".png"	"image/png"
-    |> String_map.add ".pdf"	"application/pdf"
-    |> String_map.add ".rar"	"application/vnd.rar"
-    |> String_map.add ".rtf"	"application/rtf"
-    |> String_map.add ".svg"	"image/svg+xml"
-    |> String_map.add ".tar"	"application/x-tar"
-    |> String_map.add ".tif"  "image/tiff"
-    |> String_map.add ".tiff" "image/tiff"
-    |> String_map.add ".ts"   "video/mp2t"
-    |> String_map.add ".ttf"	"font/ttf"
-    |> String_map.add ".txt"	"text/plain;charset=utf-8"
-    |> String_map.add ".wav"	"audio/wav"
-    |> String_map.add ".weba"	"audio/webm"
-    |> String_map.add ".webm"	"video/webm"
-    |> String_map.add ".webp"	"image/webp"
-    |> String_map.add ".woff"	"font/woff"
-    |> String_map.add ".woff2" "font/woff2"
-    |> String_map.add ".xhtml" "application/xhtml+xml"
-    |> String_map.add ".xml"  "application/xml"
-    |> String_map.add ".zip"  "application/zip"
-    |> String_map.add ".7z"   "application/x-7z-compressed"
+  let base_exts =
+    (* Note the order matters. When the same media type appears more than
+       once, the extension of the last occurence is used to represent it. *)
+    [ ".aac",  "audio/aac";
+      ".avi",  "video/x-msvideo";
+      ".bin",  "application/octet-stream";
+      ".bmp",  "image/bmp";
+      ".bz",   "application/x-bzip";
+      ".bz2",  "application/x-bzip2";
+      ".css",  "text/css";
+      ".gz",   "application/gzip";
+      ".gif",  "image/gif";
+      ".htm",  "text/html";
+      ".html", "text/html";
+      ".ics",  "text/calendar";
+      ".jpg",  "image/jpeg";
+      ".jpeg", "image/jpeg";
+      ".js",   "text/javascript";
+      ".json", "application/json";
+      ".jsonldx", "application/ld+json";
+      ".md",   "text/markdown;charset=utf-8";
+      ".midi", "audio/midi";
+      ".midi", "audio/x-midi";
+      ".mjs",  "text/javascript";
+      ".mp3",  "audio/mpeg";
+      ".mpeg", "video/mpeg";
+      ".oga",  "audio/ogg";
+      ".ogv",  "video/ogg";
+      ".ogx",  "application/ogg";
+      ".opus", "audio/opus";
+      ".otf",  "font/otf";
+      ".png",  "image/png";
+      ".pdf",  "application/pdf";
+      ".rar",  "application/vnd.rar";
+      ".rtf",  "application/rtf";
+      ".svg",  "image/svg+xml";
+      ".tar",  "application/x-tar";
+      ".tif",  "image/tiff";
+      ".tiff", "image/tiff";
+      ".ts",   "video/mp2t";
+      ".ttf",  "font/ttf";
+      ".txt",  "text/plain;charset=utf-8";
+      ".wav",  "audio/wav";
+      ".weba", "audio/webm";
+      ".webm", "video/webm";
+      ".webp", "image/webp";
+      ".woff", "font/woff";
+      ".woff2","font/woff2";
+      ".xhtml","application/xhtml+xml";
+      ".xml",  "application/xml";
+      ".zip",  "application/zip";
+      ".zst",  "application/zstd";
+      ".7z",   "application/x-7z-compressed"; ]
 
-  let of_file_ext ?(map = default_file_ext_map) ext =
+  let add_file_ext (of_ext_map, to_ext_map) (ext, t) =
+    String_map.add ext t of_ext_map, String_map.add t ext to_ext_map
+
+  let default_of_file_ext_map, default_to_file_ext_map =
+    List.fold_left add_file_ext (String_map.empty, String_map.empty) base_exts
+
+  let of_file_ext ?(map = default_of_file_ext_map) ext =
     let default = application_octet_stream in
     Option.value (String_map.find_opt ext map) ~default
 
   let of_filepath ?map file = of_file_ext ?map (Fpath.get_ext file)
+
+  let to_file_ext ?(map = default_to_file_ext_map) t =
+    match String_map.find_opt t map with
+    | Some ext -> ext
+    | None ->
+        match String_map.find_opt (get_type t) map with
+        | Some ext -> ext
+        | None -> ".bin"
 end
 
 module Base64 = struct (* See https://www.rfc-editor.org/rfc/rfc4648 *)

@@ -36,7 +36,7 @@ let default_etagger file fd stats =
   Ok (Http.Etag.make ~weak:false tag)
 
 type dir_response =
-  etagger:etagger -> media_types:Media_type.file_ext_map option ->
+  etagger:etagger -> media_types:Media_type.of_file_ext_map option ->
   Http.Request.t -> Http.Path.fpath -> Unix.file_descr -> Unix.stats ->
   (Http.Response.t, Http.Response.t) result
 
