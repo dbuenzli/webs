@@ -41,10 +41,12 @@ let read_http11_response fd  =
       Http.Headers.(find ~lowervalue:true content_type) headers
     in
     let content =
-      Webs_unix.Fd.body_byte_reader ~max_request_body_byte_size ~content_length
+      Webs_unix.Fd.bytes_reader ~max_request_body_byte_size ~content_length
         fd buf ~first_start ~first_len
     in
-    let body = Http.Body.of_byte_reader ?content_length ?content_type content in
+    let body =
+      Http.Body.of_bytes_reader ?content_length ?content_type content
+    in
     Ok (Http.Response.make ~version status ~reason ~headers body)
   with
   | Failure e -> Error "malformed response"

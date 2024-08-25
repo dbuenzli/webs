@@ -88,13 +88,17 @@ let send_100_continue fd =
 
 let nop = Fun.const ()
 let handle_expect_header headers fd content =
-  (* See connector_conventions.mld for more information. *)
+  (* See connector_conventions.mld for more information.
+     FIXME quickly ported to Bytesrw, cleanup. *)
   match Http.Headers.find ~lowervalue:true Http.Headers.expect headers with
   | Some "100-continue" ->
       let rec first =
-        ref (fun () -> send_100_continue fd; first := content; content ())
+        ref (fun () ->
+            send_100_continue fd;
+            first := (fun () -> Bytesrw.Bytes.Reader.read content);
+            Bytesrw.Bytes.Reader.read content)
       in
-      fun () -> !first ();
+      Bytesrw.Bytes.Reader.make (fun () -> !first ())
   | None | Some _ -> content
 
 let read_http11_request c fd =
@@ -118,12 +122,14 @@ let read_http11_request c fd =
     let lowervalue = true in
     let content_type = Http.Headers.(find ~lowervalue content_type) headers in
     let content =
-      Webs_unix.Fd.body_byte_reader
+      Webs_unix.Fd.bytes_reader
         ~max_request_body_byte_size:c.max_request_body_byte_size
         ~content_length fd buf ~first_start ~first_len
     in
     let content = handle_expect_header headers fd content in
-    let body = Http.Body.of_byte_reader ?content_length ?content_type content in
+    let body =
+      Http.Body.of_bytes_reader ?content_length ?content_type content
+    in
     let service_path = c.service_path in
     let _request =
       Http.Request.for_service_connector

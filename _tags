@@ -1,6 +1,7 @@
 true : bin_annot, safe_string
 <_b0> : -traverse
 <src> : include
+<src/**> : package(bytesrw)
 
 <src/kit> : include
 <src/kit/vendor> : include
@@ -8,12 +9,13 @@ true : bin_annot, safe_string
 <src/kit/webs_kit.cmxs> : link_webs_kit_stubs
 
 <src/unix> : include
-<src/unix/**> : thread, package(unix), package(threads.posix)
+<src/unix/**> : thread, package(bytesrw), package(unix), package(threads.posix)
 <src/unix/webs_unix.{cma,cmxa}> : record_webs_unix_stubs
 <src/unix/webs_unix.cmxs> : link_webs_unix_stubs
 
 <src/cli> : include
 <src/cli/**> : package(cmdliner)
 
-<tool/webs_tool*> : thread, package(threads.posix), package(cmdliner), \
+<tool/webs_tool*> : thread, package(bytesrw), package(threads.posix), \
+                    package(cmdliner), \
                     use_webs_unix_stubs, use_webs_kit_stubs

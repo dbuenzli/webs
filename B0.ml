@@ -17,7 +17,7 @@ let webs_cli = B0_ocaml.libname "webs.cli"
 
 let webs_lib =
   let srcs = [`Dir ~/"src"] in
-  let requires = [] in
+  let requires = [bytesrw] in
   B0_ocaml.lib ~name:"webs-lib" webs ~srcs ~requires
 
 let webs_kit_lib =
@@ -27,7 +27,7 @@ let webs_kit_lib =
 
 let webs_unix_lib =
   let srcs = [`Dir ~/"src/unix"] in
-  let requires = [webs; unix; threads] in
+  let requires = [bytesrw; webs; unix; threads] in
   B0_ocaml.lib webs_unix ~srcs ~requires
 
 let webs_cli_lib =
@@ -114,12 +114,14 @@ let default =
       {|[["ocaml" "pkg/pkg.ml" "build" "--dev-pkg" "%{dev}%"
           "--with-cmdliner" "%{cmdliner:installed}%"]]|}
     |> ~~ B0_opam.depopts ["cmdliner", ""]
-    |> ~~ B0_opam.conflicts [ "cmdliner", {|< "1.0.0"|}]
+    |> ~~ B0_opam.conflicts [ "cmdliner", {|< "1.3.0"|}]
     |> ~~ B0_opam.depends
       [ "ocaml", {|>= "4.14.0"|};
         "ocamlfind", {|build|};
         "ocamlbuild", {|build|};
-        "topkg", {|build & >= "1.0.3"|}; ]
+        "topkg", {|build & >= "1.0.3"|};
+        "bytesrw", {||};
+      ]
   in
   B0_pack.make "default" ~doc:"webs package" ~meta ~locked:true @@
   B0_unit.list ()

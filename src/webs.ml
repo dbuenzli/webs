@@ -873,32 +873,16 @@ module Query = struct
 end
 
 module Body = struct
+  open Bytesrw
 
   (* Byte readers and writers *)
 
-  type byte_reader = unit -> (bytes * int * int) option
   type byte_writer = (bytes * int * int) option -> unit
-
-  let string_to_byte_reader s =
-    (* N.B. unsafe is ok: the consumer is not supposed to mutate the bytes. *)
-    let s = ref (Some (Bytes.unsafe_of_string s, 0, String.length s))  in
-    fun () -> let v = !s in s := None; v
 
   let string_to_byte_writer s = fun write ->
     (* N.B. unsafe is ok: the consumer is not supposed to mutate the bytes. *)
     write (Some (Bytes.unsafe_of_string s, 0, String.length s));
     write None
-
-  let byte_reader_to_string r = match r () with
-  | None -> ""
-  | Some (bytes, start, len) ->
-      let b = Buffer.create 1024 in
-      Buffer.add_subbytes b bytes start len;
-      let rec loop b = match r () with
-      | None -> Buffer.contents b
-      | Some (bytes, start, l) -> Buffer.add_subbytes b bytes start l; loop b
-      in
-      loop b
 
   let byte_writer_to_string w =
     let b = Buffer.create 1024 in
@@ -915,7 +899,7 @@ module Body = struct
   type custom_content = ..
   type content =
   | Empty
-  | Byte_reader of byte_reader
+  | Bytes_reader of Bytes.Reader.t
   | Byte_writer of byte_writer writer
   | Custom of custom_content
 
@@ -944,22 +928,22 @@ module Body = struct
   let of_byte_writer ?content_length ?content_type w =
     make ?content_length ?content_type (Byte_writer w)
 
-  let of_byte_reader ?content_length ?content_type r =
-    make ?content_length ?content_type (Byte_reader r)
+  let of_bytes_reader ?content_length ?content_type r =
+    make ?content_length ?content_type (Bytes_reader r)
 
   let of_string ?content_type s =
     let content_length = String.length s in
     make ~content_length ?content_type (Byte_writer (string_to_byte_writer s))
 
-  let to_byte_reader b = match b.content with
-  | Empty -> Ok (fun () -> None)
-  | Byte_reader r -> Ok r
-  | Byte_writer w -> Ok (string_to_byte_reader (byte_writer_to_string w))
+  let to_bytes_reader b = match b.content with
+  | Empty -> Ok (Bytes.Reader.empty ())
+  | Bytes_reader r -> Ok r
+  | Byte_writer w -> Ok (Bytes.Reader.of_string (byte_writer_to_string w))
   | Custom _ -> Error "Don't know how to read custom body content"
 
   let to_string b = match b.content with
   | Empty -> Ok ""
-  | Byte_reader r -> Ok (byte_reader_to_string r)
+  | Bytes_reader r -> Ok (Bytes.Reader.to_string r)
   | Byte_writer w -> Ok (byte_writer_to_string w)
   | Custom _ -> Error "Don't know how to read custom body content"
 
@@ -975,7 +959,7 @@ module Body = struct
     in
     begin match b.content with
     | Empty -> Fmt.string ppf "<empty"
-    | Byte_reader _ -> Fmt.string ppf "<byte_reader"
+    | Bytes_reader _ -> Fmt.string ppf "<Bytes.Reader.t"
     | Byte_writer _ -> Fmt.string ppf "<byte_writer"
     | Custom _ -> Fmt.string ppf "<custom"
     end;

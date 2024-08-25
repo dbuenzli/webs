@@ -188,11 +188,13 @@ let read_request c env fd_in fd_out =
     let content =
       let first_start = 0 and first_len = 0 in
       let max_request_body_byte_size = c.max_request_body_byte_size in
-      Webs_unix.Fd.body_byte_reader
+      Webs_unix.Fd.bytes_reader
         ~max_request_body_byte_size ~content_length fd_in buf ~first_start
         ~first_len
     in
-    let body = Http.Body.of_byte_reader ?content_length ?content_type content in
+    let body =
+      Http.Body.of_bytes_reader ?content_length ?content_type content
+    in
     Ok (Http.Request.make ~headers ~path ~query ~service_path ~version
           method' ~raw_path body)
   with

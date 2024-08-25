@@ -31,11 +31,11 @@ module Fd : sig
 
   (** {1:body Body reader and writers} *)
 
-  val body_byte_reader :
+  val bytes_reader :
     max_request_body_byte_size:int -> content_length:int option ->
     Unix.file_descr -> bytes -> first_start:int -> first_len:int ->
-    Http.Body.byte_reader
-  (** [body_byte_reader fd b ~start ~start_len] is a body byte reader for
+    Bytesrw.Bytes.Reader.t
+  (** [bytes_reader fd b ~start ~start_len] is a bytes reader for
       [fd] using buffer [b] and assuming the first [first_len] bytes
       are already in [b] at [first_start]. *)
 

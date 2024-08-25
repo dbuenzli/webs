@@ -1,6 +1,6 @@
 description = "HTTP toolkit for OCaml"
 version = "%%VERSION_NUM%%"
-requires = ""
+requires = "bytesrw"
 archive(byte) = "webs.cma"
 archive(native) = "webs.cmxa"
 plugin(byte) = "webs.cma"
@@ -9,7 +9,7 @@ exists_if = "webs.cma webs.cmxa"
 
 package "cli" (
   directory = "cli"
-  description = "Webs command line library"
+  description = "The webs.cli library"
   version = "%%VERSION_NUM%%"
   requires = "webs webs.unix cmdliner unix"
   archive(byte) = "webs_cli.cma"
@@ -21,7 +21,7 @@ package "cli" (
 
 package "kit" (
   directory = "kit"
-  description = "Webs toolkit library"
+  description = "The webs.kit library"
   version = "%%VERSION_NUM%%"
   requires = "webs"
   archive(byte) = "webs_kit.cma"
@@ -33,9 +33,9 @@ package "kit" (
 
 package "unix" (
   directory = "unix"
-  description = "Webs unix library"
+  description = "The webs.unix library"
   version = "%%VERSION_NUM%%"
-  requires = "webs unix threads.posix"
+  requires = "bytesrw webs unix threads.posix"
   archive(byte) = "webs_unix.cma"
   archive(native) = "webs_unix.cmxa"
   plugin(byte) = "webs_unix.cma"

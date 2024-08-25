@@ -3,6 +3,7 @@
    SPDX-License-Identifier: ISC
   ---------------------------------------------------------------------------*)
 
+open Bytesrw
 open Webs
 
 let unix_buffer_size = 65536 (* UNIX_BUFFER_SIZE 4.0.0 *)
@@ -24,43 +25,48 @@ module Fd = struct
 
   (* Body readers and writers *)
 
-  let body_byte_reader
+  let bytes_reader
       ~max_request_body_byte_size ~content_length fd b ~first_start ~first_len
     =
+    (* FIXME quickly ported to Bytes.Reader.t, review *)
     let body = ref (fun () -> assert false) in
     let needs = match content_length with
     | None -> max_request_body_byte_size
     | Some len -> len
     in
     let needs = ref needs in (* we'll need this exposed for keep-alive *)
-    let last () = None in
+    let last () = Bytes.Slice.eod in
     let return b start len = match !needs with
-    | n when n <= 0 -> body := last; None
+    | n when n <= 0 -> body := last; Bytes.Slice.eod
     | n ->
         needs := n - len;
         if !needs <= 0 then body := last;
-        Some (b, start, min len n)
+        Bytes.Slice.make b ~first:start ~length:(Int.min len n)
     in
     let fill () =
       let len = read fd b ~start:0 ~length:(Bytes.length b) in
-      if len = 0 then (body := last; None) else
+      if len = 0 then (body := last; Bytes.Slice.eod) else
       return b 0 len
     in
     let first () = body := fill; return b first_start first_len in
-    body := first; fun () -> !body ()
+    body := first;
+    Bytes.Reader.make (fun () -> !body ())
 
   let rec write_stream_chunk fd = function
   | None -> () | Some (b, start, length) -> write fd b ~start ~length
 
-  let rec byte_reader_body_writer read fd = match read () with
-  | None -> ()
-  | Some (b, start, length) ->
-      write fd b ~start ~length; byte_reader_body_writer read fd
+  let rec bytes_reader_body_writer r fd = match Bytes.Reader.read r with
+  | slice when Bytes.Slice.is_eod slice -> ()
+  | slice ->
+      let start = Bytes.Slice.first slice in
+      let length = Bytes.Slice.length slice in
+      let bytes = Bytes.Slice.bytes slice in
+      write fd bytes ~start ~length; bytes_reader_body_writer r fd
 
   let body_writer b = match Http.Body.content b with
   | Empty -> fun fd -> ()
   | Byte_writer write -> fun fd -> write (write_stream_chunk fd)
-  | Byte_reader read -> byte_reader_body_writer read
+  | Bytes_reader read -> bytes_reader_body_writer read
   | Custom (Writer w) -> w
   | Custom _ -> invalid_arg "Unknown custom body contents"
 

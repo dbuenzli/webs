@@ -810,18 +810,9 @@ module Http : sig
   (** Message bodies. *)
   module Body : sig
 
-    (** {1:byte_rw Bytes readers and writers} *)
+    open Bytesrw
 
-    type byte_reader = unit -> (bytes * int * int) option
-    (** The type for reading bytes. Pull control flow.
-
-        {ul
-        {- The function returns [Some (bytes, first, length)] for letting
-           the client read [bytes] from [first] to [first+length] valid
-           until the next call to the function. The [bytes] value must
-           not be modified by the client.}
-        {- The function returns [None] when there are no longer any bytes
-           to read and subsequent calls always return [None].}} *)
+    (** {1:byte_rw Bytes writers} *)
 
     type byte_writer = (bytes * int * int) option -> unit
     (** The type for writing bytes. Push control flow.
@@ -853,7 +844,7 @@ module Http : sig
 
     type content =
     | Empty (** Empty body. *)
-    | Byte_reader of byte_reader (** Byte reader, pulls bytes. *)
+    | Bytes_reader of Bytes.Reader.t (** Bytes reader, pulls bytes. *)
     | Byte_writer of byte_writer writer (** Function that pushes bytes. *)
     | Custom of custom_content (** Custom content. *)
     (** The type for body contents. *)
@@ -889,17 +880,17 @@ module Http : sig
       byte_writer writer -> t
     (** [of_byte_writer w] is a body written by [w]. *)
 
-    val of_byte_reader :
-      ?content_length:int -> ?content_type:Media_type.t -> byte_reader -> t
+    val of_bytes_reader :
+      ?content_length:int -> ?content_type:Media_type.t -> Bytes.Reader.t -> t
     (** [of_byte_reader b] is a body from the given byte reader. *)
 
     val of_string : ?content_type:Media_type.t -> string -> t
     (** [of_string s] is a body made of string [s] (uses a
         {!Byte_writer}). {!content_length} is set to the length of [s]. *)
 
-    val to_byte_reader : t -> (byte_reader, string) result
-    (** [to_byte_reader b] is a byte reader on the inbound body [b].
-        This errors on {!Custom} content. It works on {!Byte_writer}
+    val to_bytes_reader : t -> (Bytes.Reader.t, string) result
+    (** [to_bytes_reader b] is a bytes reader on the inbound body [b].
+        This errors on {!Custom} content. It works on {!Byte_writer}s
         but entails a full copy in memory. *)
 
     val to_string : t -> (string, string) result
