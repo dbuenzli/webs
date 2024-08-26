@@ -43,7 +43,25 @@ let log_if_error ~use = function
 
 let log fmt = if !quiet_log then no_log fmt else log fmt
 
-(* Service *)
+(* HTTP client *)
+
+let do_request ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~url
+  =
+  let follow = not no_follow in
+  let trace = if trace then Some Webs_spawn_client.stderr_tracer else None in
+  let* httpc = Webs_spawn_client.make ?trace () in
+  let* body = match body with
+  | None -> Ok Http.Body.empty
+  | Some b -> Result.map Http.Body.of_string (read_file b)
+  in
+  let headers =
+    let add_header acc (n, v) = Http.Headers.def n v acc in
+    List.fold_left add_header Http.Headers.empty headers
+  in
+  let* request = Http.Request.of_url method' ~headers ~url ~body in
+  Http_client.request ~max_redirections httpc ~follow request
+
+(* HTTP service *)
 
 let log_docroot d =
   let d = match d with None -> "<none>" | Some d -> d in
@@ -101,13 +119,25 @@ let serve ~quiet ~listener ~docroot ~dir_index ~clean_urls ~echo =
 
 (* Scrape URLs *)
 
-let scrape_urls ~file ~rel =
+let scrape_urls
+    ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~rel ~url
+  =
   log_if_error ~use:Cmdliner.Cmd.Exit.some_error @@
-  let* data = read_file file in
+  let* data = match Webs_url.scheme url with
+  | None -> read_file url
+  | Some _ ->
+      let* response =
+        do_request ~method' ~headers ~body ~trace ~max_redirections ~no_follow
+          ~url
+      in
+      match Http.Response.status response with
+      | 200 -> Http.Body.to_string (Http.Response.body response)
+      | st -> Error (Format.asprintf "%a" Http.Status.pp st)
+  in
   let urls = Webs_url.list_of_text_scrape data in
   let is_abs u = Webs_url.kind u = `Abs in
   let urls = if rel then urls else List.filter is_abs urls in
-  (if urls = [] then print_endline "" else List.iter print_endline urls);
+  (if urls = [] then () else List.iter print_endline urls);
   Ok 0
 
 (* Request *)
@@ -117,19 +147,9 @@ let request
     ~url
   =
   log_if_error ~use:Cmdliner.Cmd.Exit.some_error @@
-  let follow = not no_follow in
-  let trace = if trace then Some Webs_spawn_client.stderr_tracer else None in
-  let* httpc = Webs_spawn_client.make ?trace () in
-  let* body = match body with
-  | None -> Ok Http.Body.empty
-  | Some b -> Result.map Http.Body.of_string (read_file b)
+  let* response =
+    do_request ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~url
   in
-  let headers =
-    let add_header acc (n, v) = Http.Headers.def n v acc in
-    List.fold_left add_header Http.Headers.empty headers
-  in
-  let* request = Http.Request.of_url method' ~headers ~url ~body in
-  let* response = Http_client.request ~max_redirections httpc ~follow request in
   let* response =
     if not dump then match Http.Response.status response with
     | 200 -> Http.Body.to_string (Http.Response.body response)
@@ -144,6 +164,60 @@ let request
 
 open Cmdliner
 open Cmdliner.Term.Syntax
+
+let method' =
+  let doc = "$(docv) is the request HTTP method." in
+  let meth = Arg.conv' Http.Method.(decode, pp) in
+  Arg.(value & opt meth `GET & info ["X"; "request"] ~doc ~docv:"METHOD")
+
+let headers =
+  let doc = "$(docv) of the form $(b,key: value) is added to the request's \
+             headers. Repeatable."
+  in
+  let header = Arg.conv' Http.Headers.(decode_http11_header, pp_header) in
+  Arg.(value & opt_all header [] & info ["H"; "header"] ~doc ~docv:"HEADER")
+
+let max_redirections =
+  let doc = "$(docv) is the maximal number of redirections followed." in
+  Arg.(value & opt int Http_client.default_max_redirection &
+       info ["max-redirections"] ~doc ~docv:"COUNT")
+
+let no_follow =
+  let doc = "Do not follow redirections." in
+  Arg.(value & flag & info ["s"; "no-follow"] ~doc)
+
+let trace =
+  let doc = "Trace spawn arguments on $(b,stderr)." in
+  Arg.(value & flag & info ["t"; "trace"] ~doc)
+
+let body =
+  let doc = "Read request body from $(docv). Use $(b,-) for $(b,stdin)" in
+  let absent = "Empty request body" in
+  Arg.(value & opt (some string) None &
+       info ["b"; "body"] ~doc ~docv:"FILE" ~absent)
+
+let request_cmd =
+  let doc = "Request an URL" in
+  let man = [
+    `S Manpage.s_description;
+    `P "The $(iname) command requests an URL using the $(b,Webs_spawn_client) \
+        connector and writes the response on $(b,stdout)" ]
+  in
+  Cmd.v (Cmd.info "request" ~doc ~man) @@
+  let+ url =
+    let doc = "The URL to request." in
+    Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"URL")
+  and+ outf =
+    let doc = "Write response to $(docv)." in
+    let absent = "$(b,stdout)" in
+    Arg.(value & opt string "-" & info ["o"] ~doc ~docv:"FILE" ~absent)
+  and+ dump =
+    let doc = "Include response status line and headers in output" in
+    Arg.(value & flag & info ["i"; "include"] ~doc)
+  and+ method' and+ headers and+ max_redirections and+ trace and+ no_follow
+  and+ body in
+  request
+    ~method' ~headers ~body ~dump ~trace ~max_redirections ~no_follow ~outf ~url
 
 let serve_cmd =
   let doc = "HTTP/1.1 file server" in
@@ -177,71 +251,26 @@ let serve_cmd =
   serve ~quiet ~listener ~docroot ~dir_index ~clean_urls ~echo
 
 let scrape_urls_cmd =
-  let doc = "Scrape URLs from text" in
+  let doc = "Scrape URLs or text" in
   let man = [
     `S Manpage.s_description;
-    `P "The $(iname) command scrapes URL from a given file or \
+    `P "The $(iname) command scrapes URLs from a given URL, text file or \
         $(b,stdin). It assumes the text is in an US-ASCII compatible \
         encoding like UTF-8. For example:";
-    `Pre "$(b,webs request https://example.org) | $(iname)"; `Noblank;
+    `Pre "$(iname) $(b,https://example.org)"; `Noblank;
     `Pre "$(iname) $(b,README.md)"; ]
   in
   Cmd.v (Cmd.info "scrape-urls" ~doc ~man) @@
-  let+ file =
-    let doc = "The text file to scrape. Reads from $(b,stdin) if unspecified."in
-    Arg.(value & pos 0 string "-" & info [] ~doc ~docv:"FILE")
+  let+ url =
+    let doc = "The URL or text file to scrape. Use $(b,-) for $(b,stdin)."in
+    Arg.(value & pos 0 string "-" & info [] ~doc ~docv:"URL|FILE")
   and+ rel =
     let doc = "Also output relative URLs." in
     Arg.(value & flag & info ["a"; "include-relative"] ~doc)
-  in
-  scrape_urls ~file ~rel
-
-let request_cmd =
-  let doc = "Request an URL" in
-  let man = [
-    `S Manpage.s_description;
-    `P "The $(iname) command requests an URL using the $(b,Webs_spawn_client) \
-        connector and writes the response on $(b,stdout)" ]
-  in
-  Cmd.v (Cmd.info "request" ~doc ~man) @@
-  let+ url =
-    let doc = "The URL to request." in
-    Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"URL")
-  and+ no_follow =
-    let doc = "Do not follow redirections." in
-    Arg.(value & flag & info ["s"; "no-follow"] ~doc)
-  and+ trace =
-    let doc = "Trace spawn arguments on $(b,stderr)." in
-    Arg.(value & flag & info ["t"; "trace"] ~doc)
-  and+ outf =
-    let doc = "Write response to $(docv)." in
-    let absent = "$(b,stdout)" in
-    Arg.(value & opt string "-" & info ["o"] ~doc ~docv:"FILE" ~absent)
-  and+ dump =
-    let doc = "Include response status line and headers in output" in
-    Arg.(value & flag & info ["i"; "include"] ~doc)
-  and+ method' =
-    let doc = "$(docv) is the request HTTP method." in
-    let meth = Arg.conv' Http.Method.(decode, pp) in
-    Arg.(value & opt meth `GET & info ["X"; "request"] ~doc ~docv:"METHOD")
-  and+ headers =
-    let doc = "$(docv) of the form $(b,key: value) is added to the request's \
-               headers. Repeatable."
-    in
-    let header = Arg.conv' Http.Headers.(decode_http11_header, pp_header) in
-    Arg.(value & opt_all header [] & info ["H"; "header"] ~doc ~docv:"HEADER")
-  and+ max_redirections =
-    let doc = "$(docv) is the maximal number of redirections followed." in
-    Arg.(value & opt int Http_client.default_max_redirection &
-         info ["max-redirections"] ~doc ~docv:"COUNT")
-  and+ body =
-    let doc = "Read request body from $(docv). Use $(b,-) for $(b,stdin)" in
-    let absent = "Emtpty request body" in
-    Arg.(value & opt (some string) None &
-         info ["b"; "body"] ~doc ~docv:"FILE" ~absent)
-  in
-  request
-    ~method' ~headers ~body ~dump ~trace ~max_redirections ~no_follow ~outf ~url
+  and+ method' and+ headers and+ max_redirections and+ trace and+ no_follow
+  and+ body in
+  scrape_urls
+    ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~rel ~url
 
 let cmd =
   let doc = "HTTP tools" in

@@ -19,7 +19,7 @@ depends on [`bytesrw`]. Some service building blocks and the optional
 gateway connectors depend on OCaml's `Unix` and `Thread` modules. The
 command line support depends on [`cmdliner`].
 
-Homepage: <http://erratique.ch/software/webs>  
+Homepage: <https://erratique.ch/software/webs>  
 
 [`cmdliner`]: https://erratique.ch/software/cmdliner
 [`bytesrw`]: https://erratique.ch/software/bytesrw
