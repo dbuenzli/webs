@@ -120,7 +120,8 @@ let serve ~quiet ~listener ~docroot ~dir_index ~clean_urls ~echo =
 (* Scrape URLs *)
 
 let scrape_urls
-    ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~rel ~url
+    ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~rel_root
+    ~keep_rel ~url
   =
   log_if_error ~use:Cmdliner.Cmd.Exit.some_error @@
   let* data = match Webs_url.scheme url with
@@ -134,9 +135,11 @@ let scrape_urls
       | 200 -> Http.Body.to_string (Http.Response.body response)
       | st -> Error (Format.asprintf "%a" Http.Status.pp st)
   in
-  let urls = Webs_url.list_of_text_scrape data in
-  let is_abs u = Webs_url.kind u = `Abs in
-  let urls = if rel then urls else List.filter is_abs urls in
+  let root =
+    if keep_rel then None else
+    match rel_root with None -> Some url | Some _ as root -> root
+  in
+  let urls = Webs_url.list_of_text_scrape ?root data in
   (if urls = [] then () else List.iter print_endline urls);
   Ok 0
 
@@ -150,15 +153,15 @@ let request
   let* response =
     do_request ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~url
   in
-  let* response =
-    if not dump then match Http.Response.status response with
-    | 200 -> Http.Body.to_string (Http.Response.body response)
-    | st -> Error (Format.asprintf "%a" Http.Status.pp st)
-    else
-    Http.Response.encode_http11 ~include_body:true response
+  let* data =
+    if not dump
+    then Http.Body.to_string (Http.Response.body response)
+    else Http.Response.encode_http11 ~include_body:true response
   in
-  let* () = write_file outf response in
-  Ok 0
+  let* () = write_file outf data in
+  match Http.Response.status response with
+  | 200 -> Ok 0
+  | st -> Error (Format.asprintf "%a" Http.Status.pp st)
 
 (* Command line interface *)
 
@@ -255,22 +258,31 @@ let scrape_urls_cmd =
   let man = [
     `S Manpage.s_description;
     `P "The $(iname) command scrapes URLs from a given URL, text file or \
-        $(b,stdin). It assumes the text is in an US-ASCII compatible \
-        encoding like UTF-8. For example:";
+        $(b,stdin). It assumes the data is in an US-ASCII compatible \
+        encoding like UTF-8. The result may contain duplicates.";
+    `P "By default relative URLs are made absolute \
+        with respect to the requested URL, use $(b,--keep-relative) or
+        $(b,--relative-root) to change this behaviour. For example:";
     `Pre "$(iname) $(b,https://example.org)"; `Noblank;
-    `Pre "$(iname) $(b,README.md)"; ]
+    `Pre "$(iname) $(b,README.md)"; `Noblank;
+    `Pre "$(iname) $(b,README.md | uniq)";]
   in
   Cmd.v (Cmd.info "scrape-urls" ~doc ~man) @@
   let+ url =
     let doc = "The URL or text file to scrape. Use $(b,-) for $(b,stdin)."in
     Arg.(value & pos 0 string "-" & info [] ~doc ~docv:"URL|FILE")
-  and+ rel =
-    let doc = "Also output relative URLs." in
-    Arg.(value & flag & info ["a"; "include-relative"] ~doc)
+  and+ rel_root =
+    let doc = "Use $(docv) to make relative URLs absolute." in
+    Arg.(value & opt (some string) None &
+         info ["relative-root"] ~doc ~docv:"URL")
+  and+ keep_rel =
+    let doc = "Do not make relative URLs absolute." in
+    Arg.(value & flag & info ["keep-relative"] ~doc)
   and+ method' and+ headers and+ max_redirections and+ trace and+ no_follow
   and+ body in
   scrape_urls
-    ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~rel ~url
+    ~method' ~headers ~body ~trace ~max_redirections ~no_follow
+    ~rel_root ~keep_rel ~url
 
 let cmd =
   let doc = "HTTP tools" in
