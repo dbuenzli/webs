@@ -2108,7 +2108,11 @@ module Http_client : sig
          are dropped}
       {- If the host changes, the {!Http.Headers.authorization},
          {!Http.Headers.proxy_authorization} and
-         {!Http.Headers.cookie} are dropped}} *)
+         {!Http.Headers.cookie} are dropped}}
+
+      In case there was a follow, the final requested URL can be found in the
+      response in the {!x_follow_location} header.
+  *)
 
   val get : t -> follow:bool -> url:Webs_url.t -> (string, string) result
   (** [get c ~follow ~url] is the body of a [GET] request on [url].
@@ -2116,6 +2120,10 @@ module Http_client : sig
 
       {b Note.} This is voluntarily kept bare bones (e.g. no headers
       can be specified). Anything more complex should use {!request}. *)
+
+  val x_follow_location : Http.Headers.Name.t
+  (** [x_follow_location] is the final location that was requested
+      when {!follow} is true. *)
 
   (** {1:examples Examples}
 

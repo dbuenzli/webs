@@ -2042,6 +2042,8 @@ module Http_client = struct
 
   (* TODO we could likely expose some of the redirection logic here. *)
 
+  let x_follow_location = Http.Headers.Name.v "x-follow-location"
+
   let find_rel_location ~loc rel request response =
     let scheme = Http.Scheme.encode (Http.Request.scheme request) in
     let* host = Http.Headers.(find' host) (Http.Request.headers request) in
@@ -2124,8 +2126,15 @@ module Http_client = struct
       if not follow then Ok response else
       let* redirect = redirect_response visited request response in
       match redirect with
-      | None -> Ok response
       | Some (url, request) -> loop (n - 1) follow (url :: visited) request
+      | None ->
+          begin match visited with
+          | [] -> Ok response
+          | last :: _ ->
+              let hs = Http.Response.headers response in
+              let hs = Http.Headers.(hs |> def x_follow_location last) in
+              Ok (Http.Response.with_headers hs response)
+          end
     in
     loop max_redirections follow [] request
 
