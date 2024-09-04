@@ -26,12 +26,12 @@ let test_components () =
     let p' = Webs_url.path url in
     let q' = Webs_url.query url in
     let f' = Webs_url.fragment url in
-    Test.eq (module Kind) k' k ~__POS__;
-    Test.eq_option (module String') s' s ~__POS__;
-    Test.eq_option (module String') a' a ~__POS__;
-    Test.eq_option (module String') p' p ~__POS__;
-    Test.eq_option (module String') q' q ~__POS__;
-    Test.eq_option (module String') f' f ~__POS__;
+    Test.eq ~__POS__ (module Kind) k' k;
+    Test.option ~__POS__ ~some:(module String') s' s;
+    Test.option ~__POS__ ~some:(module String') a' a;
+    Test.option ~__POS__ ~some:(module String') p' p;
+    Test.option ~__POS__ ~some:(module String') q' q;
+    Test.option ~__POS__ ~some:(module String') f' f;
   in
   test "http://example.org:80/hey-hopla/bli" `Abs
     (Some "http") (Some "example.org:80") (Some "/hey-hopla/bli") None None
