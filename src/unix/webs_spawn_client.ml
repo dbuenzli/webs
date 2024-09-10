@@ -131,11 +131,20 @@ let make ?(trace = fun _ _ -> ()) ?(cmd = default_cmd) ?(insecure = false) () =
 
 (* Tracing *)
 
+let pp_print_iter (* only in >= 5.1.0 *)
+    ?pp_sep:(pp_sep = Format.pp_print_cut) iter pp_elt ppf v =
+  let is_first = ref true in
+  let pp_elt v =
+    if !is_first then (is_first := false) else pp_sep ppf ();
+    pp_elt ppf v
+  in
+  iter pp_elt v
+
 let pp_trace ppf (pid, args) =
   let pp_arg ppf s = Format.fprintf ppf "%s" (Filename.quote s) in
   let pp_sep = Format.pp_print_space in
   Format.fprintf ppf "@[[EXEC:%d] @[<h>[%a]@]@]@."
-    pid (Format.pp_print_iter ~pp_sep Array.iter pp_arg) args
+    pid (pp_print_iter ~pp_sep Array.iter pp_arg) args
 
 let stderr_tracer pid args =
   let exec = Filename.basename Sys.executable_name in
