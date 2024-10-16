@@ -1147,6 +1147,9 @@ module Http : sig
     (** {{:https://www.rfc-editor.org/rfc/rfc9110#name-connection}
         [connection]} *)
 
+    val content_disposition : Name.t
+    (** {{:https://www.rfc-editor.org/rfc/rfc6266}[content-disposition]} *)
+
     val content_encoding : Name.t
     (** {{:https://www.rfc-editor.org/rfc/rfc9110#name-content-encoding}
         [content-encoding]}*)
