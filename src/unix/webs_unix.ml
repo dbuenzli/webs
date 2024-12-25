@@ -28,29 +28,29 @@ module Fd = struct
   let bytes_reader
       ~max_request_body_byte_size ~content_length fd b ~first_start ~first_len
     =
-    (* FIXME quickly ported to Bytes.Reader.t, review *)
-    let body = ref (fun () -> assert false) in
+    (* FIXME use bytesrw limits ? *)
     let needs = match content_length with
     | None -> max_request_body_byte_size
     | Some len -> len
     in
-    let needs = ref needs in (* we'll need this exposed for keep-alive *)
-    let last () = Bytes.Slice.eod in
-    let return b start len = match !needs with
-    | n when n <= 0 -> body := last; Bytes.Slice.eod
-    | n ->
-        needs := n - len;
-        if !needs <= 0 then body := last;
-        Bytes.Slice.make b ~first:start ~length:(Int.min len n)
-    in
-    let fill () =
+    let needs = ref needs in
+    let read () =
+      if !needs <= 0 then Bytes.Slice.eod else
       let len = read fd b ~start:0 ~length:(Bytes.length b) in
-      if len = 0 then (body := last; Bytes.Slice.eod) else
-      return b 0 len
+      let length = Int.min len !needs in
+      needs := !needs - length;
+      if length = 0
+      then Bytes.Slice.eod
+      else Bytes.Slice.make b ~first:0 ~length
     in
-    let first () = body := fill; return b first_start first_len in
-    body := first;
-    Bytes.Reader.make (fun () -> !body ())
+    let reader = Bytes.Reader.make ~pos:first_len read in
+    if first_len > 0 && !needs > 0 then begin
+      let first = first_start in
+      let length = Int.min first_len !needs in
+      needs := !needs - first_len;
+      Bytes.Reader.push_back reader (Bytes.Slice.make b ~first ~length)
+    end;
+    reader
 
   let rec write_stream_chunk fd = function
   | None -> () | Some (b, start, length) -> write fd b ~start ~length
