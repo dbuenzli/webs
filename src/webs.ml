@@ -327,9 +327,9 @@ module Base64 = struct (* See https://www.rfc-editor.org/rfc/rfc4648 *)
 
   let url u = if u then "url" else ""
   let error_message = function
-  | Unexpected_eoi u -> Fmt.str "unexpected end of base64%s input" (url u)
+  | Unexpected_eoi u -> Fmt.str "Unexpected end of base64%s input" (url u)
   | Invalid_letter (u, i, c) ->
-      Fmt.str "%d: invalid base64%s alphabet character %C" i (url u) c
+      Fmt.str "%d: Invalid base64%s alphabet character %C" i (url u) c
 
   let error_string r = Result.map_error error_message r
 
@@ -404,9 +404,11 @@ module Base64 = struct (* See https://www.rfc-editor.org/rfc/rfc4648 *)
     | Alpha_error i -> Error (Invalid_letter (url, i, s.[i]))
 
   let encode s = _encode ~url:false s
-  let decode s = _decode ~url:false s
+  let decode' s = _decode ~url:false s
+  let decode s = error_string (_decode ~url:false s)
   let url_encode s = _encode ~url:true s
-  let url_decode s = _decode ~url:true s
+  let url_decode' s = _decode ~url:true s
+  let url_decode s = error_string (_decode ~url:true s)
 end
 
 module Pct = struct (* See https://tools.ietf.org/html/rfc3986 *)

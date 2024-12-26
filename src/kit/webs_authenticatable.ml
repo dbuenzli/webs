@@ -25,7 +25,7 @@ module Private_key = struct
       let d = Http.Connector.Private.string_subrange ~first:(i + 1) s in
       match scheme with
       | "HS256" ->
-          let* k = Http.Base64.url_decode d |> Http.Base64.error_string in
+          let* k = Http.Base64.url_decode' d |> Http.Base64.error_string in
           Ok (`Hs256 k)
       | s -> Error (strf "unknown scheme: %S" scheme)
 end
@@ -72,7 +72,7 @@ let error_message = function
 
 let error_string r = Result.map_error error_message r
 
-let decode_hmac s = match Http.Base64.url_decode s with
+let decode_hmac s = match Http.Base64.url_decode' s with
 | Error e -> Error (`Base64url e)
 | Ok s ->
     if String.length s < 6 then Error (`Scheme None) else

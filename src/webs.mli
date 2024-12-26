@@ -140,10 +140,13 @@ module Http : sig
         {{:https://www.rfc-editor.org/rfc/rfc4648#section-4}[base64]}
         encoding of [s]. *)
 
-    val decode : string -> (string, error) result
-    (** [decode s] is the
+    val decode' : string -> (string, error) result
+    (** [decode' s] is the
         {{:https://www.rfc-editor.org/rfc/rfc4648#section-4}[base64]}
         decode of [s]. *)
+
+    val decode : string -> (string, string) result
+    (** [decode s] is [error_string (decode' s)]. *)
 
     (** {1:base64url [base64url]} *)
 
@@ -152,10 +155,13 @@ module Http : sig
         {{:https://www.rfc-editor.org/rfc/rfc4648#section-5}[base64url]}
         encoding. *)
 
-    val url_decode : string -> (string, error) result
+    val url_decode' : string -> (string, error) result
     (** [url_decode] is like {!decode} but for the
         {{:https://www.rfc-editor.org/rfc/rfc4648#section-5}[base64url]}
         encoding. *)
+
+    val url_decode : string -> (string, string) result
+    (** [url_decode s] is [error_string (url_decode s)]. *)
   end
 
   (** Percent-encoding codec.

@@ -21,7 +21,7 @@ let decode_basic_authentication credentials =
       then Error (strf "auth-scheme %s: unsupported" scheme) else
       let* credentials =
         Result.map_error (Fun.const "base64 decode error") @@
-        Http.Base64.decode credentials
+        Http.Base64.decode' credentials
       in
       begin match String.index_opt credentials ':' with
       | None -> Error ("No ':' found in basic authentication credentials")
