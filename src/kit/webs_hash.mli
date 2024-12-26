@@ -93,14 +93,14 @@ module Sha_256 : sig
   (** [to_hex h] is the sequence of bytes of [h] as US-ASCII lowercase
       hexadecimal digits. *)
 
-  val of_hex : string -> (t, int) result
+  val of_hex' : string -> (t, int) result
   (** [of_hex s] parses a sequence of US-ASCII (lower or upper cased)
       hexadecimal digits to its hash value. Errors with an offending
       index or the length of the string in case [s] was
       not exactly made of 64 US-ASCII hex digits. *)
 
-  val of_hex' : string -> (t, string) result
-  (** [of_hex'] is of {!of_hex} but errors with an english error message. *)
+  val of_hex : string -> (t, string) result
+  (** [of_hex] is of {!of_hex'} but errors with an english error message. *)
 
   val pp : Format.formatter -> t -> unit
   (** [pp] formats digests with {!to_hex}. *)

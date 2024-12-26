@@ -110,7 +110,7 @@ module Sha_256 = struct
     let hex = Bytes.create (2 * len) in
     loop (len - 1) h 0 hex 0
 
-  let of_hex hex =
+  let of_hex' hex =
     let exception Illegal of int in
     let hex_value s i = match s.[i] with
     | '0' .. '9' as c -> Char.code c - 0x30
@@ -132,7 +132,7 @@ module Sha_256 = struct
         let s = Bytes.create s_len in
         try loop (s_len - 1) s 0 hex 0 with Illegal i -> Error i
 
-  let of_hex' h = match of_hex h with
+  let of_hex h = match of_hex' h with
   | Ok _ as v -> v
   | Error i ->
       match i = String.length h with
