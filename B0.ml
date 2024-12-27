@@ -22,18 +22,20 @@ let webs_lib =
 
 let webs_kit_lib =
   let srcs = [`Dir ~/"src/kit"] in
-  let requires = [webs] in
-  B0_ocaml.lib webs_kit ~srcs ~requires
+  let requires = [webs] and exports = [webs] in
+  B0_ocaml.lib webs_kit ~srcs ~requires ~exports
 
 let webs_unix_lib =
   let srcs = [`Dir ~/"src/unix"] in
   let requires = [bytesrw; webs; unix; threads] in
-  B0_ocaml.lib webs_unix ~srcs ~requires
+  let exports = [webs] in
+  B0_ocaml.lib webs_unix ~srcs ~requires ~exports
 
 let webs_cli_lib =
   let srcs = [`Dir ~/"src/cli"] in
   let requires = [webs; webs_unix; cmdliner; unix] in
-  B0_ocaml.lib webs_cli ~srcs ~requires
+  let exports = [webs] in
+  B0_ocaml.lib webs_cli ~srcs ~requires ~exports
 
 (* Tools *)
 
@@ -60,6 +62,10 @@ let test_sha_256 =
 
 let test_authenticatable =
   test ~/"test/test_authenticatable.ml" ~run:true ~requires:[webs_kit]
+
+let test_cryptorand =
+  test ~/"test/test_cryptorand.ml" ~run:true ~requires:[webs_kit]
+
 
 (* Examples *)
 

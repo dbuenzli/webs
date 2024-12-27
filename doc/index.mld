@@ -49,13 +49,14 @@ Webs_url}
 {1:webs_kit Library [webs.kit]}
 
 {!modules:
-Webs_gateway
-Webs_hash
 Webs_authenticatable
 Webs_authenticated_cookie
-Webs_session
 Webs_basic_auth
 Webs_bazaar
+Webs_cryptorand
+Webs_gateway
+Webs_hash
+Webs_session
 }
 
 {1:webs_unix Library [webs.unix]}
