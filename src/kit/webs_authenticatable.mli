@@ -24,6 +24,12 @@ type time = int
 
 (** Private keys. *)
 module Private_key : sig
+
+  type crypto_random = int -> string
+  (** The type for cryptographically secure random bytes generation.
+      Calling the function with [n] must return [n] cryptographically
+      secure random bytes. *)
+
   type t = [
     | `Hs256 of string
     (** Used with {{!Webs_hash.Sha_256.val-hmac}[HMAC-SHA-256]}, hence should
@@ -32,16 +38,16 @@ module Private_key : sig
   (** The type for private keys. This defines both a key and a correspoding
       authentification scheme. *)
 
-  val random_hs256 : ?random_state:Random.State.t -> unit -> t
-  (** [random_hs256 ()] are 64 random bytes sourced from
-      the given PRNG state (defaults to {!Stdlib.Random.make_self_init}). *)
+  val random_hs256 : ?crypto_random:crypto_random -> unit -> t
+  (** [random_hs256 ()] are 64 random bytes sourced from the generator
+      [crypto_rantom] (defaults to {!Webs_cryptorand.get_random}). *)
 
   val to_ascii_string : t -> string
   (** [to_ascii_string k] encodes [k] to an URL safe US-ASCII
       scheme that can be read back by {!of_ascii_string}. *)
 
   val of_ascii_string : string -> (t, string) result
-  (** [private_key_of_ascii_string s] reads back the encoding of
+  (** [of_ascii_string s] reads back the encoding of
       {!to_ascii_string}. *)
 end
 

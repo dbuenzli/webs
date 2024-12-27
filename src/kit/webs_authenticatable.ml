@@ -10,10 +10,11 @@ let strf = Printf.sprintf
 
 type time = int
 module Private_key = struct
+  type crypto_random = int -> string
   type t = [ `Hs256 of string ]
 
-  let random_hs256 ?random_state:(r = Random.State.make_self_init ()) () =
-    `Hs256 (String.init 64 (fun _ -> Char.chr (Random.State.int r 256)))
+  let random_hs256 ?(crypto_random = Webs_cryptorand.get_random) () =
+    `Hs256 (crypto_random 64)
 
   let to_ascii_string = function
   | `Hs256 k -> "HS256:" ^ (Http.Base64.url_encode k)
