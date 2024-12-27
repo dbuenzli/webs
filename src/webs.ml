@@ -1619,6 +1619,7 @@ module Request = struct
   type t =
     { body : Body.t;
       headers : Headers.t;
+      log : string;
       method' : Method.t;
       path : Path.t;
       query : string option;
@@ -1628,15 +1629,15 @@ module Request = struct
       version : Version.t; }
 
   let make
-      ?(headers = Headers.empty) ?(path = Path.root) ?(query = None)
+      ?(headers = Headers.empty) ?(log = "") ?(path = Path.root) ?(query = None)
       ?(scheme = `Https) ?(service_path = Path.root) ~version method'
       ~raw_path body
     =
-    { body; headers; method'; path; query; raw_path; scheme; service_path;
+    { body; headers; log; method'; path; query; raw_path; scheme; service_path;
       version }
 
   let for_service_connector
-      ?scheme ~service_path ~version method' ~raw_path ~headers body =
+      ?log ?scheme ~service_path ~version method' ~raw_path ~headers body =
     let path, query =
       match Path.and_query_string_of_request_target raw_path with
       | Ok v -> v | Error e -> failwith e
@@ -1650,11 +1651,12 @@ module Request = struct
       | path -> service_path, path
     in
     Result.ok @@
-    make ?scheme ~headers ~path ~query ~service_path ~version method'
+    make ?log ?scheme ~headers ~path ~query ~service_path ~version method'
       ~raw_path body
 
   let of_url
-      ?(body = Body.empty) ?(headers = Headers.empty) ?(version = Version.v11)
+      ?(body = Body.empty) ?(headers = Headers.empty) ?log
+      ?(version = Version.v11)
       method' ~url
     =
     try
@@ -1676,8 +1678,8 @@ module Request = struct
         | Ok v -> v | Error e -> Fmt.failwith "URL '%s': %s" url e
       in
       let request =
-        make ~version ~headers ~scheme ~service_path ~path ~query method'
-          ~raw_path body
+        make ~headers ?log ~scheme ~service_path ~path ~query method'
+          ~raw_path ~version body
       in
       Ok request
     with
@@ -1721,6 +1723,7 @@ module Request = struct
 
   let body request = request.body
   let headers request = request.headers
+  let log request = request.log
   let method' request = request.method'
   let path request = request.path
   let query request = request.query
@@ -1742,9 +1745,9 @@ module Request = struct
 
   (* Deconstructing and responding *)
 
-  let redirect_to_path ?body ?log ?headers ?reason request status path =
+  let redirect_to_path ?body ?headers ?log ?reason request status path =
     let loc = Path.encode (Path.concat (service_path request) path) in
-    Response.redirect ?body ?log ?headers ?reason status loc
+    Response.redirect ?body ?headers ?log ?reason status loc
 
   let decode_header name dec request =
     match Headers.find name (headers request) with

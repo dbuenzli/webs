@@ -1695,9 +1695,9 @@ module Http : sig
     (** The type for HTTP requests. *)
 
     val make :
-      ?headers:Headers.t -> ?path:Path.t -> ?query:string option ->
-      ?scheme:Scheme.t -> ?service_path:Path.t -> version:Version.t ->
-      Method.t -> raw_path:string -> Body.t -> t
+      ?headers:Headers.t -> ?log:string -> ?path:Path.t ->
+      ?query:string option -> ?scheme:Scheme.t -> ?service_path:Path.t ->
+      version:Version.t -> Method.t -> raw_path:string -> Body.t -> t
     (** [make method' ~raw_path body] is a request with given [method'],
         [raw_path] and [body] and:
 
@@ -1707,6 +1707,7 @@ module Http : sig
            content type and content length headers. See the
            {{!page-connector_conventions.client_requests}client
            requests conventions}.}
+        {- [log], see {!log}. Defaults to [""].}
         {- [path], see {!path}. Defaults to {!Path.none}.}
         {- [query], see {!query}. Defaults to [None].}
         {- [scheme] is the scheme of the request, see {!scheme}.
@@ -1719,9 +1720,9 @@ module Http : sig
         are computed correctly. *)
 
     val for_service_connector :
-      ?scheme:Scheme.t -> service_path:Path.t -> version:Version.t ->
-      Method.t -> raw_path:string -> headers:Headers.t -> Body.t ->
-      (t, Response.t) result
+      ?log:string -> ?scheme:Scheme.t -> service_path:Path.t ->
+      version:Version.t -> Method.t -> raw_path:string -> headers:Headers.t ->
+      Body.t -> (t, Response.t) result
     (** [for_service_connector ~service_path ~version method'
         ~raw_path ~headers body] is a request that satisfies the
         {{!page-connector_conventions.service_requests} service
@@ -1733,8 +1734,8 @@ module Http : sig
         connector responses conventions}. *)
 
     val of_url :
-      ?body:Body.t -> ?headers:Headers.t -> ?version:Version.t -> Method.t ->
-      url:Webs_url.t -> (t, string) result
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
+      ?version:Version.t -> Method.t -> url:Webs_url.t -> (t, string) result
     (** [of_url method' ~url body] is a scheme and [method'] request
         on [url] ensuring that the request satsifies the
         {{!page-connector_conventions.client_requests}client request
@@ -1779,6 +1780,12 @@ module Http : sig
     val headers : t -> Headers.t
     (** [headers request] are the HTTP headers of [request]. Should always
         at least includes at the {!Http.Headers.host} header. *)
+
+    val log : t -> string
+    (** [log request] is the log of [request]. The log is a
+        client-side explanatation {b not meant to be sent to the
+        server}. It can be used to log further details or explanations
+        about the request. *)
 
     val method' : t -> Method.t
     (** [method' request] is the
@@ -1856,7 +1863,7 @@ module Http : sig
     (** {2:redirect Redirection} *)
 
     val redirect_to_path :
-      ?body:Body.t -> ?log:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> t -> Status.t -> Path.t -> Response.t
     (** [redirect_to_path request status path] redirects to [path] in
         the service of [request]. This is {!Response.redirect}[ status
