@@ -99,7 +99,7 @@ module Media_type : sig
       The map is documented by its implementation (sorry). *)
 end
 
-(** HTTP requests and responses.
+(** HTTP {{!Http.Request}requests} and {{!Http.Response}responses}.
 
     Along with a few codecs and protocol logic fragments.
 
