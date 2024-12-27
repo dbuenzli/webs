@@ -40,21 +40,21 @@ let decode_credentials request =
   Http.Request.decode_header Http.Headers.authorization
     decode_basic_authentication request
 
-let unauthorized_401 ~realm ~explain =
+let unauthorized_401 ~realm ~log =
   let auth = strf "basic realm=\"%s\", charset=\"utf-8\"" realm in
   let headers = Http.Headers.(def www_authenticate) auth Http.Headers.empty in
-  Http.Response.unauthorized_401 ~explain ~headers ()
+  Http.Response.unauthorized_401 ~log ~headers ()
 
 let enticate ~check ~realm request =
   let* credentials = decode_credentials request in
   match credentials with
-  | None -> unauthorized_401 ~realm ~explain:"No authorization header"
+  | None -> unauthorized_401 ~realm ~log:"No authorization header"
   | Some (username, password) ->
       match check ~username ~password with
       | Ok () -> Ok username
       | Error e ->
-          let explain = match e with
+          let log = match e with
           | `Unknown_username -> strf "user %s: unknown" username
           | `Wrong_password -> strf "user %s: wrong password" username
           in
-          unauthorized_401 ~realm ~explain
+          unauthorized_401 ~realm ~log

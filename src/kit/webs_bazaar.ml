@@ -15,9 +15,9 @@ module Res = struct
       =
       let redirect name id =
         let url = res_url name id in
-        let explain = "to " ^ url in
+        let log = "to " ^ url in
         let status = Http.Status.moved_permanently_301 in
-        Error (Http.Response.redirect ~explain status url)
+        Error (Http.Response.redirect ~log status url)
       in
       match get_res req_id with
       | Error _ as e -> e

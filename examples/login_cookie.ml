@@ -108,9 +108,9 @@ let home req =
 
 let restricted ~login user request = match user with
 | None ->
-    let explain = "not logged" in
+    let log = "not logged" in
     let status = Http.Status.found_302 in
-    let resp = Http.Request.redirect_to_path request status login ~explain in
+    let resp = Http.Request.redirect_to_path request status login ~log in
     Ok (None, resp)
 | Some u ->
     let* `GET =
@@ -120,9 +120,9 @@ let restricted ~login user request = match user with
 
 let login_user ~and_goto:goto user request =
   let redirect user ~path =
-    let explain = user ^ " logged" in
+    let log = user ^ " logged" in
     let status = Http.Status.see_other_303 in
-    Http.Request.redirect_to_path request status path ~explain
+    Http.Request.redirect_to_path request status path ~log
   in
   let* m =
     Webs_session.for_error user @@
@@ -149,10 +149,10 @@ let login_user ~and_goto:goto user request =
               let u = Option.get email in
               Ok (Some u, redirect u ~path:goto)
           | false ->
-              let explain = "bad credentials" in
+              let log = "bad credentials" in
               let err = "Incorrect email or password. Try again." in
               Ok (None,
-                  Http.Response.html ~explain Http.Status.forbidden_403
+                  Http.Response.html ~log Http.Status.forbidden_403
                     (loginpage err))
       end
 
@@ -160,9 +160,9 @@ let logout_user ~and_goto user request =
   let* `POST =
     Webs_session.for_error None (Http.Request.allow Http.Method.[post] request)
   in
-  let explain = Option.map (fun u -> u ^ "logged out") user in
+  let log = Option.map (fun u -> u ^ "logged out") user in
   let status = Http.Status.see_other_303 in
-  Ok (None, Http.Request.redirect_to_path request status and_goto ?explain)
+  Ok (None, Http.Request.redirect_to_path request status and_goto ?log)
 
 let service ~private_key request =
   let serve user req =

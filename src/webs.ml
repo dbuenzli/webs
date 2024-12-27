@@ -1479,36 +1479,36 @@ module Response = struct
 
   type t =
     { body : Body.t;
-      explain : string; (* For the server *)
       headers : Headers.t;
+      log : string; (* For the server *)
       reason : string;
       status : Status.t;
       version : Version.t; }
 
   let make
-      ?(explain = "") ?(headers = Headers.empty) ?reason
+      ?(headers = Headers.empty) ?(log = "") ?reason
       ?(version = Version.v11) status body
     =
     (* [body] is not optional to entice programs to use [empty] for clarity. *)
     let reason = get_reason status reason in
-    { body; version; status; reason; headers; explain }
+    { body; headers; log; reason; status; version }
 
-  let empty ?explain ?headers ?reason status =
-    make ?explain ?headers ?reason status Body.empty
+  let empty ?headers ?log ?reason status =
+    make ?log ?headers ?reason status Body.empty
 
-  let _make ?(body = Body.empty) ?explain ?headers ?reason status =
-    make ?explain ?headers ?reason status body
+  let _make ?(body = Body.empty) ?headers ?log ?reason status =
+    make ?log ?headers ?reason status body
 
   let with_body body response = { response with body }
-  let with_explain explain response = { response with explain }
+  let with_log log response = { response with log }
   let with_headers headers response = { response with headers }
   let override_headers ~by:headers response =
     { response with headers = Headers.override response.headers ~by:headers }
 
-  let with_status ?explain ?reason status response =
-    let explain = match explain with None -> response.explain | Some e -> e in
+  let with_status ?log ?reason status response =
+    let log = match log with None -> response.log | Some e -> e in
     let reason = get_reason status reason in
-    { response with status; reason; explain }
+    { response with log; reason; status; }
 
   let is_empty response = Body.is_empty response.body
 
@@ -1517,7 +1517,7 @@ module Response = struct
     Fmt.field "version" Version.pp ppf response.version; Fmt.cut ppf ();
     Fmt.field "status" Status.pp ppf response.status; Fmt.cut ppf ();
     Fmt.field "reason" Fmt.qstring ppf response.reason; Fmt.cut ppf ();
-    Fmt.field "explain" Fmt.qstring ppf response.explain; Fmt.cut ppf ();
+    Fmt.field "log" Fmt.qstring ppf response.log; Fmt.cut ppf ();
     Headers.pp ppf response.headers;
     if not (Headers.is_empty response.headers) then Fmt.cut ppf ();
     Fmt.field "body" Body.pp ppf response.body;
@@ -1537,7 +1537,6 @@ module Response = struct
     in
     Ok (String.concat "" msg)
 
-
   (* Properties *)
 
   let version response = response.version
@@ -1545,67 +1544,67 @@ module Response = struct
   let reason response = response.reason
   let headers response = response.headers
   let body response = response.body
-  let explain response = response.explain
+  let log response = response.log
 
   (* Responding *)
 
-  let content ?explain ?reason ?headers ?content_type status s =
+  let content ?content_type ?headers ?log ?reason status s =
     let body = Body.of_string ?content_type s in
-    make ?explain ?reason ?headers status body
+    make ?headers ?log ?reason status body
 
-  let text ?explain ?reason ?headers status s =
+  let text ?headers ?log ?reason status s =
     let content_type = Media_type.text_plain in
-    content ?explain ?reason ?headers ~content_type status s
+    content ~content_type ?headers ?log ?reason status s
 
-  let html ?explain ?reason ?headers status s =
+  let html ?headers ?log ?reason status s =
     let content_type = Media_type.text_html in
-    content ?explain ?reason ?headers ~content_type status s
+    content ~content_type ?headers ?log ?reason status s
 
-  let json ?explain ?reason ?headers status s =
+  let json ?headers ?log ?reason status s =
     let content_type = Media_type.application_json in
-    content ?explain ?reason ?headers ~content_type status s
+    content ~content_type ?headers ?log ?reason status s
 
   (* Redirect *)
 
   let redirect
-      ?body ?explain ?(headers = Headers.empty) ?reason status loc
+      ?body ?(headers = Headers.empty) ?log ?reason status loc
     =
     let headers = Headers.(def location loc) headers in
-    _make ?body ?explain ~headers ?reason status
+    _make ?body ~headers ?log ?reason status
 
-  let bad_request_400 ?body ?explain ?headers ?reason () =
-    Error (_make ?body ?explain ?headers ?reason Status.bad_request_400)
+  let bad_request_400 ?body ?headers ?log ?reason () =
+    Error (_make ?body ?headers ?log ?reason Status.bad_request_400)
 
-  let unauthorized_401 ?body ?explain ?headers ?reason () =
-    Error (_make ?body ?explain ?headers ?reason Status.unauthorized_401)
+  let unauthorized_401 ?body ?headers ?log ?reason () =
+    Error (_make ?body ?headers ?log ?reason Status.unauthorized_401)
 
-  let forbidden_403 ?body ?explain ?headers ?reason () =
-    Error (_make ?body ?explain ?headers ?reason Status.forbidden_403)
+  let forbidden_403 ?body ?headers ?log ?reason () =
+    Error (_make ?body ?headers ?log ?reason Status.forbidden_403)
 
-  let not_found_404 ?body ?explain ?headers ?reason () =
-    Error (_make ?body ?explain ?headers ?reason Status.not_found_404)
+  let not_found_404 ?body ?headers ?log ?reason () =
+    Error (_make ?body ?headers ?log ?reason Status.not_found_404)
 
   let method_not_allowed_405
-      ?body ?explain ?(headers = Headers.empty) ?reason ~allowed ()
+      ?body ?(headers = Headers.empty) ?log ?reason ~allowed ()
     =
     let ms = String.concat ", " (List.map Method.encode allowed) in
     let headers = Headers.(def allow ms) headers in
     let status = Status.method_not_allowed_405 in
-    Error (_make ?body ?explain ~headers ?reason status)
+    Error (_make ?body ~headers ?log ?reason status)
 
-  let gone_410 ?body ?explain ?headers ?reason () =
-    Error (_make ?body ?explain ?headers ?reason Status.gone_410)
+  let gone_410 ?body ?headers ?log ?reason () =
+    Error (_make ?body ?headers ?log ?reason Status.gone_410)
 
   (* Server errors *)
 
-  let server_error_500 ?body ?explain ?headers ?reason () =
-    Error (_make ?body ?explain ?headers ?reason Status.server_error_500)
+  let server_error_500 ?body ?headers ?log ?reason () =
+    Error (_make ?body ?headers ?log ?reason Status.server_error_500)
 
-  let not_implemented_501 ?body ?explain ?headers ?reason () =
-    Error (_make ?body ?explain ?headers ?reason Status.not_implemented_501)
+  let not_implemented_501 ?body ?headers ?log ?reason () =
+    Error (_make ?body ?headers ?log ?reason Status.not_implemented_501)
 
-  let service_unavailable_503 ?body ?explain ?headers ?reason () =
-    Error (_make ?body ?explain ?headers ?reason Status.service_unavailable_503)
+  let service_unavailable_503 ?body ?headers ?log ?reason () =
+    Error (_make ?body ?headers ?log ?reason Status.service_unavailable_503)
 
   (* Error handling *)
 
@@ -1743,9 +1742,9 @@ module Request = struct
 
   (* Deconstructing and responding *)
 
-  let redirect_to_path ?body ?explain ?headers ?reason request status path =
+  let redirect_to_path ?body ?log ?headers ?reason request status path =
     let loc = Path.encode (Path.concat (service_path request) path) in
-    Response.redirect ?body ?explain ?headers ?reason status loc
+    Response.redirect ?body ?log ?headers ?reason status loc
 
   let decode_header name dec request =
     match Headers.find name (headers request) with
@@ -1784,8 +1783,8 @@ module Request = struct
               | Ok body -> Ok (Query.decode body)
               end
           | t ->
-              let explain = t in
-              Error (Response.empty Status.unsupported_media_type_415 ~explain)
+              let log = t in
+              Error (Response.empty Status.unsupported_media_type_415 ~log)
     in
     match method' request with
     | `GET | `HEAD -> url_query request
@@ -1799,17 +1798,17 @@ module Request = struct
     | p ->
         let p = match (List.filter not_empty p) with [] -> [""] | p -> p in
         let loc = Path.(encode @@ concat (service_path request) p) in
-        let explain = "path cleaning" in
-        Error (Response.redirect ~explain Status.moved_permanently_301 loc)
+        let log = "path cleaning" in
+        Error (Response.redirect ~log Status.moved_permanently_301 loc)
 
   let to_absolute_filepath ?(strip = [""]) ~file_root request =
     match Path.strip_prefix ~prefix:strip (path request) with
     | [] ->
-        let explain = Fmt.str "could not strip prefix %a" Path.pp strip in
-        Response.not_found_404 ~explain ()
+        let log = Fmt.str "could not strip prefix %a" Path.pp strip in
+        Response.not_found_404 ~log ()
     | p ->
         match Path.to_absolute_filepath p with
-        | Error e -> Response.bad_request_400 ~explain:e ()
+        | Error e -> Response.bad_request_400 ~log:e ()
         | Ok filepath -> Ok (Path.prefix_filepath ~prefix:file_root filepath)
 
   let eval_if_none_match request etag ~headers:hs =
@@ -1866,8 +1865,8 @@ module Connector = struct
           String.concat "" @@
           method' request :: " [" :: status response :: dur :: "] " ::
         path request :: " (" :: Response.reason response :: ")" ::
-          (if Response.explain response = "" then [] else
-           [ " "; Response.explain response])
+          (if Response.log response = "" then [] else
+           [ " "; Response.log response])
       | Some req, None ->
           String.concat "" @@
           method' req :: " [" :: dur :: "] " ::
@@ -1876,8 +1875,8 @@ module Connector = struct
           String.concat "" @@
           "???" :: " [" :: status resp :: dur :: "] " ::
           "Can't decode request" :: " (" :: Response.reason resp :: ")" ::
-          (if Response.explain resp = "" then [] else
-           [ " "; Response.explain resp])
+          (if Response.log resp = "" then [] else
+           [ " "; Response.log resp])
       | None, None -> "trace really ?"
       in
       Fmt.string ppf data

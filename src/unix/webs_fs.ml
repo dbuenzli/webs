@@ -9,8 +9,8 @@ let ( let* ) = Result.bind
 let strf = Printf.sprintf
 let uerror e = Unix.error_message e
 let file_error_404 file e =
-  let explain = strf "%s: %s" file e in
-  Error (Http.Response.empty Http.Status.not_found_404 ~explain)
+  let log = strf "%s: %s" file e in
+  Error (Http.Response.empty Http.Status.not_found_404 ~log)
 
 let rec openfile fn mode perm = try Unix.openfile fn mode perm with
 | Unix.Unix_error (Unix.EINTR, _, _) -> openfile fn mode perm
@@ -42,8 +42,8 @@ type dir_response =
 
 let dir_404 ~etagger ~media_types _ fpath fd _ =
   close_noerr fd;
-  let explain = strf "%s is a directory" fpath in
-  Http.Response.not_found_404 ~explain ()
+  let log = strf "%s is a directory" fpath in
+  Http.Response.not_found_404 ~log ()
 
 (* File sending *)
 
@@ -82,9 +82,9 @@ let find_range request file etag ~file_size resp_headers =
       if send_full then Ok (range_full ~file_size resp_headers) else
       let rec loop = function
       | [] ->
-          let reason = Http.Range.encode r and explain = file in
+          let reason = Http.Range.encode r and log = file in
           let status = Http.Status.range_not_satisfiable_416 in
-          Error (Http.Response.empty status ~reason ~explain)
+          Error (Http.Response.empty status ~reason ~log)
       | r :: rs ->
           match Http.Range.eval_bytes ~length:file_size r with
           | None -> loop rs
@@ -103,8 +103,8 @@ let check_if_match_cond request file etag =
   in
   if test then Ok () else
   let etag = Http.Etag.encode etag in
-  let explain = strf "%s: etag: %s, if-match failed" file etag in
-  Error (Http.Response.empty Http.Status.precondition_failed_412 ~explain)
+  let log = strf "%s: etag: %s, if-match failed" file etag in
+  Error (Http.Response.empty Http.Status.precondition_failed_412 ~log)
 
 let test_if_none_match request file etag =
   let* cond =
@@ -117,14 +117,14 @@ let test_if_none_match request file etag =
 
 let close_and_not_modified_304 file fd headers =
   close_noerr fd;
-  Ok (Http.Response.empty ~headers Http.Status.not_modified_304 ~explain:file)
+  Ok (Http.Response.empty ~headers Http.Status.not_modified_304 ~log:file)
 
 let close_and_head_ok_200 ~file_size ~file_type file fd headers =
   let length = Http.Digits.encode file_size in
   let headers = Http.Headers.(def content_length) length headers in
   let headers = Http.Headers.(def content_type) file_type headers in
   close_noerr fd;
-  Ok (Http.Response.empty ~explain:file ~headers Http.Status.ok_200)
+  Ok (Http.Response.empty ~log:file ~headers Http.Status.ok_200)
 
 let get_ok_200 ~file_type ~first ~last ~headers status file fd =
   let body =
@@ -140,7 +140,7 @@ let get_ok_200 ~file_type ~first ~last ~headers status file fd =
     let content_length = length and content_type = file_type in
     Http.Body.of_custom_content ~content_length ~content_type content
   in
-  Ok (Http.Response.make ~headers ~explain:file status body)
+  Ok (Http.Response.make ~headers ~log:file status body)
 
 let file_response ~etagger ~media_types request method' file fd stat =
   close_on_error fd @@

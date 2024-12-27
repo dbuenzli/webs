@@ -1472,23 +1472,23 @@ module Http : sig
     (** The type for HTTP responses. *)
 
     val make :
-      ?explain:string -> ?headers:Headers.t -> ?reason:string ->
+      ?headers:Headers.t -> ?log:string -> ?reason:string ->
       ?version:Version.t -> Status.t -> Body.t -> t
     (** [make status body] is a response with given [status] and [body] and:
         {ul
-        {- [explain], see {!explain}. Defaults to [""].}
         {- [headers], the response headers. Defaults to {!Http.Headers.empty}.
            Note that in general it is better to let bodies define the
            content type and content length headers. See the
            {{!page-connector_conventions.service_responses}service
            response conventions}.}
+        {- [log], see {!log}. Defaults to [""].}
         {- [reason], the status reason phrase.
            Defaults to {!Http.Status.reason_phrase}[ status].}
         {- [version], the HTTP version, see {!version}. Defaults to
            {!Version.v11}.}} *)
 
     val empty :
-      ?explain:string -> ?headers:Headers.t -> ?reason:string -> Status.t -> t
+      ?headers:Headers.t -> ?log:string -> ?reason:string -> Status.t -> t
     (** [empty status] is {!make}[ status Body.empty]. *)
 
     val is_empty : t -> bool
@@ -1497,8 +1497,8 @@ module Http : sig
     val with_body : Body.t -> t -> t
     (** [with_body b response] is [response] with body [b]. *)
 
-    val with_explain : string -> t -> t
-    (** [with_explain response] is [response] with explanation [explain]. *)
+    val with_log : string -> t -> t
+    (** [with_log response] is [response] with log [log]. *)
 
     val with_headers : Headers.t -> t -> t
     (** [with_headers hs response] is [response] with headers [hs]. *)
@@ -1507,11 +1507,11 @@ module Http : sig
     (** [override_headers ~by response] is [response] with headers
         {!Headers.override}[ (headers response) ~by]. *)
 
-    val with_status : ?explain:string -> ?reason:string -> Status.t -> t -> t
+    val with_status : ?log:string -> ?reason:string -> Status.t -> t -> t
     (** [with_status status response] is [response] with status [status], reason
         phrase [reason] (defaults to {!Http.Status.reason_phrase}[
         status], use [reason response] to keep the previous reason) and
-        explanation [explain] (defaults to [explain response]). *)
+        log [log] (defaults to [log response]). *)
 
     val pp : Format.formatter -> t -> unit
     (** [pp] formats responses for inspection. Guarantees not consume
@@ -1528,11 +1528,12 @@ module Http : sig
     val body : t -> Body.t
     (** [body response] is the body of [response]. *)
 
-    val explain : t -> string
-    (** [explain response] is the explanation of [response]. The
-        explanation is a server-side reason {b not meant to be sent
-        to the client}. It can be used to log further details about the
-        answer that one may not want to disclose to the client.  *)
+    val log : t -> string
+    (** [log response] is the log of [response]. The log is a
+        server-side {!reason} {b not meant to be sent to the
+        client}. It can be used to log further details or explanations
+        about the answer that one may not want to disclose to the
+        client.  *)
 
     val headers : t -> Headers.t
     (** [headers response] are the headers of [response]. *)
@@ -1562,25 +1563,25 @@ module Http : sig
     (** {2:simple Simple content} *)
 
     val content :
-      ?explain:string -> ?reason:string -> ?headers:Headers.t ->
-      ?content_type:Media_type.t -> Status.t -> string -> t
+      ?content_type:Media_type.t ->  ?headers:Headers.t -> ?log:string ->
+      ?reason:string -> Status.t -> string -> t
     (** [content status s] is
         {!make}[ status (]{!Body.of_string}[ ?content_type s)]. *)
 
     val text :
-      ?explain:string -> ?reason:string -> ?headers:Headers.t -> Status.t ->
+      ?headers:Headers.t -> ?log:string -> ?reason:string -> Status.t ->
       string -> t
     (** [text] responds with UTF-8 encoded plain text:
         {!content} with {!Media_type.text_plain}. *)
 
     val html :
-      ?explain:string -> ?reason:string -> ?headers:Headers.t -> Status.t ->
+      ?headers:Headers.t -> ?log:string -> ?reason:string -> Status.t ->
       string -> t
     (** [html] responds with UTF-8 encoded HTML text:
         {!content} with {!Media_type.text_html}.  *)
 
     val json :
-      ?explain:string -> ?reason:string -> ?headers:Headers.t -> Status.t ->
+      ?headers:Headers.t -> ?log:string -> ?reason:string -> Status.t ->
       string -> t
     (** [json] responds with JSON text: {!content} with
         {!Media_type.application_json}. *)
@@ -1588,8 +1589,8 @@ module Http : sig
     (** {2:redirections Redirections} *)
 
     val redirect :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
-      ?reason:string -> Status.t -> string -> t
+      ?body:Body.t -> ?headers:Headers.t ->
+      ?log:string -> ?reason:string -> Status.t -> string -> t
     (** [redirect status loc] is a response with status [status]
         and {!Http.Headers.location} set to [loc] on headers.
         [body] defaults to {!Body.empty}.
@@ -1602,31 +1603,31 @@ module Http : sig
     (** {2:client_errors Client errors} *)
 
     val bad_request_400 :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> unit -> ('a, t) result
     (** [bad_request_400 ()] is [Error r] with [r] a response with status
         {!Status.bad_request_400}. [body] defaults to {!Body.empty}. *)
 
     val unauthorized_401 :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> unit -> ('a, t) result
     (** [unauthorized_401 ()] is [Error r] with [r] a response with status
         {!Status.unauthorized_401}. [body] defaults to {!Body.empty}. *)
 
     val forbidden_403 :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> unit -> ('a, t) result
     (** [forbidden_403 ()] is [Error r] with [r] a response with status
         {!Status.forbidden_403}. [body] defaults to {!Body.empty}. *)
 
     val not_found_404 :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> unit -> ('a, t) result
     (** [not_found_404 ()] is [Error r] with [r] a response with status
         {!Status.not_found_404}. [body] defaults to {!Body.empty}. *)
 
     val method_not_allowed_405 :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> allowed:Method.t list -> unit -> ('a, t) result
     (** [method_not_allowed_450 ~allowed ()] is [Error r] with [r] a
         response with status {!Status.method_not_allowed_405} and
@@ -1635,7 +1636,7 @@ module Http : sig
         {!Body.empty}. *)
 
     val gone_410 :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> unit -> ('a, t) result
     (** [gone_410 ()] is [Error r] with [r] a response with
         status {!Status.gone_410}. [body] defaults to {!Body.empty}. *)
@@ -1643,20 +1644,20 @@ module Http : sig
     (** {2:server_errors Server errors} *)
 
     val server_error_500 :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> unit -> ('a, t) result
     (** [server_error_500 ()] is [Error r] with [r] a response with status
         {!Status.server_error_500}. [body] defaults to {!Body.empty}. *)
 
     val not_implemented_501 :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> unit -> ('a, t) result
     (** [not_implemented_501 ()] is [Error r] with [r] a response with
         status {!Status.not_implemented_501}. [body] defaults to
         {!Body.empty}. *)
 
     val service_unavailable_503 :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> unit -> ('a, t) result
     (** [service_unavailable_503 ()] is [Error r] with [r] a response with
         status {!Status.service_unavailable_503}. [body] defaults to
@@ -1855,7 +1856,7 @@ module Http : sig
     (** {2:redirect Redirection} *)
 
     val redirect_to_path :
-      ?body:Body.t -> ?explain:string -> ?headers:Headers.t ->
+      ?body:Body.t -> ?log:string -> ?headers:Headers.t ->
       ?reason:string -> t -> Status.t -> Path.t -> Response.t
     (** [redirect_to_path request status path] redirects to [path] in
         the service of [request]. This is {!Response.redirect}[ status

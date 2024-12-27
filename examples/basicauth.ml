@@ -66,7 +66,7 @@ let read_users ~file () =
     (* In practice should read users and password info from [file]. *)
     Ok [ "ping", make_password "pong";
          "pang", make_password "poum" ]
-  with Sys_error e -> Http.Response.server_error_500 ~explain:e ()
+  with Sys_error e -> Http.Response.server_error_500 ~log:e ()
 
 (* Service *)
 
