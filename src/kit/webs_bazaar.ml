@@ -658,7 +658,7 @@ module Websocket = struct
   (* Handshake *)
 
   let accept_uuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-  let accept_key key = Http.Base64.encode (sha_1 (key ^ accept_uuid))
+  let accept_key key = Http.Base64.encode `Padded (sha_1 (key ^ accept_uuid))
 
   (* Upgrading *)
 

@@ -42,8 +42,11 @@ APIs.
 
 {1:webs Library [webs]}
 
+{!modules: Webs}
 {!modules:
-Webs
+Webs.Http
+Webs.Http_client
+Webs.Media_type
 Webs_url}
 
 {1:webs_kit Library [webs.kit]}

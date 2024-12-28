@@ -17,7 +17,7 @@ module Private_key = struct
     `Hs256 (crypto_random 64)
 
   let to_ascii_string = function
-  | `Hs256 k -> "HS256:" ^ (Http.Base64.url_encode k)
+  | `Hs256 k -> "HS256:" ^ (Http.Base64.encode_base64url `Unpadded k)
 
   let of_ascii_string s = match String.index_opt s ':' with
   | None -> Error (strf "missing ':' separator")
@@ -26,7 +26,7 @@ module Private_key = struct
       let d = Http.Connector.Private.string_subrange ~first:(i + 1) s in
       match scheme with
       | "HS256" ->
-          let* k = Http.Base64.url_decode' d |> Http.Base64.error_string in
+          let* k = Http.Base64.decode_base64url `Unpadded d in
           Ok (`Hs256 k)
       | s -> Error (strf "unknown scheme: %S" scheme)
 end
@@ -45,7 +45,7 @@ let encode ~private_key:(`Hs256 key) ~expire data =
   let hmac = Webs_hash.Sha_256.hmac ~key msg in
   let hmac = Webs_hash.Sha_256.to_binary_string hmac in
   let hmac = String.concat ":" [hs256; hmac] in
-  Http.Base64.url_encode (hmac ^ msg)
+  Http.Base64.encode_base64url `Padded (hmac ^ msg)
 
 (* Decode *)
 
@@ -57,7 +57,7 @@ let format_error_message = function
 | `Scheme None -> "scheme decode error"
 | `Scheme (Some ("HS256" as s)) -> strf "scheme %s decode error" s
 | `Scheme (Some s) -> strf "unknown scheme %S" s
-| `Base64url e -> Http.Base64.error_message e
+| `Base64url e -> Http.Base64.error_message `Base64url e
 
 type error =
 [ `Authentication
@@ -73,7 +73,7 @@ let error_message = function
 
 let error_string r = Result.map_error error_message r
 
-let decode_hmac s = match Http.Base64.url_decode' s with
+let decode_hmac s = match Http.Base64.decode_base64url' `Unpadded s with
 | Error e -> Error (`Base64url e)
 | Ok s ->
     if String.length s < 6 then Error (`Scheme None) else

@@ -56,6 +56,7 @@ let test
   B0_ocaml.exe name ~srcs ~requires ~meta ?doc
 
 let test_http = test ~/"test/test_http.ml" ~run:true
+let test_base64 = test ~/"test/test_base64.ml" ~run:true
 let test_url = test ~/"test/test_url.ml" ~run:true
 let test_sha_256 =
   test ~/"test/test_sha_256.ml" ~run:true ~long:true ~requires:[webs_kit]

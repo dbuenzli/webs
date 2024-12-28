@@ -1,5 +1,5 @@
-Webs — HTTP toolkit for OCaml
-=============================
+Webs — HTTP client and server toolkit for OCaml
+===============================================
 
 Webs is a toolkit for programming with HTTP in OCaml. It provides:
 

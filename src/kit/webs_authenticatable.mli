@@ -61,9 +61,11 @@ type t = string
 exp = match expire with None -> "" | Some e -> string_of_int e
 msg = exp ^ ":" ^ data
 hs256 = "HS256:" ^ (hmac_sha_256 private_key msg)
-auth = base64url (hs256 ^ msg)
+auth = base64url_unpadded (hs256 ^ msg)
 ]}
-*)
+    with [base64url_unpadded] being
+    {{:https://www.rfc-editor.org/rfc/rfc4648#section-5}[base64url]}
+    without padding. *)
 
 (** {1:enc Encode} *)
 
