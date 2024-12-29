@@ -4,10 +4,9 @@
   ---------------------------------------------------------------------------*)
 
 open B0_testing
-open Webs
 
 let eq_error enc =
-  let pp ppf e = Format.pp_print_string ppf (Http.Base64.error_message enc e) in
+  let pp ppf e = Format.pp_print_string ppf (Webs_base64.error_message enc e) in
   Test.Eq.make ~equal:( = ) ~pp ()
 
 let test_spec enc_spec decode encode =
@@ -30,8 +29,8 @@ let test_spec enc_spec decode encode =
 let test_common ?__POS_:pos spec =
   Test.block ?__POS__:pos @@ fun () ->
   spec "" ~__POS__
-    ~p:((Ok "") : (string, Http.Base64.error) result)
-    ~u:((Ok "") : (string, Http.Base64.error) result);
+    ~p:((Ok "") : (string, Webs_base64.error) result)
+    ~u:((Ok "") : (string, Webs_base64.error) result);
   spec "MA" ~__POS__
     ~p:(Error (Invalid_length 2))
     ~u:(Ok "0");
@@ -99,8 +98,8 @@ let test_common ?__POS_:pos spec =
   ()
 
 let test_base64 () =
-  Test.test "Webs.Http.Base64.{decode,encode}" @@ fun () ->
-  let spec = test_spec `Base64 Http.Base64.decode' Http.Base64.encode in
+  Test.test "Webs_base64.{decode,encode}" @@ fun () ->
+  let spec = test_spec `Base64 Webs_base64.decode' Webs_base64.encode in
   test_common spec;
   spec "8J+Qq/CfkKs=" ~__POS__
     ~p:(Ok "🐫🐫")
@@ -111,10 +110,10 @@ let test_base64 () =
   ()
 
 let test_base64url () =
-  Test.test "Webs.Http.Base64.{decode,encode}_base64url" @@ fun () ->
+  Test.test "Webs_base64.{decode,encode}_base64url" @@ fun () ->
   let spec =
     test_spec
-      `Base64url Http.Base64.decode_base64url' Http.Base64.encode_base64url
+      `Base64url Webs_base64.decode_base64url' Webs_base64.encode_base64url
   in
   test_common spec;
   spec "8J-Qq_CfkKs=" ~__POS__

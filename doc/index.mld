@@ -54,6 +54,7 @@ Webs_url}
 {!modules:
 Webs_authenticatable
 Webs_authenticated_cookie
+Webs_base64
 Webs_basic_auth
 Webs_bazaar
 Webs_cryptorand

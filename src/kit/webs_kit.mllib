@@ -7,3 +7,4 @@ Webs_authenticated_cookie
 Webs_session
 Webs_basic_auth
 Webs_bazaar
+Webs_base64

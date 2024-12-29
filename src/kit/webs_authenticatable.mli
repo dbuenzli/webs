@@ -77,7 +77,7 @@ val encode : private_key:Private_key.t -> expire:time option -> string -> t
 (** {1:dec Decode} *)
 
 type format_error =
-[ `Base64url of Webs.Http.Base64.error (** [base64url] decode error. *)
+[ `Base64url of Webs_base64.error (** [base64url] decode error. *)
 | `Scheme of string option (** Scheme name, if one was found. *) ]
 (** The type for decode format errors. *)
 

@@ -8,17 +8,17 @@ open Webs
 
 let alter_data s =
   let d =
-    Bytes.of_string (Http.Base64.decode_base64url `Unpadded s |> Result.get_ok)
+    Bytes.of_string (Webs_base64.decode_base64url `Unpadded s |> Result.get_ok)
   in
   Bytes.set d (Bytes.length d - 1) '!';
-  Http.Base64.encode_base64url `Unpadded (Bytes.unsafe_to_string d)
+  Webs_base64.encode_base64url `Unpadded (Bytes.unsafe_to_string d)
 
 let alter_expires s =
   let d =
-    Bytes.of_string (Http.Base64.decode_base64url `Unpadded s |> Result.get_ok)
+    Bytes.of_string (Webs_base64.decode_base64url `Unpadded s |> Result.get_ok)
   in
   Bytes.set d 32 '9';
-  Http.Base64.encode_base64url `Unpadded (Bytes.unsafe_to_string d)
+  Webs_base64.encode_base64url `Unpadded (Bytes.unsafe_to_string d)
 
 let test_authenticatable () =
   Test.test "Webs_authenticatable." @@ fun () ->
