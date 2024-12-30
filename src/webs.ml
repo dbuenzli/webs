@@ -3,6 +3,8 @@
    SPDX-License-Identifier: ISC
   ---------------------------------------------------------------------------*)
 
+module Url = Webs__url
+
 (* Preliminaries *)
 
 let error_to_failure = function Ok v -> v | Error e -> failwith e
@@ -515,7 +517,7 @@ module Path = struct
 
   let decode_segment b ~first ~last s =
     Buffer.clear b;
-    Webs_url.Percent.decode_to_buffer b ~first ~last s; Buffer.contents b
+    Url.Percent.decode_to_buffer b ~first ~last s; Buffer.contents b
 
   (* The following decode allows percents not necessarily followed
      by two hex-digits, RFC 3986 wouldn't allow that, in the whatwg
@@ -535,7 +537,7 @@ module Path = struct
             let i = i + 1 in
             loop (seg :: acc) b s ~first:i i
         | c when c = '%' ||
-                 Webs_url.Percent.is_char_verbatim_in_uri_component c ->
+                 Url.Percent.is_char_verbatim_in_uri_component c ->
             loop acc b s ~first (i + 1)
         | c -> Error (err_path_char c)
     in
@@ -544,8 +546,8 @@ module Path = struct
   let buffer_encode_path b segs =
     let add_seg seg =
       Buffer.add_char b '/';
-      Webs_url.Percent.encode_to_buffer
-        Webs_url.Percent.is_char_verbatim_in_uri_component b seg
+      Url.Percent.encode_to_buffer
+        Url.Percent.is_char_verbatim_in_uri_component b seg
     in
     List.iter add_seg segs
 
@@ -637,12 +639,12 @@ module Query = struct
     | '+' -> Buffer.add_char b ' '; incr i;
     | '%' when !i + 2 <= last ->
         let hi = s.[!i + 1] and lo = s.[!i + 2] in
-        begin match Webs_url.Percent.is_hexdig hi &&
-                    Webs_url.Percent.is_hexdig lo with
+        begin match Url.Percent.is_hexdig hi &&
+                    Url.Percent.is_hexdig lo with
         | false -> Buffer.add_char b '%'; incr i
         | true ->
-            let c = (Webs_url.Percent.hexdig_to_int hi lsl 4) lor
-                    (Webs_url.Percent.hexdig_to_int lo) in
+            let c = (Url.Percent.hexdig_to_int hi lsl 4) lor
+                    (Url.Percent.hexdig_to_int lo) in
             Buffer.add_char b (Char.unsafe_chr c);
             i := !i + 3
         end
@@ -668,8 +670,8 @@ module Query = struct
         let hi = (Char.code c lsr 4) land 0xF in
         let lo = (Char.code c) land 0xF in
         Bytes.set b !out '%'; incr out;
-        Bytes.set b !out (Webs_url.Percent.unsafe_hexdig_of_int hi); incr out;
-        Bytes.set b !out (Webs_url.Percent.unsafe_hexdig_of_int lo); incr out;
+        Bytes.set b !out (Url.Percent.unsafe_hexdig_of_int hi); incr out;
+        Bytes.set b !out (Url.Percent.unsafe_hexdig_of_int lo); incr out;
     done;
     Bytes.unsafe_to_string b
 
@@ -1908,7 +1910,7 @@ module Http_client = struct
 
   let find_location request response =
     let* loc = Http.Headers.(find' location) (Http.Response.headers response) in
-    match Webs_url.kind loc with
+    match Url.kind loc with
     | `Abs -> Ok loc
     | `Rel rel -> find_rel_location ~loc rel request response
 

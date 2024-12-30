@@ -5,17 +5,17 @@
 
 open B0_testing
 
-let eq_kind = Test.Eq.make ~pp:Webs_url.pp_kind ()
+let eq_kind = Test.Eq.make ~pp:Webs.Url.pp_kind ()
 
 let test_components () =
-  Test.test "Webs_url.{kind,scheme,authority,path,query,fragment}" @@ fun () ->
+  Test.test "Webs.Url.{kind,scheme,authority,path,query,fragment}" @@ fun () ->
   let test url k s a p q f ~__POS__  =
-    let k' = Webs_url.kind url in
-    let s' = Webs_url.scheme url in
-    let a' = Webs_url.authority url in
-    let p' = Webs_url.path url in
-    let q' = Webs_url.query url in
-    let f' = Webs_url.fragment url in
+    let k' = Webs.Url.kind url in
+    let s' = Webs.Url.scheme url in
+    let a' = Webs.Url.authority url in
+    let p' = Webs.Url.path url in
+    let q' = Webs.Url.query url in
+    let f' = Webs.Url.fragment url in
     Test.eq ~__POS__ eq_kind k' k;
     Test.option ~__POS__ ~some:Test.Eq.string s' s;
     Test.option ~__POS__ ~some:Test.Eq.string a' a;
@@ -52,9 +52,9 @@ let test_components () =
   ()
 
 let test_absolute () =
-  Test.test "Webs_url.append" @@ fun () ->
+  Test.test "Webs.Url.append" @@ fun () ->
   let test root rel res ~__POS__ =
-    Test.string (Webs_url.append root rel) res ~__POS__
+    Test.string (Webs.Url.append root rel) res ~__POS__
   in
   (* `Abs *)
   test "https://example.org" "https://ocaml.org" "https://ocaml.org" ~__POS__;
@@ -78,10 +78,10 @@ let test_absolute () =
   ()
 
 let test_update () =
-  Test.test "Webs_url.update" @@ fun () ->
+  Test.test "Webs.Url.update" @@ fun () ->
   let upd ?s ?a ?p ?q ?f u u' ~__POS__ =
     let u'' =
-      Webs_url.update ?scheme:s ?authority:a ?path:p ?query:q ?fragment:f u
+      Webs.Url.update ?scheme:s ?authority:a ?path:p ?query:q ?fragment:f u
     in
     Test.string u' u'' ~__POS__
   in

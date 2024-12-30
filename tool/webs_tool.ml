@@ -124,7 +124,7 @@ let scrape_urls
     ~keep_rel ~url
   =
   log_if_error ~use:Cmdliner.Cmd.Exit.some_error @@
-  let* data = match Webs_url.scheme url with
+  let* data = match Url.scheme url with
   | None -> read_file url
   | Some _ ->
       let* response =
@@ -139,7 +139,7 @@ let scrape_urls
     if keep_rel then None else
     match rel_root with None -> Some url | Some _ as root -> root
   in
-  let urls = Webs_url.list_of_text_scrape ?root data in
+  let urls = Url.list_of_text_scrape ?root data in
   (if urls = [] then () else List.iter print_endline urls);
   Ok 0
 

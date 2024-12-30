@@ -7,6 +7,9 @@
 
     Open the module to use it. It defines only these modules in your scope. *)
 
+
+module Url = Webs__url
+
 (** Media type constants and file extensions. *)
 module Media_type : sig
 
@@ -99,7 +102,7 @@ module Media_type : sig
       The map is documented by its implementation (sorry). *)
 end
 
-(** HTTP {{!Http.Request}requests} and {{!Http.Response}responses}.
+(** HTTP datatypes.
 
     Along with a few codecs and protocol logic fragments.
 
@@ -1646,7 +1649,7 @@ module Http : sig
 
     val of_url :
       ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
-      ?version:Version.t -> Method.t -> url:Webs_url.t -> (t, string) result
+      ?version:Version.t -> Method.t -> url:Url.t -> (t, string) result
     (** [of_url method' ~url body] is a scheme and [method'] request
         on [url] ensuring that the request satsifies the
         {{!page-connector_conventions.client_requests}client request
@@ -1660,12 +1663,12 @@ module Http : sig
         [https] or if a decoding error occurs. Both {!path} and
         {!query} are derived with a {!service_path} of {!Path.root}. *)
 
-    val to_url : t -> (Webs_url.t, string) result
+    val to_url : t -> (Url.t, string) result
     (** [to_url request] is an URL for [r] of the given
         scheme. This can be seen as the inverse of {!of_url}. This errors
         if no {!Headers.host} header can be found in the request header. *)
 
-    val to_url' : t -> Webs_url.t
+    val to_url' : t -> Url.t
     (** [to_url'] is like {!to_url} but raises [Invalid_argument] if
         there is no {!Headers.host} header. *)
 
@@ -2042,7 +2045,7 @@ module Http_client : sig
       response in the {!x_follow_location} header.
   *)
 
-  val get : t -> follow:bool -> url:Webs_url.t -> (string, string) result
+  val get : t -> follow:bool -> url:Url.t -> (string, string) result
   (** [get c ~follow ~url] is the body of a [GET] request on [url].
       For the semantics of [follow] see {!request}.
 

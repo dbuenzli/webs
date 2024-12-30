@@ -10,7 +10,7 @@
     and classifies them.
 
     {b Warning.} None of the functions here perform percent encoding or
-    decoding. Use {!Pct} when deemed appropriate.  *)
+    decoding. Use {!Percent} when deemed appropriate.  *)
 
 (** {1:urls URLs} *)
 
