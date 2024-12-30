@@ -45,7 +45,7 @@ let encode ~private_key:(`Hs256 key) ~expire data =
   let hmac = Webs_hash.Sha_256.hmac ~key msg in
   let hmac = Webs_hash.Sha_256.to_binary_string hmac in
   let hmac = String.concat ":" [hs256; hmac] in
-  Webs_base64.encode_base64url `Padded (hmac ^ msg)
+  Webs_base64.encode_base64url `Unpadded (hmac ^ msg)
 
 (* Decode *)
 
