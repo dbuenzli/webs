@@ -5,17 +5,7 @@
 
 open B0_testing
 
-module Kind = struct
-  type t = Webs_url.kind
-  let equal k0 k1 = k0 = k1
-  let pp = Webs_url.pp_kind
-end
-
-module String' = struct
-  type t = string
-  let equal = String.equal
-  let pp ppf s = Format.fprintf ppf "%S" s
-end
+let eq_kind = Test.Eq.make ~pp:Webs_url.pp_kind ()
 
 let test_components () =
   Test.test "Webs_url.{kind,scheme,authority,path,query,fragment}" @@ fun () ->
@@ -26,12 +16,12 @@ let test_components () =
     let p' = Webs_url.path url in
     let q' = Webs_url.query url in
     let f' = Webs_url.fragment url in
-    Test.eq ~__POS__ (module Kind) k' k;
-    Test.option ~__POS__ ~some:(module String') s' s;
-    Test.option ~__POS__ ~some:(module String') a' a;
-    Test.option ~__POS__ ~some:(module String') p' p;
-    Test.option ~__POS__ ~some:(module String') q' q;
-    Test.option ~__POS__ ~some:(module String') f' f;
+    Test.eq ~__POS__ eq_kind k' k;
+    Test.option ~__POS__ ~some:Test.Eq.string s' s;
+    Test.option ~__POS__ ~some:Test.Eq.string a' a;
+    Test.option ~__POS__ ~some:Test.Eq.string p' p;
+    Test.option ~__POS__ ~some:Test.Eq.string q' q;
+    Test.option ~__POS__ ~some:Test.Eq.string f' f;
   in
   test "http://example.org:80/hey-hopla/bli" `Abs
     (Some "http") (Some "example.org:80") (Some "/hey-hopla/bli") None None
@@ -62,9 +52,9 @@ let test_components () =
   ()
 
 let test_absolute () =
-  Test.test "Webs_url.absolute" @@ fun () ->
+  Test.test "Webs_url.append" @@ fun () ->
   let test root rel res ~__POS__ =
-    Test.eq (module String') (Webs_url.absolute ~root rel) res ~__POS__
+    Test.string (Webs_url.append root rel) res ~__POS__
   in
   (* `Abs *)
   test "https://example.org" "https://ocaml.org" "https://ocaml.org" ~__POS__;
@@ -93,7 +83,7 @@ let test_update () =
     let u'' =
       Webs_url.update ?scheme:s ?authority:a ?path:p ?query:q ?fragment:f u
     in
-    Test.eq (module String') u' u'' ~__POS__
+    Test.string u' u'' ~__POS__
   in
   upd ~s:None "https://example.org/hey?bla" "//example.org/hey?bla"
     ~__POS__;

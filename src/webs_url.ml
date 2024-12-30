@@ -17,10 +17,7 @@ let white = function ' ' | '\t' .. '\r'  -> true | _ -> false
 let alpha = function 'A' .. 'Z' | 'a' .. 'z' -> true | _ -> false
 let digit = function '0' .. '9' -> true | _ -> false
 
-(* URL munging *)
-
-type relative_kind = [ `Scheme | `Abs_path | `Rel_path | `Empty ]
-type kind = [ `Abs | `Rel of relative_kind ]
+(* Urls *)
 
 type scheme = string
 type authority = string
@@ -49,17 +46,6 @@ let find_authority_last ~start u =
   while (!i <= max && u.[!i] <> '/' && u.[!i] <> '?' && u.[!i] <> '#')
   do incr i done;
   Some (!i - 1)
-
-let relative_kind s =
-  let len = String.length s in
-  if len = 0 then `Empty else
-  if s.[0] = '/'
-  then (if len > 1 && s.[1] = '/' then `Scheme else `Abs_path)
-  else `Rel_path
-
-let kind s = match find_scheme_colon s with
-| Some _ -> `Abs
-| None -> `Rel (relative_kind s)
 
 let scheme u = match find_scheme_colon u with
 | None -> None | Some i -> Some (String.sub u 0 i)
@@ -112,6 +98,24 @@ let fragment u =
   while (!i <= max && u.[!i] <> '#') do incr i done;
   if !i > max then None else Some (string_subrange ~first:(!i + 1) u)
 
+(* Kinds *)
+
+type relative_kind = [ `Scheme | `Abs_path | `Rel_path | `Empty ]
+type kind = [ `Abs | `Rel of relative_kind ]
+
+let relative_kind s =
+  let len = String.length s in
+  if len = 0 then `Empty else
+  if s.[0] = '/'
+  then (if len > 1 && s.[1] = '/' then `Scheme else `Abs_path)
+  else `Rel_path
+
+let kind s = match find_scheme_colon s with
+| Some _ -> `Abs
+| None -> `Rel (relative_kind s)
+
+(* Operations *)
+
 let update ?scheme:s ?authority:a ?path:p ?query:q ?fragment:f u =
   let add_scheme s u = match s with None -> u | Some s -> s :: ":" :: u in
   let add_authority a u = match a with None -> u | Some a -> "//" :: a :: u in
@@ -132,7 +136,7 @@ let path_and_rest u = match path_first u with
 let drop_path_and_rest u = match path_first u with
 | None -> u | Some first -> string_subrange ~last:(first - 1) u
 
-let absolute ~root u = match kind u with
+let append root u = match kind u with
 | `Abs -> u
 | `Rel `Scheme ->
     begin match scheme root with
@@ -152,6 +156,8 @@ let absolute ~root u = match kind u with
     end
 | `Rel `Empty -> root
 
+(* Scraping *)
+
 let list_of_text_scrape ?root s = (* See .mli to understand what it does *)
   let rec find_stop s i max stop =
     if i > max then i else
@@ -169,7 +175,7 @@ let list_of_text_scrape ?root s = (* See .mli to understand what it does *)
   in
   let rec find_next acc s i max =
     let add_url url acc = match root with
-    | None -> url :: acc | Some root -> (absolute ~root url) :: acc
+    | None -> url :: acc | Some root -> (append root url) :: acc
     in
     if i > max then List.rev acc else
     match s.[i] with
