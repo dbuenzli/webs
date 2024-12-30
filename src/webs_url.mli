@@ -10,7 +10,7 @@
     and classifies them.
 
     {b Warning.} None of the functions here perform percent encoding or
-    decoding. *)
+    decoding. Use {!Pct} when deemed appropriate.  *)
 
 (** {1:urls URLs} *)
 
@@ -115,3 +115,51 @@ val pp : Format.formatter -> t -> unit
 
 val pp_kind : Format.formatter -> kind -> unit
 (** [pp_kind] formats an unspecified representation of kinds. *)
+
+(** {1:pct Percent encoding} *)
+
+
+(** Percent-encoding codecs according to
+    {{:https://www.rfc-editor.org/rfc/rfc3986#section-2.1}RFC 3986}.
+
+    {b Note.} This should not be used for URL query strings and
+    {{:https://url.spec.whatwg.org/#application/x-www-form-urlencoded}
+    [application/x-www-form-urlencoded]} which is slightly different (welcome
+    to the Web).
+    The {!Webs.Http.Query} module handles that. *)
+module Percent : sig
+  type kind = [
+    | `Uri_component
+      (**  Percent-encodes anything but
+           {{:https://www.rfc-editor.org/rfc/rfc3986#section-2.3}
+           [unreserved]} and
+           {{:https://www.rfc-editor.org/rfc/rfc3986#section-2.2}
+           sub-delims} URI characters. In other words only
+           ['a'..'z'], ['A'..'Z'], ['0'..'9'], ['-'], ['.'], ['_'], ['~']
+           and ['!'], ['$'], ['&'], ['\''], ['('], [')']
+           ['*'], ['+'], [','], [';'], ['='] are not percent-encoded. *)
+      | `Uri
+      (** Percent-encodes like [`Uri_component] except it also
+           preserves
+           {{:https://www.rfc-editor.org/rfc/rfc3986#section-2.2}
+           gen-delims} URI characters. In other words in addition to those
+           characters above, [':'], ['/'], ['?'], ['#'], ['\['], ['\]'], ['@']
+           are not percent-encoded. *)
+      ]
+  (** The kind of percent encoding. *)
+
+  val encode : kind -> string -> string
+  (** [encode kind s] is the percent encoding of [s] according to [kind]. *)
+
+  val decode : string -> string
+  (** [decode s] is the percent decoding of [s]. *)
+
+  (**/**)
+  val is_char_verbatim_in_uri_component : char -> bool
+  val is_char_verbatim_in_uri : char -> bool
+  val is_hexdig : char -> bool
+  val hexdig_to_int : char -> int
+  val unsafe_hexdig_of_int : int -> char
+  val encode_to_buffer : (char -> bool) -> Buffer.t -> string -> unit
+  val decode_to_buffer : Buffer.t -> string -> first:int -> last:int -> unit
+end

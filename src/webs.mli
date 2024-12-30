@@ -114,45 +114,6 @@ module Http : sig
 
   (** {1:codecs Base codecs and types} *)
 
-  (** Percent-encoding codec.
-
-      Percent-encoding codecs according to
-      {{:https://www.rfc-editor.org/rfc/rfc3986#section-2.1}RFC 3986}.
-
-      {b Note.} This should not be used for URI query strings and
-      [application/x-www-form-urlencoded] which is slightly different.
-      The {!Query} module handles that. *)
-  module Pct : sig
-
-    type kind = [
-      | `Uri_component
-      (**  Percent-encodes anything but
-           {{:https://www.rfc-editor.org/rfc/rfc3986#section-2.3}
-           [unreserved]} and
-           {{:https://www.rfc-editor.org/rfc/rfc3986#section-2.2}
-           sub-delims} URI characters. In other words only
-           ['a'..'z'], ['A'..'Z'], ['0'..'9'], ['-'], ['.'], ['_'], ['~']
-           and ['!'], ['$'], ['&'], ['\''], ['('], [')']
-           ['*'], ['+'], [','], [';'], ['='] are not percent-encoded. *)
-      | `Uri
-      (** Percent-encodes like [`Uri_component] except it also
-           preserves
-           {{:https://www.rfc-editor.org/rfc/rfc3986#section-2.2}
-           gen-delims} URI characters. In other words in addition to those
-           characters above, [':'], ['/'], ['?'], ['#'], ['\['], ['\]'], ['@']
-           are not percent-encoded. *)
-      ]
-    (** The kind of percent encoding. *)
-
-
-    val encode : kind -> string -> string
-    (** [encode kind s] is the percent encoding of [s] according to
-        [kind]. *)
-
-    val decode : string -> string
-    (** [decode s] is the percent decoding of [s]. *)
-  end
-
   (** Decimal digits codec.
 
       These represent non-negative integers. The module
@@ -291,7 +252,7 @@ module Http : sig
     (** {1:paths Absolute paths} *)
 
     type t = string list
-    (** The type for {e absolute} URI paths represented as {e non-empty}
+    (** The type for {e absolute} URL paths represented as {e non-empty}
         lists of {e percent-decoded} path segments:
         {ul
         {- The empty list denotes the absence of a path.}
@@ -431,7 +392,7 @@ module Http : sig
          percent-encode} any byte that is not
          {{:http://www.rfc-editor.org/rfc/rfc3986#section-2.3}[unreserved]},
          {{:http://www.rfc-editor.org/rfc/rfc3986#section-2.2}[sub-delims]},
-         [':'] or ['@'] to produce a valid URI
+         [':'] or ['@'] to produce a valid URL
          {{:http://www.rfc-editor.org/rfc/rfc3986#section-3.3}[segment].}}
         {- Prepends each segment with a ['/'].}
         {- Concatenate the result.}}
@@ -496,7 +457,7 @@ module Http : sig
   (** Queries.
 
       A datatype and codecs to handle the quirky queries found in
-      URIs and some media types. *)
+      URLs and some media types. *)
   module Query : sig
 
     (** {1:queries Queries} *)
@@ -563,18 +524,18 @@ module Http : sig
     (** [pp] formats queries for inspection. *)
   end
 
-  (** HTTP schemes. *)
+  (** HTTP URL schemes. *)
   module Scheme : sig
     type t =
       [ `Http
       (** {{:https://www.rfc-editor.org/rfc/rfc9110#name-http-uri-scheme}
-         http URI scheme}. *)
+         http URL scheme}. *)
       | `Https
       (** {{:https://www.rfc-editor.org/rfc/rfc9110#name-https-uri-scheme}
-          https URI schemes}. *) ]
+          https URL schemes}. *) ]
     (** The type for
         {{:https://www.rfc-editor.org/rfc/rfc9110#name-http-related-uri-schemes}
-        HTTP URI schemes}. *)
+        HTTP URL schemes}. *)
 
     val encode : t -> string
     (** [encode s] encoes [s] as a lowercase US-ASCII token. *)
