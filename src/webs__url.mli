@@ -90,6 +90,24 @@ val drop_path_and_rest : t -> string
 (** [drop_path_and_rest u] is [u] without the path and query. *)
 *)
 
+(** {1:authorities Authorities} *)
+
+(** Sloppy authority processing. *)
+module Authority : sig
+  type t = authority
+  (** See {!authority}. *)
+
+  val userinfo : authority -> string option
+  (** [userinfo a] is anything before the lefmost ['@'] (if any) *)
+
+  val host : authority -> string
+  (** [host a] is anything between the first ['@'] (if any) and the
+      [':'] separating the {!port}. *)
+
+  val port : authority -> int option
+  (** [port a] is the port made of suffix decimal digits before a [':']. *)
+end
+
 (** {1:scraping Scraping} *)
 
 val list_of_text_scrape : ?root:t -> string -> t list

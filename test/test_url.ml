@@ -51,7 +51,7 @@ let test_components () =
     ~__POS__;
   ()
 
-let test_absolute () =
+let test_append () =
   Test.test "Webs.Url.append" @@ fun () ->
   let test root rel res ~__POS__ =
     Test.string (Webs.Url.append root rel) res ~__POS__
@@ -100,10 +100,36 @@ let test_update () =
     ~__POS__;
   ()
 
+let test_authority () =
+  Test.test "Webs.Url.Authority.*" @@ fun () ->
+  let test authority u h p ~__POS__  =
+    let u' = Webs.Url.Authority.userinfo authority in
+    let h' = Webs.Url.Authority.host authority in
+    let p' = Webs.Url.Authority.port authority in
+    Test.option ~__POS__ ~some:Test.Eq.string u' u;
+    Test.string ~__POS__ h' h;
+    Test.option ~__POS__ ~some:Test.Eq.int p' p;
+  in
+  test "user:pass@example.org:3434"
+    (Some "user:pass") "example.org" (Some 3434) ~__POS__;
+  test "user:pass@:3434"
+    (Some "user:pass") "" (Some 3434) ~__POS__;
+  test "@:3434"
+    (Some "") "" (Some 3434) ~__POS__;
+  test "@:"
+    (Some "") "" None ~__POS__;
+  test "example.org:a"
+    None "example.org:a" None ~__POS__;
+  test ""
+    None "" None ~__POS__;
+  ()
+
+
 let main () =
   Test.main @@ fun () ->
   test_components ();
-  test_absolute ();
+  test_append ();
+  test_authority ();
   test_update ();
   ()
 
