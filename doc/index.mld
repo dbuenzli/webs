@@ -28,6 +28,8 @@ These manuals are available:
 {- The {{!page-http_service_howto}HTTP service howto} explains how to
    define, compile and run a service behind an HTTP gateway and let
    it serve files and webpages efficiently.}
+{- The {{!page-http_request_cookbook}HTTP request handling cookbook} has
+   a few conventions and recipes to handle HTTP requests.}
 {- The {{!page-connector_conventions}connector conventions} explain
    how service and client connectors construct and interpret request
    and response values. It's a good idea to read it to understand how
