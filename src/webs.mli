@@ -1557,6 +1557,11 @@ module Http : sig
 
     (** {2:server_errors Server errors} *)
 
+    val todo :
+      ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
+      ?reason:string -> unit -> ('a, t) result
+    (** [todo] is {!not_implemented_501}. *)
+
     val server_error_500 :
       ?body:Body.t -> ?headers:Headers.t -> ?log:string ->
       ?reason:string -> unit -> ('a, t) result

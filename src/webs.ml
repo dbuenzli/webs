@@ -1446,6 +1446,8 @@ module Response = struct
   let service_unavailable_503 ?body ?headers ?log ?reason () =
     Error (_make ?body ?headers ?log ?reason Status.service_unavailable_503)
 
+  let todo = not_implemented_501
+
   (* Error handling *)
 
   let result = function Ok v | Error v -> v

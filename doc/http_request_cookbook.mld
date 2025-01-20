@@ -129,3 +129,14 @@ proper {!Webs.Http.Headers.allow} header is returned in the [Error _] case.
 {1:cookies Dealing with cookies}
 
 {1:etags Dealing with etags}
+
+{1:stubbing Stubbing a service}
+
+You can always respond with {!Webs.Http.Response.not_implemented_501},
+but we find the stricly equivalent {!Webs.Http.Response.todo} easier to
+remember:
+
+{[
+let respond : Http.Request.t -> (Http.Response.t, Http.Response.t) result =
+    Http.Response.todo ~log:"We need to connect to heaven first!"
+]}
