@@ -8,7 +8,7 @@ open Webs
 
 let raises_invalid f = try f (); assert false with Invalid_argument _ -> ()
 
-let test_version () =
+let test_version =
   Test.test "Http.Version.{encode,decode}" @@ fun () ->
   assert (Http.Version.decode "HTTP/0.9" = Ok (0, 9));
   assert (Http.Version.decode "HTTP/1.0" = Ok (1, 0));
@@ -26,11 +26,9 @@ let test_version () =
   assert (Http.Version.encode (1, 0) = "HTTP/1.0");
   assert (Http.Version.encode (1, 1) = "HTTP/1.1");
   assert (Http.Version.encode (2, 2) = "HTTP/2.2");
-
-
   ()
 
-let test_method () =
+let test_method =
   Test.test "Http.Method.{encode,decode}" @@ fun () ->
   assert (Http.Method.decode "GET" = Ok `GET);
   assert (Http.Method.decode "HEAD" = Ok `HEAD);
@@ -59,13 +57,13 @@ let test_method () =
   raises_invalid (fun () -> Http.Method.encode (`Other "Get,Get"));
   ()
 
-let test_headers_case () =
+let test_headers_case =
   Test.test "Http.headers case" @@ fun () ->
   let hs = Http.Headers.empty |> Http.Headers.(def (name "ha") "ho") in
   assert (Http.Headers.(mem (Http.Headers.name "Ha") hs));
   ()
 
-let test_path_encode_decode () =
+let test_path_encode_decode =
   Test.test  "Http.Path.{encode,decode}" @@
   fun () ->
   assert (Http.Path.decode "/" = Ok [""]);
@@ -105,7 +103,7 @@ let test_path_encode_decode () =
   assert (Http.Path.encode [] = "");
   ()
 
-let test_path_strip_prefix () =
+let test_path_strip_prefix =
   Test.test "Http.Path.strip_prefix" @@ fun () ->
   assert (Http.Path.strip_prefix ~prefix:[""] [] = []);
   assert (Http.Path.strip_prefix ~prefix:[""] [""] = [""]);
@@ -143,7 +141,7 @@ let test_path_strip_prefix () =
   assert (Http.Path.strip_prefix ~prefix:["a"; ""] ["a"; "b"; "c"] = ["b";"c"]);
   ()
 
-let test_path_filepath_ext () =
+let test_path_filepath_ext =
   Test.test "Http.Path.filepath_ext" @@ fun () ->
   assert (Http.Path.filepath_ext "" = "");
   assert (Http.Path.filepath_ext "/" = "");
@@ -157,7 +155,7 @@ let test_path_filepath_ext () =
   assert (Http.Path.filepath_ext "/a.bla/a.ext" = ".ext");
   ()
 
-let test_path_concat () =
+let test_path_concat =
   Test.test "Http.Path.concat" @@ fun () ->
   assert (Http.Path.concat [] [] = []);
   assert (Http.Path.concat [""] [] = [""]);
@@ -175,7 +173,7 @@ let test_path_concat () =
   assert (Http.Path.concat ["a"; "b"; ""] [""; "c"] = ["a"; "b"; ""; "c"]);
   ()
 
-let test_path_undot_and_compress () =
+let test_path_undot_and_compress =
   Test.test "Http.Path.undot_and_compress" @@ fun () ->
   assert (Http.Path.undot_and_compress ["a"; "b"; "."] = ["a"; "b"; ""]);
   assert (Http.Path.undot_and_compress
@@ -183,7 +181,7 @@ let test_path_undot_and_compress () =
   assert (Http.Path.undot_and_compress [".."] = [""]);
   ()
 
-let test_path_relativize () =
+let test_path_relativize =
   Test.test "Http.Path.relativize" @@ fun () ->
   let str l = "/" ^ String.concat "/" l and rel_str l = String.concat "/" l in
   let concat_rel ~root rel = match root, rel with
@@ -269,7 +267,7 @@ let test_path_relativize () =
   test ["a"; "b"; "c"] ["b"; "c"] [".."; ".."; "b"; "c"];
   ()
 
-let test_digits () =
+let test_digits =
   Test.test "Http.Digit.{decode,encode}" @@ fun () ->
   let overflow = (Format.asprintf "%d0" max_int) in
   assert (Http.Digits.decode "0" = Ok 0);
@@ -286,7 +284,7 @@ let test_digits () =
   raises_invalid (fun () -> Http.Digits.encode min_int);
   ()
 
-let test_etags () =
+let test_etags =
   Test.test "Http.Etag.{decode,decode_cond}" @@ fun () ->
   let etags t = Http.Etag.make ~weak:false t, Http.Etag.make ~weak:true t in
   let empty, w_empty = etags "" in
@@ -307,7 +305,7 @@ let test_etags () =
   assert (Result.is_error @@ Http.Etag.decode_cond "");
   ()
 
-let test_ranges () =
+let test_ranges =
   Test.test "Http.Range.decode" @@ fun () ->
   let r0_499 = `Range (0, 499) in
   let r500_999 = `Range (500, 999) in
@@ -327,18 +325,7 @@ let test_ranges () =
 let main () =
   Test.main @@ fun () ->
   Test.log "Testing Webs.Http module";
-  test_version ();
-  test_method ();
-  test_headers_case ();
-  test_path_encode_decode ();
-  test_path_strip_prefix ();
-  test_path_filepath_ext ();
-  test_path_concat ();
-  test_path_undot_and_compress ();
-  test_path_relativize ();
-  test_digits ();
-  test_etags ();
-  test_ranges ();
+  Test.autorun ();
   ()
 
 let () = if !Sys.interactive then () else exit (main ())

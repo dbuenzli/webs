@@ -5,9 +5,9 @@
 
 open B0_testing
 
-let eq_kind = Test.Eq.make ~pp:Webs.Url.pp_kind ()
+let eq_kind = Test.T.make ~pp:Webs.Url.pp_kind ()
 
-let test_components () =
+let test_components =
   Test.test "Webs.Url.{kind,scheme,authority,path,query,fragment}" @@ fun () ->
   let test url k s a p q f ~__POS__  =
     let k' = Webs.Url.kind url in
@@ -17,11 +17,11 @@ let test_components () =
     let q' = Webs.Url.query url in
     let f' = Webs.Url.fragment url in
     Test.eq ~__POS__ eq_kind k' k;
-    Test.option ~__POS__ ~some:Test.Eq.string s' s;
-    Test.option ~__POS__ ~some:Test.Eq.string a' a;
-    Test.option ~__POS__ ~some:Test.Eq.string p' p;
-    Test.option ~__POS__ ~some:Test.Eq.string q' q;
-    Test.option ~__POS__ ~some:Test.Eq.string f' f;
+    Test.(option T.string) ~__POS__ s' s;
+    Test.(option T.string) ~__POS__ a' a;
+    Test.(option T.string) ~__POS__ p' p;
+    Test.(option T.string) ~__POS__ q' q;
+    Test.(option T.string) ~__POS__ f' f;
   in
   test "http://example.org:80/hey-hopla/bli" `Abs
     (Some "http") (Some "example.org:80") (Some "/hey-hopla/bli") None None
@@ -51,7 +51,7 @@ let test_components () =
     ~__POS__;
   ()
 
-let test_append () =
+let test_append =
   Test.test "Webs.Url.append" @@ fun () ->
   let test root rel res ~__POS__ =
     Test.string (Webs.Url.append root rel) res ~__POS__
@@ -77,7 +77,7 @@ let test_append () =
   test "https://example.org" "" "https://example.org" ~__POS__;
   ()
 
-let test_update () =
+let test_update =
   Test.test "Webs.Url.update" @@ fun () ->
   let upd ?s ?a ?p ?q ?f u u' ~__POS__ =
     let u'' =
@@ -100,15 +100,15 @@ let test_update () =
     ~__POS__;
   ()
 
-let test_authority () =
+let test_authority =
   Test.test "Webs.Url.Authority.*" @@ fun () ->
   let test authority u h p ~__POS__  =
     let u' = Webs.Url.Authority.userinfo authority in
     let h' = Webs.Url.Authority.host authority in
     let p' = Webs.Url.Authority.port authority in
-    Test.option ~__POS__ ~some:Test.Eq.string u' u;
-    Test.string ~__POS__ h' h;
-    Test.option ~__POS__ ~some:Test.Eq.int p' p;
+    Test.(option T.string) u' u ~__POS__;
+    Test.string h' h ~__POS__;
+    Test.(option T.int) p' p ~__POS__;
   in
   test "user:pass@example.org:3434"
     (Some "user:pass") "example.org" (Some 3434) ~__POS__;
@@ -124,13 +124,5 @@ let test_authority () =
     None "" None ~__POS__;
   ()
 
-
-let main () =
-  Test.main @@ fun () ->
-  test_components ();
-  test_append ();
-  test_authority ();
-  test_update ();
-  ()
-
+let main () = Test.main @@ fun () -> Test.autorun ()
 let () = if !Sys.interactive then () else exit (main ())

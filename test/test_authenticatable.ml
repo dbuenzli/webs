@@ -20,7 +20,7 @@ let alter_expires s =
   Bytes.set d 32 '9';
   Webs_base64.encode_base64url `Unpadded (Bytes.unsafe_to_string d)
 
-let test_authenticatable () =
+let test_authenticatable =
   Test.test "Webs_authenticatable." @@ fun () ->
   let k0 = Webs_authenticatable.Private_key.random_hs256 () in
   let k1 = Webs_authenticatable.Private_key.random_hs256 () in
@@ -46,9 +46,5 @@ let test_authenticatable () =
   assert (decode ~private_key:k1 ~now:(Some 9) m1 = Ok (None, data));
   ()
 
-let main () =
-  Test.main @@ fun () ->
-  test_authenticatable ();
-  ()
-
+let main () = Test.main @@ fun () -> Test.autorun ()
 let () = if !Sys.interactive then () else exit (main ())

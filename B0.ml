@@ -59,7 +59,7 @@ let test_http = test ~/"test/test_http.ml" ~run:true
 let test_base64 = test ~/"test/test_base64.ml" ~run:true ~requires:[webs_kit]
 let test_url = test ~/"test/test_url.ml" ~run:true
 let test_sha_256 =
-  test ~/"test/test_sha_256.ml" ~run:true ~long:true ~requires:[webs_kit]
+  test ~/"test/test_sha_256.ml" ~run:true ~requires:[webs_kit]
 
 let test_authenticatable =
   test ~/"test/test_authenticatable.ml" ~run:true ~requires:[webs_kit]

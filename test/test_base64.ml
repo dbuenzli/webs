@@ -7,11 +7,11 @@ open B0_testing
 
 let eq_error enc =
   let pp ppf e = Format.pp_print_string ppf (Webs_base64.error_message enc e) in
-  Test.Eq.make ~equal:( = ) ~pp ()
+  Test.T.make ~equal:( = ) ~pp ()
 
 let test_spec enc_spec decode encode =
   let error = eq_error `Base64 in
-  let result ?__POS__ = Test.result' ?__POS__ ~ok:Test.Eq.string ~error in
+  let result ?__POS__ = Test.result' ?__POS__ ~ok:Test.T.string ~error in
   fun enc ~__POS__:pos ~p:dec_pad ~u:dec_unpadded ->
   Test.block ~__POS__:pos @@ fun () ->
   result (decode `Padded enc) dec_pad ~__POS__;
@@ -97,7 +97,7 @@ let test_common ?__POS_:pos spec =
     ~u:(Error (Invalid_letter ('=', 7 (* due to implementation not 6 *))));
   ()
 
-let test_base64 () =
+let test_base64 =
   Test.test "Webs_base64.{decode,encode}" @@ fun () ->
   let spec = test_spec `Base64 Webs_base64.decode' Webs_base64.encode in
   test_common spec;
@@ -109,7 +109,7 @@ let test_base64 () =
     ~u:(Ok "🐫🐫");
   ()
 
-let test_base64url () =
+let test_base64url =
   Test.test "Webs_base64.{decode,encode}_base64url" @@ fun () ->
   let spec =
     test_spec
@@ -124,10 +124,5 @@ let test_base64url () =
     ~u:(Ok "🐫🐫");
   ()
 
-let main () =
-  Test.main @@ fun () ->
-  test_base64 ();
-  test_base64url ();
-  ()
-
+let main () = Test.main @@ fun () -> Test.autorun ()
 let () = if !Sys.interactive then () else exit (main ())

@@ -129,7 +129,7 @@ let pbkdf2_hmac_vecs = (* from https://stackoverflow.com/a/5136918 *)
     "\x89\xb6\x9d\x05\x16\xf8\x29\x89\
      \x3c\x69\x62\x26\x65\x0a\x86\x87"; ]
 
-let test_hash () =
+let test_hash =
   Test.test "Hash vectors" @@ fun () ->
   let assert_vec (msg, h_hex) =
     let h = Sha_256.of_hex h_hex |> Result.get_ok in
@@ -141,7 +141,7 @@ let test_hash () =
   in
   List.iter assert_vec hash_vecs
 
-let test_hmac () =
+let test_hmac =
   Test.test "HMAC vectors" @@ fun () ->
   let assert_vec (k, msg, h_hex) =
     let h = Sha_256.of_hex h_hex |> Result.get_ok in
@@ -153,8 +153,8 @@ let test_hmac () =
   in
   List.iter assert_vec hmac_vecs
 
-let test_pbkdf2_hmac () =
-  Test.test "pbkdf2-hmac vectors (be patient…)" @@ fun () ->
+let test_pbkdf2_hmac =
+  Test.test ~long:true "pbkdf2-hmac vectors" @@ fun () ->
   let assert_vec (password, salt, iterations, key_length, key) =
     let key' =
       Sha_256.pbkdf2_hmac ~key_length ~iterations ~password ~salt ()
@@ -163,11 +163,5 @@ let test_pbkdf2_hmac () =
   in
   List.iter assert_vec pbkdf2_hmac_vecs
 
-let main () =
-  Test.main @@ fun () ->
-  test_hash ();
-  test_hmac ();
-  test_pbkdf2_hmac ();
-  ()
-
+let main () = Test.main @@ fun () -> Test.autorun ()
 let () = if !Sys.interactive then () else exit (main ())
