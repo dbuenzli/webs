@@ -116,7 +116,7 @@ let kind s = match find_scheme_colon s with
 
 (* Operations *)
 
-let update ?scheme:s ?authority:a ?path:p ?query:q ?fragment:f u =
+let of_url u ?scheme:s ?authority:a ?path:p ?query:q ?fragment:f () =
   let add_scheme s u = match s with None -> u | Some s -> s :: ":" :: u in
   let add_authority a u = match a with None -> u | Some a -> "//" :: a :: u in
   let add_path p u = match p with None -> u | Some p -> p :: u in

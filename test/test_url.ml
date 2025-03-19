@@ -77,11 +77,11 @@ let test_append =
   test "https://example.org" "" "https://example.org" ~__POS__;
   ()
 
-let test_update =
-  Test.test "Webs.Url.update" @@ fun () ->
+let test_of_url =
+  Test.test "Webs.Url.of_url" @@ fun () ->
   let upd ?s ?a ?p ?q ?f u u' ~__POS__ =
     let u'' =
-      Webs.Url.update ?scheme:s ?authority:a ?path:p ?query:q ?fragment:f u
+      Webs.Url.of_url u ?scheme:s ?authority:a ?path:p ?query:q ?fragment:f ()
     in
     Test.string u' u'' ~__POS__
   in
