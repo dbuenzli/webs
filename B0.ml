@@ -52,7 +52,7 @@ let test
   let srcs = (`File src) :: srcs in
   let requires = b0_std :: webs :: requires in
   let meta = B0_meta.(empty |> tag test |> ~~ run r |> ~~ long l) in
-  let name = Fpath.basename ~strip_ext:true src in
+  let name = Fpath.basename ~strip_exts:true src in
   B0_ocaml.exe name ~srcs ~requires ~meta ?doc
 
 let test_http = test ~/"test/test_http.ml" ~run:true
@@ -78,7 +78,7 @@ let sample ?(doc = "Sample code") ?(srcs = []) src ~requires =
   let src = Fpath.(~/"examples"/src) in
   let srcs = `File src :: srcs in
   let meta = B0_meta.(empty |> tag sample) in
-  let name = Fpath.basename ~strip_ext:true src in
+  let name = Fpath.basename ~strip_exts:true src in
   B0_ocaml.exe name ~srcs ~requires ~meta ~doc
 
 let authedcookie = sample "authedcookie.ml" ~requires:(unix :: quick_libs)
