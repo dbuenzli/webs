@@ -100,19 +100,19 @@ let fragment u =
 
 (* Kinds *)
 
-type relative_kind = [ `Scheme | `Abs_path | `Rel_path | `Empty ]
-type kind = [ `Abs | `Rel of relative_kind ]
+type relative_kind = [ `Scheme | `Absolute_path | `Relative_path | `Empty ]
+type kind = [ `Absolute | `Relative of relative_kind ]
 
 let relative_kind s =
   let len = String.length s in
   if len = 0 then `Empty else
   if s.[0] = '/'
-  then (if len > 1 && s.[1] = '/' then `Scheme else `Abs_path)
-  else `Rel_path
+  then (if len > 1 && s.[1] = '/' then `Scheme else `Absolute_path)
+  else `Relative_path
 
 let kind s = match find_scheme_colon s with
-| Some _ -> `Abs
-| None -> `Rel (relative_kind s)
+| Some _ -> `Absolute
+| None -> `Relative (relative_kind s)
 
 (* Operations *)
 
@@ -137,13 +137,13 @@ let drop_path_and_rest u = match path_first u with
 | None -> u | Some first -> string_subrange ~last:(first - 1) u
 
 let append root u = match kind u with
-| `Abs -> u
-| `Rel `Scheme ->
+| `Absolute -> u
+| `Relative `Scheme ->
     begin match scheme root with
     | None -> u | Some scheme -> String.concat ":" [scheme; u]
     end
-| `Rel `Abs_path -> String.concat "" [drop_path_and_rest root; u]
-| `Rel `Rel_path ->
+| `Relative `Absolute_path -> String.concat "" [drop_path_and_rest root; u]
+| `Relative `Relative_path ->
     if root <> "" && root.[String.length root - 1] = '/'
     then String.concat "" [root; u] else
     begin match String.rindex root '/' with
@@ -154,7 +154,24 @@ let append root u = match kind u with
         | Some j when j + 2 = i -> String.concat "/" [root; u]
         | Some _ -> String.concat "" [string_subrange ~last:i root; u]
     end
-| `Rel `Empty -> root
+| `Relative `Empty -> root
+
+let add_file_scheme_if_path_relative u = match kind u with
+| `Absolute | `Relative `Empty | `Relative `Scheme -> Ok u
+| `Relative `Absolute_path -> Ok ("file://" ^ u)
+| `Relative `Relative_path ->
+    let massage u =
+      if not Sys.win32 then u else
+      let has_drive u = String.exists (Char.equal ':') u in
+      let slashify u = String.map (function '\\' -> '/' | c -> c) u in
+      slashify (if has_drive u then "/" ^ u else u)
+    in
+    match massage (Sys.getcwd ()) with
+    | exception Sys_error e -> Error ("getcwd: " ^ e)
+    | cwd ->
+        let len = String.length cwd in
+        let sep = if len > 0 && cwd.[len - 1] = '/' then "" else "/" in
+        Ok (String.concat sep ["file://" ^ cwd; u])
 
 (* Authority *)
 
@@ -247,9 +264,11 @@ let list_of_text_scrape ?root s = (* See .mli to understand what it does *)
 
 let pp = Format.pp_print_string
 let pp_kind ppf k = Format.pp_print_string ppf @@ match k with
-| `Abs -> "abs" | `Rel `Scheme -> "rel-scheme"
-| `Rel `Abs_path -> "rel-abs-path" | `Rel `Rel_path -> "rel-rel-path"
-| `Rel `Empty -> "rel-empty"
+| `Absolute -> "abs"
+| `Relative `Scheme -> "rel-scheme"
+| `Relative `Absolute_path -> "rel-abs-path"
+| `Relative `Relative_path -> "rel-rel-path"
+| `Relative `Empty -> "rel-empty"
 
 (* Percent encoding *)
 

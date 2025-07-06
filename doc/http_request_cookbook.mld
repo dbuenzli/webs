@@ -91,7 +91,7 @@ The {!Webs.Http.Request.raw_path} property of a request has the path and query
 as found in the HTTP request. The {!Webs.Http.Request.query} function detaches
 the query from the path.
 
-{2:queries How do I parse the query ?}
+{2:query_parse How do I parse the query ?}
 
 The {!Webs.Http.Request.to_query} parses a query regardless of the
 request method and thus regardless of whether the request is in the

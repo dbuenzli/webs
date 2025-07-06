@@ -1893,8 +1893,8 @@ module Http_client = struct
     let scheme = Http.Scheme.encode (Http.Request.scheme request) in
     let* host = Http.Headers.(find' host) (Http.Request.headers request) in
     try match rel with
-    | `Abs_path -> Ok (String.concat "" [scheme; "://"; host; loc])
-    | `Rel_path ->
+    | `Absolute_path -> Ok (String.concat "" [scheme; "://"; host; loc])
+    | `Relative_path ->
         let path = Http.Request.raw_path request in
         begin match String.rindex_opt path '/' with
         | None -> Ok (String.concat "" [scheme; "://"; host; "/"; loc])
@@ -1913,8 +1913,8 @@ module Http_client = struct
   let find_location request response =
     let* loc = Http.Headers.(find' location) (Http.Response.headers response) in
     match Url.kind loc with
-    | `Abs -> Ok loc
-    | `Rel rel -> find_rel_location ~loc rel request response
+    | `Absolute -> Ok loc
+    | `Relative rel -> find_rel_location ~loc rel request response
 
   let request_host request =
     let scheme = Http.Request.scheme request in

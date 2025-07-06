@@ -49,12 +49,12 @@ val fragment : t -> fragment option
 
 (** {1:kinds Kinds} *)
 
-type relative_kind = [ `Scheme | `Abs_path | `Rel_path | `Empty ]
+type relative_kind = [ `Scheme | `Absolute_path | `Relative_path | `Empty ]
 (** The type for kinds of relative references. Represents
     {{:https://www.rfc-editor.org/rfc/rfc3986.html#section-4.2}this
     alternation}. *)
 
-type kind = [ `Abs | `Rel of relative_kind ]
+type kind = [ `Absolute | `Relative of relative_kind ]
 (** The type for kinds of URLs. Represents this
     {{:https://www.rfc-editor.org/rfc/rfc3986.html#section-4.1} this
     alternation}. *)
@@ -81,6 +81,22 @@ val append : t -> t -> t
     The result is guaranteed to be absolute if [root] is, the result
     may be surprising or non-sensical if [root] isn't (FIXME can't we
     characterize that more ?). *)
+
+val add_file_scheme_if_path_relative : t -> (t, string) result
+(** [add_file_scheme_if_path_relative u] transforms [u] as follows
+    depending on the value of {!kind u}:
+
+    {ul
+    {- [`Relative `Absolute_path], [u] is prepended with ["file://"].
+    {- [`Relative `Relative_path], [u] is prepended with ["file://cwd/"],
+       with [cwd] the current working directoy as determined by {!Sys.getcwd}.
+    .  If {!Sys.is_win32} the directory separator is changed to [/] and a [/]
+       is prepended to [cwd] if a drive is detected.}
+    {- [u] is left untouched otherwise.}}
+
+    Returns [Error e] with [e] of the form: ["getcwd: %s"] msg if {!Sys.getcwd}
+    raises. *)
+
 
 (*
 val path_and_rest : t -> string option
@@ -136,7 +152,6 @@ val pp_kind : Format.formatter -> kind -> unit
 (** [pp_kind] formats an unspecified representation of kinds. *)
 
 (** {1:pct Percent encoding} *)
-
 
 (** Percent-encoding codecs according to
     {{:https://www.rfc-editor.org/rfc/rfc3986#section-2.1}RFC 3986}.

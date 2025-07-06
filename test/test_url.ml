@@ -23,30 +23,30 @@ let test_components =
     Test.(option T.string) ~__POS__ q' q;
     Test.(option T.string) ~__POS__ f' f;
   in
-  test "http://example.org:80/hey-hopla/bli" `Abs
+  test "http://example.org:80/hey-hopla/bli" `Absolute
     (Some "http") (Some "example.org:80") (Some "/hey-hopla/bli") None None
     ~__POS__ ;
-  test "" (`Rel `Empty) None None None None None
+  test "" (`Relative `Empty) None None None None None
     ~__POS__;
-  test "//example.org:80/hey-hopla/bli" (`Rel `Scheme)
+  test "//example.org:80/hey-hopla/bli" (`Relative `Scheme)
     None (Some "example.org:80") (Some "/hey-hopla/bli") None None
     ~__POS__;
-  test "/huhuhu:80/hey-hopla/bli" (`Rel `Abs_path)
+  test "/huhuhu:80/hey-hopla/bli" (`Relative `Absolute_path)
     None None (Some "/huhuhu:80/hey-hopla/bli") None None
     ~__POS__;
-  test "huhuhu/hey-hopla/bli" (`Rel `Rel_path)
+  test "huhuhu/hey-hopla/bli" (`Relative `Relative_path)
     None None (Some "huhuhu/hey-hopla/bli") None None
     ~__POS__;
-  test "hopla://example.org/?#" `Abs
+  test "hopla://example.org/?#" `Absolute
     (Some "hopla") (Some "example.org") (Some "/") (Some "") (Some "")
     ~__POS__;
-  test "https://example.org/hey?bla#blu" `Abs
+  test "https://example.org/hey?bla#blu" `Absolute
     (Some "https") (Some "example.org") (Some "/hey") (Some "bla") (Some "blu")
     ~__POS__;
-  test "https://example.org?bla#blu" `Abs
+  test "https://example.org?bla#blu" `Absolute
     (Some "https") (Some "example.org") None (Some "bla") (Some "blu")
     ~__POS__;
-  test "https://example.org/bla#?blu" `Abs
+  test "https://example.org/bla#?blu" `Absolute
     (Some "https") (Some "example.org") (Some "/bla") None (Some "?blu")
     ~__POS__;
   ()
