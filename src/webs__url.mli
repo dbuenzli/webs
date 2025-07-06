@@ -76,27 +76,23 @@ val of_url : t ->
     deleted. *)
 
 val append : t -> t -> t
-(** [append root u] is [u] if [kind u] is [`Abs]. Otherwise
+(** [append root u] is [u] if {!kind}[ u] is [`Absolute]. Otherwise
     uses [root] to make it absolute according to its {!relative_kind}.
     The result is guaranteed to be absolute if [root] is, the result
     may be surprising or non-sensical if [root] isn't (FIXME can't we
     characterize that more ?). *)
 
-val add_file_scheme_if_path_relative : t -> (t, string) result
-(** [add_file_scheme_if_path_relative u] transforms [u] as follows
-    depending on the value of {!kind u}:
-
+val to_absolute : scheme:scheme -> root_path:path option -> t -> t
+(** [to_absolute ~scheme ~root_path] transforms [u] depending on the value of
+    {!kind}[ u]:
     {ul
-    {- [`Relative `Absolute_path], [u] is prepended with ["file://"].
-    {- [`Relative `Relative_path], [u] is prepended with ["file://cwd/"],
-       with [cwd] the current working directoy as determined by {!Sys.getcwd}.
-    .  If {!Sys.is_win32} the directory separator is changed to [/] and a [/]
-       is prepended to [cwd] if a drive is detected.}
-    {- [u] is left untouched otherwise.}}
-
-    Returns [Error e] with [e] of the form: ["getcwd: %s"] msg if {!Sys.getcwd}
-    raises. *)
-
+    {- If [`Absolute] then this is [u] itself.}
+    {- If [`Relative `Scheme] then [u] is given the scheme [scheme].}
+    {- If [`Relative `Absolute_path] then [u] is given the scheme [scheme].}
+    {- If [`Relative `Relative_path] then [u] is given the scheme [scheme] and
+           the path of [u] is prepended by [root_path] (if any).}
+    {- If [`Relative `Empty] then [u] is given the scheme [scheme] and the
+       path is [root_path] (if any).}} *)
 
 (*
 val path_and_rest : t -> string option

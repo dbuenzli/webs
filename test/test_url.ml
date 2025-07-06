@@ -124,5 +124,35 @@ let test_authority =
     None "" None ~__POS__;
   ()
 
+let test_to_absolute =
+  Test.test "Webs.Url.to_absolute" @@ fun () ->
+  let test ?__POS__ ~scheme ~root_path u u' =
+    Test.string (Webs.Url.to_absolute ~scheme ~root_path u) u' ?__POS__
+  in
+  (* Absolute *)
+  test ~scheme:"file" ~root_path:None         "http:///h" "http:///h" ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a")  "http:///h" "http:///h" ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a/") "http:///h" "http:///h" ~__POS__;
+  (* Scheme relative *)
+  test ~scheme:"file" ~root_path:None         "//host/b" "file://host/b"
+    ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a")  "//host/b" "file://host/b"
+    ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a/") "//host/b" "file://host/b"
+    ~__POS__;
+  (* Path absolute *)
+  test ~scheme:"file" ~root_path:None         "/b" "file:///b" ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a")  "/b" "file:///b" ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a/") "/b" "file:///b" ~__POS__;
+  (* Path relative *)
+  test ~scheme:"file" ~root_path:None         "b" "file://b" ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a")  "b" "file:///a/b" ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a/") "b" "file:///a/b" ~__POS__;
+  (* Path empty *)
+  test ~scheme:"file" ~root_path:None         "" "file://" ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a")  "" "file:///a" ~__POS__;
+  test ~scheme:"file" ~root_path:(Some "/a/") "" "file:///a/" ~__POS__;
+  ()
+
 let main () = Test.main @@ fun () -> Test.autorun ()
 let () = if !Sys.interactive then () else exit (main ())

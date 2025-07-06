@@ -156,22 +156,20 @@ let append root u = match kind u with
     end
 | `Relative `Empty -> root
 
-let add_file_scheme_if_path_relative u = match kind u with
-| `Absolute | `Relative `Empty | `Relative `Scheme -> Ok u
-| `Relative `Absolute_path -> Ok ("file://" ^ u)
+let to_absolute ~scheme ~root_path u = match kind u with
+| `Absolute -> u
+| `Relative `Scheme -> String.concat ":" [scheme; u]
+| `Relative `Absolute_path -> String.concat "://" [scheme; u]
 | `Relative `Relative_path ->
-    let massage u =
-      if not Sys.win32 then u else
-      let has_drive u = String.exists (Char.equal ':') u in
-      let slashify u = String.map (function '\\' -> '/' | c -> c) u in
-      slashify (if has_drive u then "/" ^ u else u)
+    let root = match root_path with
+    | Some "" | None -> ""
+    | Some root when root.[String.length root - 1] = '/' -> root
+    | Some root -> root ^ "/"
     in
-    match massage (Sys.getcwd ()) with
-    | exception Sys_error e -> Error ("getcwd: " ^ e)
-    | cwd ->
-        let len = String.length cwd in
-        let sep = if len > 0 && cwd.[len - 1] = '/' then "" else "/" in
-        Ok (String.concat sep ["file://" ^ cwd; u])
+    String.concat "" [scheme; "://"; root; u]
+| `Relative `Empty ->
+    let root = Option.value ~default:"" root_path in
+    String.concat "" [scheme; "://"; root]
 
 (* Authority *)
 
