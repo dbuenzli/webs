@@ -10,18 +10,27 @@ let eq_kind = Test.T.make ~pp:Webs.Url.pp_kind ()
 let test_components =
   Test.test "Webs.Url.{kind,scheme,authority,path,query,fragment}" @@ fun () ->
   let test url k s a p q f ~__POS__  =
+    let t =
+      let p = match p with None -> "" | Some p -> p in
+      let q = match q with None -> "" | Some q -> "?" ^ q in
+      let f = match f with None -> "" | Some f -> "#" ^ f in
+      let t = String.concat "" [p; q; f] in
+      if t = "" then None else Some t
+    in
     let k' = Webs.Url.kind url in
     let s' = Webs.Url.scheme url in
     let a' = Webs.Url.authority url in
     let p' = Webs.Url.path url in
     let q' = Webs.Url.query url in
     let f' = Webs.Url.fragment url in
+    let t' = Webs.Url.target url in
     Test.eq ~__POS__ eq_kind k' k;
     Test.(option T.string) ~__POS__ s' s;
     Test.(option T.string) ~__POS__ a' a;
     Test.(option T.string) ~__POS__ p' p;
     Test.(option T.string) ~__POS__ q' q;
     Test.(option T.string) ~__POS__ f' f;
+    Test.(option T.string) ~__POS__ t' t;
   in
   test "http://example.org:80/hey-hopla/bli" `Absolute
     (Some "http") (Some "example.org:80") (Some "/hey-hopla/bli") None None
