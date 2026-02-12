@@ -324,7 +324,7 @@ let test_ranges =
 
 let main () =
   Test.main @@ fun () ->
-  Test.log "Testing Webs.Http module";
+  Test.Log.msg "Testing Webs.Http module";
   Test.autorun ();
   ()
 
