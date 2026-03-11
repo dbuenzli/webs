@@ -16,6 +16,8 @@ let () =
     Pkg.mllib ~cond:cmdliner "src/cli/webs_cli.mllib" ~dst_dir:"cli";
     Pkg.bin ~cond:cmdliner "tool/webs_tool" ~dst:"webs";
     Pkg.doc "doc/index.mld" ~dst:"odoc-pages/index.mld";
+    Pkg.doc "doc/http_request_cookbook.mld"
+      ~dst:"odoc-pages/http_request_cookbook.mld";
     Pkg.doc "doc/http_service_howto.mld"
       ~dst:"odoc-pages/http_service_howto.mld";
     Pkg.doc "doc/connector_conventions.mld"
