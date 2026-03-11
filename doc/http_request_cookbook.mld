@@ -31,6 +31,7 @@ fun request ->
 ]}
 
 In the code above:
+
 {ul
 {- The {!Webs.Http.Request.clean_path} errors with an appropriate
    {!Webs.Http.Status.moved_permanently_301} to the canonical path if

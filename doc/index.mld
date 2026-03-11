@@ -49,6 +49,7 @@ APIs.
 Webs.Http
 Webs.Http.Request
 Webs.Http.Response
+Webs.Http_client
 Webs.Media_type
 Webs.Url}
 
@@ -98,19 +99,36 @@ Webs_quick
 
 {1:quick_start Quick start}
 
+See also the
+{{:https://github.com/dbuenzli/webs?tab=readme-ov-file#sample-programs}
+samples} in the dev repo.
+
+{2:quick_start_fetch Fetch}
+
 Fetch an URL with this [fetch.ml] file:
 {[
 open Webs
+open Result.Syntax
 
 let main () =
-  let httpc = Webs_spawn_client.make () in
+  Result.retract @@ Result.map_error (fun e -> prerr_endline e; 1) @@
   let url = Sys.argv.(1) in
-  match Http_client.get httpc ~follow:true ~url with
-  | Error e -> prerr_endline e; 1
-  | Ok page -> print_endline page; 0
+  let* httpc = Webs_spawn_client.make () in
+  let* page = Http_client.get httpc ~follow:true ~url in
+  print_endline page;
+  Ok 0
 
 let () = if !Sys.interactive then () else exit (main ())
 ]}
+
+Compile and run with:
+
+{@sh[
+ocamlfind ocamlopt -linkpkg -package webs,webs.unix -o fetch fetch.ml
+./fetch https://example.org   # needs curl in your PATH
+]}
+
+{2:quick_start_serve Serve}
 
 Make a minimal server with this [serve.ml] file:
 {[
@@ -121,24 +139,16 @@ let main () = Webs_quick.serve service
 let () = if !Sys.interactive then () else exit (main ())
 ]}
 
-Compile that with
-{[
-ocamlfind ocamlopt -pkg webs,webs.unix -o fetch fetch.ml
-ocamlfind ocamlopt -pkg webs,webs.http11,webs.cli -o serve serve.ml
-]}
+Compile and run with:
 
-Let them talk (you will need [curl] in your [PATH]):
-{[
+{@sh[
+ocamlfind ocamlopt -linkpkg -package webs,webs.unix,webs.cli -o serve serve.ml
 ./serve &
+curl http://localhost:8000/hey
 ./fetch http://localhost:8000/hey
-./fetch http://localhost:8000/ho
 pkill serve
-serve --help
+./serve --help
 ]}
-
-See also the
-{{:https://github.com/dbuenzli/webs?tab=readme-ov-file#sample-programs}
-samples} in the repo.
 
 {1:limitations Limitations}
 

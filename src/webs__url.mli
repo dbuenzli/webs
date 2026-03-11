@@ -47,7 +47,7 @@ val query : t -> query option
 val fragment : t -> fragment option
 (** [fragment u] is the {!type-fragment} of [u], if any. *)
 
-(** {1:derived Derived components *)
+(** {1:derived Derived components} *)
 
 val target : t -> string option
 (** [target u] is the contenation of {!path}, {!query} and {!fragment},
