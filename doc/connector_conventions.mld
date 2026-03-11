@@ -1,10 +1,56 @@
 {0 Connector conventions}
 
 These conventions should be followed by connector implementations to
-make it easier for users to swap them without fuss.
+make it easier for users to swap them without fuss. They may evolve in
+the future to adapt to new connector architectures.
 
-The conventions may evolve in the future to adapt to new connector
-architectures.
+{1:client_connectors Client connectors}
+
+It is advised for client connectors to implement the
+{!Webs.Http_client.T} signature.
+
+{2:client_requests Client requests}
+
+The scheme of the request must be derived from
+{!Webs.Http.Request.scheme}. The server and port to connect to should
+be derived from the client request value by looking up the
+{!Webs.Http.Headers.host} header and the request
+{!Webs.Http.Request.scheme}. If no port is found a default one should
+be derived from the scheme. The function
+{!Webs.Http.Headers.decode_host} performs that logic.
+
+When writing the client request, connectors should treat these headers
+of the request specially:
+{ol
+{- {!Webs.Http.Headers.content_type}. If such a header exists
+   in {!Webs.Http.Request.headers}, this value must be written
+   in the request. Otherwise the value found in
+   {!Webs.Http.Body.content_type}
+   must be used. In both cases if the value found is {!Webs.Media_type.none},
+   no header should be output.}
+{- {!Webs.Http.Headers.content_length}, if such a header exists
+   in {!Webs.Http.Request.headers}, this value must be written in the request.
+   Otherwise the value found in {!Webs.Http.Body.content_length} must be
+   used (if any). If the value found is [""] or [None], no header should
+   be output.}}
+
+The function {!Webs.Http.Headers.for_connector} returns a
+{!Webs.Http.Headers.t} value for which that logic has been performed.
+
+Note that in general it's better if one lets the content type and
+length be defined by bodies: it's less error prone if the request body
+gets changed by them with {!Webs.Http.Response.with_body}.
+
+{2:client_responses Client responses}
+
+The response value constructed by the connector should satisfy the
+following constraints:
+
+{ol
+{- The {!Webs.Http.Headers.content_type} and
+   {!Webs.Http.Headers.content_length} should not be part of the
+   {!Webs.Http.Response.headers}, they should only be added on the
+   response's body {!Webs.Http.Response.body} value}}
 
 {1:service_connectors Service connectors}
 
@@ -13,10 +59,10 @@ function} of the following type:
 
 {[Http.Request.t -> Http.Response.t]}
 
-The duty of the connector is to receive requests from an interface,
-construct suitable {!Webs.Http.Request.t} value for them, call them on
-the service function to get a {!Webs.Http.Response.t} value to send
-back on the interface.
+The duty of the connector is to receive an HTTP request from a
+dedicated interface, construct a suitable {!Webs.Http.Request.t} value
+for it, call the service function with it to get a
+{!Webs.Http.Response.t} value to send back on the interface.
 
 Service functions are not expected to raise exceptions. If a service
 function is unable to fulfill its duty it should error with a suitable
@@ -177,51 +223,3 @@ request into a request value. When they do, they should do so as follows:
    see that header. For example {{:https://trac.nginx.org/nginx/ticket/493}
    it seems} nginx will automatically send a 100-continue response itself.
    Finally this issue is irrelevant for HTTP/2 and HTTP/3.}}
-
-{1:client_connectors Client connectors}
-
-It is advised for client connectors to implement the
-{!Webs.Http_client.T} signature.
-
-{2:client_requests Client requests}
-
-The scheme of the request must be derived from
-{!Webs.Http.Request.scheme}. The server and port to connect to should
-be derived from the client request value by looking up the
-{!Webs.Http.Headers.host} header and the request
-{!Webs.Http.Request.scheme}. If no port is found a default one should
-be derived from the scheme. The function
-{!Webs.Http.Headers.decode_host} performs that logic.
-
-When writing the client request, connectors should treat these headers
-of the request specially:
-{ol
-{- {!Webs.Http.Headers.content_type}. If such a header exists
-   in {!Webs.Http.Request.headers}, this value must be written
-   in the request. Otherwise the value found in
-   {!Webs.Http.Body.content_type}
-   must be used. In both cases if the value found is {!Webs.Media_type.none},
-   no header should be output.}
-{- {!Webs.Http.Headers.content_length}, if such a header exists
-   in {!Webs.Http.Request.headers}, this value must be written in the request.
-   Otherwise the value found in {!Webs.Http.Body.content_length} must be
-   used (if any). If the value found is [""] or [None], no header should
-   be output.}}
-
-The function {!Webs.Http.Headers.for_connector} returns a
-{!Webs.Http.Headers.t} value for which that logic has been performed.
-
-Note that in general it's better if one lets the content type and
-length be defined by bodies: it's less error prone if the request body
-gets changed by them with {!Webs.Http.Response.with_body}.
-
-{2:client_responses Client responses}
-
-The response value constructed by the connector should satisfy the
-following constraints:
-
-{ol
-{- {!Webs.Http.Response.headers} and {!Webs.Http.Response.body} constraints.
-   The {!Webs.Http.Headers.content_type} and
-   {!Webs.Http.Headers.content_length} should not be part of the response
-   headers they should only be added on the response body value.}}

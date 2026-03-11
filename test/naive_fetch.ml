@@ -15,7 +15,7 @@ let log_if_error = function
 | Ok () -> 0
 | Error e -> log "\x1B[31;1mError\x1B[0m: %s" e; Cmdliner.Cmd.Exit.some_error
 
-let read_http11_response fd  =
+let read_http11_response fd =
   let content_length hs = match Http.Headers.request_body_length hs with
   | Error e -> Error e
   | Ok (`Length l) -> Ok (Some l)

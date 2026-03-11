@@ -1,0 +1,216 @@
+{0 [Webs] cookbook}
+
+A few conventions and recipes to handle HTTP with {!Webs}.
+
+{b Note.} Some of the code snippets here assume they are defined
+after:
+
+{[
+open Result.Syntax
+open Webs
+]}
+
+{1:fetching Fetching URLs}
+
+{2:fetching_simple How do I fetch an URL to a [string]?}
+
+Use {!Webs.Http_client.get} with an appropriate {!Webs.Http_client.t}
+value. The following uses the {!Webs_spawn_client} to fetch an URL to
+a [string].
+
+{[
+let fetch ~follow url =
+  let* httpc = Webs_spawn_client.make () in
+  Http_client.get httpc ~follow ~url
+]}
+
+For more complex scenarios see {!fetching_control}
+
+{2:fetching_control How do I fetch an URL with more control?}
+
+Use {!Webs.Http_client.request} with appropriate {!Webs.Http_client}
+and {!Webs.Http.Request.t} values. The following example shows how to
+implement {!Webs.Http_client.get} in terms of
+{!Webs.Http_client.request}
+
+{[
+let get httpc ~follow ~url =
+  let* request = Http.Request.of_url `GET ~url in
+  let* response = Http_client.request httpc ~follow request in
+  match Http.Response.status response with
+  | 200 -> Http.Body.to_string (Http.Response.body response)
+  | st -> Error (Format.asprintf "%a" Http.Status.pp st)
+]}
+
+{2:fetching_redirect How do I find a fetch's final URL?}
+
+If you use [follow:true] with {!Webs.Http_client.request} and the
+request is redirected, the final location can be found in the
+{!Webs.Http_client.x_follow_location} header of the response. For example
+the following fetches and returns the concrete fetched location:
+
+{[
+let fetch ~follow url =
+  let* httpc = Webs_spawn_client.make () in
+  let* request = Http.Request.of_url `GET ~url in
+  let* response = Http_client.request httpc ~follow request in
+  match Http.Response.status response with
+  | 200 ->
+      let location =
+        let headers = Http.Response.headers response in
+        match Http.Headers.find Http_client.x_follow_location headers with
+        | None -> url | Some url -> url
+      in
+      let* data = Http.Body.to_string (Http.Response.body response) in
+      Ok (location, data)
+  | st ->
+      Error (Format.asprintf "%a" Http.Status.pp st)
+]}
+
+{1:requests Servicing requests}
+
+{2:request_error_handling How do I handle request errors?}
+
+HTTP request processing entails a lot of error handling. Webs
+encourages you to deal with it using [result] values in which the
+error case is an HTTP error response:
+
+{[ (Http.Response.t, Http.Response.t) result ]}
+
+By using the [result] binding operators, combinators in
+{!Webs.Http.Request} and your own, you can highlight the "happy" path
+in your code while remaining accurate and correct in your HTTP error
+handling.
+
+For instance in this snippet:
+
+{[
+let respond : Http.Request.t -> (Http.Response.t, Http.Response.t) result =
+fun request ->
+  (* Make sure we have no empty or trailing segments *)
+  let* () = Http.Request.clean_path request in
+  (* Make sure that's only a GET or POST request *) in
+  let* meth = Http.Request.allow Http.Method.[get,post] request in
+  (* Extract the query *)
+  let* q = Http.Request.to_query request in
+  …
+]}
+
+{ul
+{- The {!Webs.Http.Request.clean_path} errors with an appropriate
+   {!Webs.Http.Status.moved_permanently_301} to the canonical path if
+   the request path has empty segments.}
+{- The {!Webs.Http.Request.allow} path with makes sure HTTP requests whose
+   methods are not allowed are responded with a
+      {!Webs.Http.Status.method_not_allowed_405} response which includes a
+   proper {!Webs.Http.Headers.allow} header.}
+{- The {!Webs.Http.Request.to_query} decodes the request query regardless
+   of where it's located, that is in the request path for GET and in
+   the body for POST and returns appropriate HTTP errors in case of errors.}}
+
+When it's time to hand over the response to the connector,
+distinguishing between the [Ok _] and [Error _] respond is no longer relevant
+so you can simply {!Result.retract} the result type:
+{[
+let service request = Result.retract (respond request)
+let main () = Webs_quick.serve service
+let () = if !Sys.interactive then () else exit (main ())
+]}
+
+Note that Webs services are defined as functions:
+{[
+Http.Request.t -> Http.Response.t
+]}
+they are not supposed to raise exceptions (the connector will guard
+against them though). They should perform their own error logging or use
+the connector generic {!Webs.Http.Response.log} message.
+
+
+{2:request_method_constraint How do I constrain the allowed methods ?}
+
+The {!Webs.Http.Request.allow} combinator allows you to constrain and
+match the allowed methods of a request. For examples:
+
+{[
+open Result.Syntax
+open Webs
+
+let respond : Http.Request.t -> (Http.Response.t, Http.Response.t) result =
+fun request ->
+  let* meth = Http.Request.allow Http.Method.[get,head] request in
+  match meth with
+  | `GET -> …
+  | `HEAD -> …
+]}
+
+If the request has not the right method a suitable
+{!Webs.Http.Status.method_not_allowed_405} response which includes a
+proper {!Webs.Http.Headers.allow} header is returned in the [Error _] case.
+
+{2:request_paths_kinds What are the request path, service path and raw path ?}
+
+The service path is not a concept you find in HTTP. It is added by
+Webs to allow your service to be attached at arbitrary point of a
+server's path hierarchy. It assumes that your service gets attached to
+a root of the path hierarchy, typically you specify this root to the
+connector that runs your service. This root is made available in the
+request value as {!Webs.Http.Request.service_path}.
+
+Connectors {{!page-connector_conventions.service_requests}are in
+charge} of stripping the service path from the raw request path and
+provide the resulting path as the {!Webs.Http.Request.path} property
+in the request values they hand you out which. This is the path that
+your service should base its logic on as it is independent from where
+the service ends up being attached.
+
+The {!Webs.Http.Request.raw_path} property of a request has the path
+and query as found in the HTTP request. Note that using this property
+is not a good idea as it makes your responses sensitive to where your
+service is attached.
+
+
+{2:request_path_cleaning How do I clean request paths ?}
+
+The {!Webs.Http.Request.clean_path} allows to clean paths. Note that
+this function does not handle dot segments and the resulting paths
+remain dangerous for file seving. See
+{!page-service_howto.serving_files} for more details.
+
+{b TODO.} What's the idea with not handling dot segments ?
+
+{2:request_query_raw How do I access the raw path query ?}
+
+The {!Webs.Http.Request.raw_path} property of a request has the raw
+path and query as found in the HTTP request. The
+{!Webs.Http.Request.query} function detaches the query from the path.
+
+{2:request_query_parse How do I parse the query?}
+
+The {!Webs.Http.Request.to_query} parses a query regardless of the
+request method and thus regardless of whether the request is in the
+body (POST method) or in the request path (GET method).
+
+TODO say something about file and multiparts and that it may not be
+a good idea in these cases.
+
+{2:request_files How do I service files?}
+
+This topic is covered in the
+{{!page-service_howto.serving_files}service howto}.
+
+{2:stubbing How do I stub a service?}
+
+You can always respond with {!Webs.Http.Response.not_implemented_501},
+but we find the stricly equivalent {!Webs.Http.Response.todo} easier to
+remember:
+
+{[
+let respond : Http.Request.t -> (Http.Response.t, Http.Response.t) result =
+    Http.Response.todo ~log:"We need to connect to heaven first!"
+]}
+
+{1:headers Headers}
+
+{1:cookies Cookies}
+
+{1:etags Etags}

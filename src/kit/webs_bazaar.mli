@@ -201,7 +201,7 @@ end
        integrate all request aspects. This could be
        separated in Kreq and Urlf. But we still need to
        figure out what we want to do with requests that
-       are not [URL]able (well with {!Hc} every aspect
+       are not [URL]able (well with {!Htmlact} every aspect
        becomes [URL]able). Bare could embody {!Webs.Http.Request.t}.}
     {- Integrate sessions ? Maybe not, here is the reasoning:
        the custom request types should only ever hold what can be specified

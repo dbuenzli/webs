@@ -65,7 +65,7 @@ val enticate :
     {- [Error r] with [r] an empty
        {!Webs.Http.Status.unauthorized_401} response with a challenge for {{:https://www.rfc-editor.org/rfc/rfc9110#name-establishing-a-protection-s}realm} [realm] if there is no {!Webs.Http.Headers.authorization}
        header or if there was one but the credentials [check] failed.
-       The exact condition is stored in {!Webs.Http.Response.explain}[ r] for
+       The exact condition is stored in {!Webs.Http.Response.log}[ r] for
        your service log. If you add a body to this response, e.g. via
        {!Webs.Http.Response.map_errors}, it
        {e may} be shown by the browser when the user hits cancel on the password

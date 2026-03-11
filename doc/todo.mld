@@ -29,6 +29,11 @@ The ressource strategy may still need tweaking.
   strategy is first. In a simple webapp like [hyperbib] we
   mostly use {!Webs.Http.Body.of_string}.
 
+{1:client Client}
+
+- Need an easy cookie story.
+- Add a `Http_client.request'` with a structured type.
+
 {1:tool [webs] tool}
 
 Things that could be done.

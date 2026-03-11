@@ -7,7 +7,6 @@
 
     Open the module to use it. It defines only these modules in your scope. *)
 
-
 module Url = Webs__url
 
 (** Media type constants and file extensions. *)
@@ -1373,11 +1372,15 @@ module Http : sig
 
   (** HTTP responses.
 
-      The {{!page-connector_conventions.service_responses}service
-      responses} and
-      {{!page-connector_conventions.client_responses}client responses}
-      conventions may help understanding how connectors use and
-      construct these values. *)
+      These values are:
+      {ul
+      {- Constructed by client connectors according to
+         {{!page-connector_conventions.client_responses}these conventions} and
+         handed over to you for intepretation.}
+      {- Constructed by your service and interpreted
+         by service connectors according to
+         {{!page-connector_conventions.service_responses}these conventions}.}}
+  *)
   module Response : sig
 
     (** {1:responses Responses} *)
@@ -1447,7 +1450,7 @@ module Http : sig
         server-side {!reason} {b not meant to be sent to the
         client}. It can be used to log further details or explanations
         about the answer that one may not want to disclose to the
-        client.  *)
+        client. *)
 
     val headers : t -> Headers.t
     (** [headers response] are the headers of [response]. *)
@@ -1463,11 +1466,11 @@ module Http : sig
     val version : t -> Version.t
     (** [version response] is the version of [response].
         {ul
+        {- For client connectors this should be the HTTP version of the
+          response read by the connector.}
         {- For service connectors this is mostly irrelevant: the connector
            decides how it wants to send the response to the client. But it
-           can be used as a hint for which HTTP version to use.}
-        {- For client connectors this should be the HTTP version of the
-           response read by the connector.}} *)
+           can be used as a hint for which HTTP version to use.}} *)
 
     (** {1:responding Responding}
 
@@ -1602,10 +1605,14 @@ module Http : sig
 
   (** HTTP requests.
 
-      The {{!page-connector_conventions.service_requests}service request}
-      and {{!page-connector_conventions.client_requests}client request}
-      conventions may help understanding how connectors construct and
-      use these values. *)
+      These values are:
+      {ul
+      {- Constructed by you and interpreted by client connectors
+         according to
+         {{!page-connector_conventions.client_requests}these conventions}.}
+      {- Constructed by service connectors according to these
+         {{!page-connector_conventions.service_requests}these conventions}
+         and handed over to you for intepretation.}} *)
   module Request : sig
 
     (** {1:requests Requests} *)
@@ -1672,10 +1679,6 @@ module Http : sig
     (** [to_url request] is an URL for [r] of the given
         scheme. This can be seen as the inverse of {!of_url}. This errors
         if no {!Headers.host} header can be found in the request header. *)
-
-    val to_url' : t -> Url.t
-    (** [to_url'] is like {!to_url} but raises [Invalid_argument] if
-        there is no {!Headers.host} header. *)
 
     val with_body : Body.t -> t -> t
     (** [with_body b request]  is [request] with body [b]. *)
@@ -1745,23 +1748,23 @@ module Http : sig
     val service_path : t -> Path.t
     (** [service_path r] is service path of [r].
         {ul
+        {- For client connectors this is irrelevant and set to
+           {!Path.root}.}
         {- For service connectors this is the path on which the root
            of the service is attached. This is usually defined by the service
            connector. The {!val-path} value of [r] is the path mentioned in
-           {!raw_path} stripped by this path.}
-        {- For client connectors this is irrelevant and set to
-           {!Path.root}}} *)
+           {!raw_path} stripped by this path.}} *)
 
     val version : t -> Version.t
     (** [version r] is the HTTP version of the request.
         {ul
+        {- For client connectors this is mostly irrelevant: the connectors
+           decides how they want to talk to the client. But it can
+           be used as hint for which HTTP version to use.}
         {- For service connectors this should be the HTTP version of the
            request made on the connector. Note that if the service connector
            interfaces with a gateway this may be different from the actual
-           version used by the gateway with the client.}
-        {- For client connectors this is mostly irrelevant: the connectors
-           decides how they want to talk to the client. But it can
-           be used as hint for which HTTP version to use.}} *)
+           version used by the gateway with the client.}} *)
 
     (** {1:echo Echo} *)
 
@@ -1905,7 +1908,9 @@ module Http : sig
 
   (** {1:connector_tools Connector tools} *)
 
-  (** Tool for connectors. *)
+  (** Tool for connectors.
+
+      See the {{!page-connector_conventions}connector conventions}. *)
   module Connector : sig
 
     (** Connector log messages.
@@ -2005,13 +2010,14 @@ end
 
 (** HTTP clients.
 
-    See {{!Http_client.examples}examples}. *)
+    See the {{!page-index.quick_start_fetch}quick start}
+    and the {{!page-cookbook.fetching}cookbook}. *)
 module Http_client : sig
 
   (** {1:clients Clients} *)
 
   val default_max_redirection : int
-  (** [default_max_redirection] is the default maximal number of
+  (** [default_max_redirection] is [10], the default maximal number of
       redirections when they are followed, see {!val-request}. *)
 
   type t
@@ -2046,52 +2052,22 @@ module Http_client : sig
          {!Http.Headers.proxy_authorization} and
          {!Http.Headers.cookie} are dropped}}
 
-      In case there was a follow, the final requested URL can be found in the
-      response in the {!x_follow_location} header.
-  *)
+      The maximal number of redirection is given by [max_redirection] and
+      defaults to {!default_max_redirection}.
+
+      If, and only if, there was a follow, the final requested URL can
+      be found in the response in the {!x_follow_location} header. *)
 
   val get : t -> follow:bool -> url:Url.t -> (string, string) result
-  (** [get c ~follow ~url] is the body of a [GET] request on [url].
-      For the semantics of [follow] see {!request}.
+  (** [get c ~follow ~url] is the body of a successful [GET] request
+      on [url]. For the semantics of [follow] see {!request}.
 
       {b Note.} This is voluntarily kept bare bones (e.g. no headers
       can be specified). Anything more complex should use {!request}. *)
 
   val x_follow_location : Http.Headers.Name.t
   (** [x_follow_location] is the final location that was requested
-      when {!follow} is true. *)
-
-  (** {1:examples Examples}
-
-      This fetches {:https://example.org} with {!Webs_spawn_client}
-      and {!Http_client.get}.
- {[
- open Webs
-
- let main () =
-   let httpc = Webs_spawn_client.make () in
-   let url = "https://example.org" in
-   match Http_client.get httpc ~follow:true ~url with
-   | Error e -> prerr_endline e; 1
-   | Ok page -> print_endline page; 0
-
- let () = if !Sys.interactive then () else exit (main ())
-]}
-
-    This shows how to use {!Http_client.request} to implement
-    {!Http_client.get}.
-{[
-open Webs
-let ( let* ) = Result.bind
-
-let get httpc ~follow ~url =
-  let* request = Http.Request.of_url `GET ~url in
-  let* response = Http_client.request httpc ~follow req in
-  match Http.Response.status response with
-  | 200 -> Http.Body.to_string (Http.Response.body response)
-  | st -> Error (Format.asprintf "%a" Http.Status.pp st)
-]}
-*)
+      on [~follow:true]. Only added if there was a redirection. *)
 
   (** {1:connectors Client connectors}
 

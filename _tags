@@ -16,6 +16,6 @@ true : bin_annot, safe_string
 <src/cli> : include
 <src/cli/**> : package(cmdliner)
 
-<tool/webs_tool*> : thread, package(bytesrw), package(threads.posix), \
+<test/webs_tool*> : thread, package(bytesrw), package(threads.posix), \
                     package(cmdliner), \
                     use_webs_unix_stubs, use_webs_kit_stubs

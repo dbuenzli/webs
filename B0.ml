@@ -22,38 +22,29 @@ let webs_lib =
 
 let webs_kit_lib =
   let srcs = [`Dir ~/"src/kit"] in
-  let requires = [webs] and exports = [webs] in
-  B0_ocaml.lib webs_kit ~srcs ~requires ~exports
+  B0_ocaml.lib webs_kit ~srcs ~requires:[webs] ~exports:[webs]
 
 let webs_unix_lib =
   let srcs = [`Dir ~/"src/unix"] in
   let requires = [bytesrw; webs; unix; threads] in
-  let exports = [webs] in
-  B0_ocaml.lib webs_unix ~srcs ~requires ~exports
+  B0_ocaml.lib webs_unix ~srcs ~requires ~exports:[webs]
 
 let webs_cli_lib =
   let srcs = [`Dir ~/"src/cli"] in
   let requires = [webs; webs_unix; cmdliner; unix] in
-  let exports = [webs] in
-  B0_ocaml.lib webs_cli ~srcs ~requires ~exports
+  B0_ocaml.lib webs_cli ~srcs ~requires ~exports:[webs]
 
 (* Tools *)
 
 let webs_tool =
-  let srcs = Fpath.[`File (v "tool/webs_tool.ml")] in
+  let srcs = Fpath.[`File (v "test/webs_tool.ml")] in
   let requires = [cmdliner; unix; webs; webs_kit; webs_unix; webs_cli] in
   B0_ocaml.exe "webs" ~public:true ~doc:"Webs HTTP tool" ~srcs ~requires
 
 (* Tests *)
 
-let test
-    ?long:(l = false) ?doc ?run:(r = true) ?(requires = []) ?(srcs = []) src
-  =
-  let srcs = (`File src) :: srcs in
-  let requires = b0_std :: webs :: requires in
-  let meta = B0_meta.(empty |> tag test |> ~~ run r |> ~~ long l) in
-  let name = Fpath.basename ~drop_exts:true src in
-  B0_ocaml.exe name ~srcs ~requires ~meta ?doc
+let test ?(requires = []) =
+  B0_ocaml.test ~requires:(b0_std :: webs :: requires)
 
 let test_http = test ~/"test/test_http.ml" ~run:true
 let test_base64 = test ~/"test/test_base64.ml" ~run:true ~requires:[webs_kit]
@@ -67,41 +58,43 @@ let test_authenticatable =
 let test_cryptorand =
   test ~/"test/test_cryptorand.ml" ~run:true ~requires:[webs_kit]
 
-
 (* Examples *)
 
 let base_libs = [webs; webs_kit]
-let quick_libs = webs_cli :: base_libs
-let unix_libs = webs_unix :: unix :: base_libs
+let quick = webs_cli :: base_libs
+let unix = webs_unix :: unix :: quick
 
-let sample ?(doc = "Sample code") ?(srcs = []) src ~requires =
-  let src = Fpath.(~/"examples"/src) in
-  let srcs = `File src :: srcs in
-  let meta = B0_meta.(empty |> tag sample) in
-  let name = Fpath.basename ~drop_exts:true src in
-  B0_ocaml.exe name ~srcs ~requires ~meta ~doc
+let authedcookie = test ~/"test/authedcookie.ml" ~run:false ~requires:unix
+let basicauth = test ~/"test/basicauth.ml" ~run:false ~requires:quick
+let basicauth_sloppy =
+  test ~/"test/basicauth_sloppy.ml" ~run:false ~requires:unix
 
-let authedcookie = sample "authedcookie.ml" ~requires:(unix :: quick_libs)
-let basicauth = sample "basicauth.ml" ~requires:quick_libs
-let basicauth_sloppy = sample "basicauth_sloppy.ml" ~requires:quick_libs
-let cgi = sample "cgi.ml" ~requires:unix_libs
-let examples = sample "examples.ml" ~requires:(webs_unix :: quick_libs)
-let form_methods = sample "form_methods.ml" ~requires:quick_libs
-let gateway_send_file = sample "gateway_send_file.ml" ~requires:quick_libs
-let http11_gateway = sample "http11_gateway.ml" ~requires:unix_libs
-let login_cookie = sample "login_cookie.ml" ~requires:quick_libs
-let min = sample "min.ml" ~requires:quick_libs
-let multiconnector = sample "multiconnector.ml" ~requires:unix_libs
-let naive_fetch = sample "naive_fetch.ml" ~requires:(cmdliner :: unix_libs)
-let session = sample "session.ml" ~requires:quick_libs
-let sse = sample "sse.ml" ~requires:(unix :: quick_libs)
+let cgi = test ~/"test/cgi.ml" ~run:false ~requires:unix
+let cookbook = test ~/"test/cookbook.ml" ~run:false ~requires:unix
+let examples = test ~/"test/examples.ml" ~run:false ~requires:unix
+let fetch = test ~/"test/fetch.ml" ~run:false ~requires:unix
+let form_methods = test ~/"test/form_methods.ml" ~run:false ~requires:quick
+let gateway_send_file =
+  test ~/"test/gateway_send_file.ml" ~run:false ~requires:quick
+
+let http11_gateway = test ~/"test/http11_gateway.ml" ~run:false ~requires:unix
+
+let login_cookie = test ~/"test/login_cookie.ml" ~run:false ~requires:quick
+let min = test ~/"test/min.ml" ~run:false ~requires:quick
+let multiconnector = test ~/"test/multiconnector.ml" ~run:false ~requires:unix
+let naive_fetch =
+  test ~/"test/naive_fetch.ml" ~run:false ~requires:(cmdliner :: unix)
+
+let serve = test ~/"test/serve.ml" ~run:false ~requires:quick
+let session = test ~/"test/session.ml" ~run:false ~requires:quick
+let sse = test ~/"test/sse.ml" ~run:false ~requires:unix
 let unix_send_file =
-  sample "unix_send_file.ml" ~requires:(webs_unix::quick_libs)
+  test ~/"test/unix_send_file.ml" ~run:false ~requires:unix
 
-let websocket = sample "websocket.ml" ~requires:quick_libs
-let webpage = sample "webpage.ml" ~requires:quick_libs
-let webpage_etag = sample "webpage_etag.ml" ~requires:quick_libs
-let webpage_cache = sample "webpage_cache.ml" ~requires:quick_libs
+let websocket = test ~/"test/websocket.ml" ~run:false ~requires:quick
+let webpage = test ~/"test/webpage.ml" ~run:false ~requires:quick
+let webpage_etag = test ~/"test/webpage_etag.ml" ~run:false ~requires:quick
+let webpage_cache = test ~/"test/webpage_cache.ml" ~run:false ~requires:quick
 
 (* Packs *)
 

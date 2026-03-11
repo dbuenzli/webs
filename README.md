@@ -4,12 +4,12 @@ Webs — HTTP client and server toolkit for OCaml
 Webs is a toolkit for programming with HTTP in OCaml. It provides:
 
 * IO and HTTP version agnostic representations for HTTP requests and responses.
-* A client connector abstraction for making HTTP client requests with
-  HTTP client implementations.
+* A client connector abstraction for making client requests with HTTP client
+  implementations.
 * A service connector abstraction for running HTTP services defined as 
   functions mapping requests to responses. Simple CGI and HTTP/1.1 gateway 
   connectors are provided, but you can bring your own.
-* Optional HTTP service building blocks. File serving, authenticated
+* Optional service building blocks. File serving, authenticated
   cookies, sessions, etc.
 
 Webs is not a framework, it is a set of building blocks.
@@ -46,11 +46,10 @@ the issue tracker.
 
 ## Sample programs 
 
-A few programs can be found in the [examples](examples) directory,
+A few programs can be found in the [test](test) directory,
 see `b0 list`. You  can run them for example with 
 
     b0 -- authedcookie
 
-The [`webs`](examples/webs_tool.ml) command line tool serves files
-over unencrypted HTTP/1.1 and makes HTTP requests with a `curl`
-backend.
+The [`webs`](test/webs_tool.ml) command line tool serves files over
+unencrypted HTTP/1.1 and makes HTTP requests with a `curl` backend.

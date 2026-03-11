@@ -5,40 +5,39 @@ Webs is a toolkit for programming with HTTP in OCaml. It provides:
 - IO and HTTP version agnostic representations for HTTP
   {{!Webs.Http.Request}requests} and {{!Webs.Http.Response}responses}.
 - A client connector abstraction for making
-  {{!Webs.Http_client}HTTP client requests} with HTTP client implementations.
+  {{!Webs.Http_client}client requests} with HTTP client implementations.
 - A service connector abstraction for running HTTP services defined as
   functions mapping requests to responses. Simple
   {{!Webs_cgi}CGI} and {{!Webs_http11_gateway}HTTP/1.1 gateway}
   connectors are provided, but you can bring your own.
 - Optional HTTP service building blocks.
-  {{!page-http_service_howto.serving_files}File serving},
+  {{!page-service_howto.serving_files}File serving},
   {{!Webs_authenticated_cookie}authenticated cookies},
   {{!Webs_session}sessions}, etc.
 
 Webs is not a framework, it is a set of building blocks.
-
-See the {{!quick_start}quick start} and the
-{{:current_limitations}limitations}
 
 {1:manuals Manuals}
 
 These manuals are available:
 
 {ul
-{- The {{!page-http_service_howto}HTTP service howto} explains how to
-   define, compile and run a service behind an HTTP gateway and let
-   it serve files and webpages efficiently.}
-{- The {{!page-http_request_cookbook}HTTP request handling cookbook} has
-   a few conventions and recipes to handle HTTP requests.}
+{- The {{!quick_start}quick start} should do so.}
+{- The {{!page-cookbook}Webs cookbook} has a few convention and
+   HTTP client and service recipes.}
+{- The {{!page-service_howto}service howto} explains how to define,
+   compile and run a service behind an HTTP gateway and let it serve
+   files and webpages efficiently.}
 {- The {{!page-connector_conventions}connector conventions} explain
    how service and client connectors construct and interpret request
    and response values. It's a good idea to read it to understand how
    connectors behave in certain edge cases.}
 {- The {{!page-tutorial}tutorial} is a more involved example to get you
    started.}
-{- The {{!page-todo}TODO} is a few things that are todo}}
+{- The {{!page-todo}TODO} is a few things that are todo}
+{- There are a few {{!limitations}limitations}}}
 
-The {{:https://github.com/dbuenzli/webs/tree/master/examples}examples}
+The {{:https://github.com/dbuenzli/webs/tree/master/test}test}
 directory of the repository has a few simple examples that use the
 APIs.
 
@@ -85,8 +84,7 @@ Webs_cgi
 Webs_http11_gateway}
 
 {2:unix_client_connectors Client connectors}
-{!modules:
-Webs_spawn_client}
+{!modules: Webs_spawn_client}
 
 {1:webs_cli Library [webs.cli]}
 
@@ -144,7 +142,7 @@ Compile and run with:
 {@sh[
 ocamlfind ocamlopt -linkpkg -package webs,webs.unix,webs.cli -o serve serve.ml
 ./serve &
-curl http://localhost:8000/hey
+curl -i http://localhost:8000/hey
 ./fetch http://localhost:8000/hey
 pkill serve
 ./serve --help
@@ -152,14 +150,14 @@ pkill serve
 
 {1:limitations Limitations}
 
-Before using Webs for your project you should be aware of
-these current limitations, some of which will be lifted in the future.
+Before using Webs for your project you should be aware of these
+current limitations, some of which will be lifted in the future.
 
 {ul
 {- All available {{!unix_service_connectors}service connectors} do not talk
    directly to the internet and do not talk [https]. You need to pair
    your service with an HTTP gateway like Apache, nginx, etc. See the
-   {{!page-http_service_howto}HTTP service howto} for more details.
+   {{!page-service_howto}service howto} for more details.
    Alternatively you can develop your own connector with your own concurrency
    model.}
 {- TODO chunked encoding}
@@ -172,6 +170,3 @@ these current limitations, some of which will be lifted in the future.
    fare well if you need to support WebSockets or SSE at scale.}
 {- For now the only client connector is {!Webs_spawn_client} which is
    only ok for scripting or lightweight needs.}}
-
-Finally note that while Webs is unlikely to change drastically, making
-some breaking changes in the future is not excluded.

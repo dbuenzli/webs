@@ -13,7 +13,7 @@
     program needs. Here are a few limitations:
 
     {ul
-    {- You need to make sure your program has one of thse tools in your [PATH]:
+    {- You need to make sure your program has one of these tools in your [PATH]:
        [curl]}
     {- It reads request and response bodies in memory. TODO we can
        easily do better when we integrate [bytesrw]}} *)

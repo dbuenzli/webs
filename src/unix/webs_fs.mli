@@ -5,7 +5,7 @@
 
 (** File system responses.
 
-    See {{!page-http_service_howto.serving_files}this section} of the
+    See {{!page-service_howto.serving_files}this section} of the
     HTTP service howto. See also {!Webs_gateway.send_file}.
 
     To use {!send_file} you need a connector that supports
@@ -126,7 +126,7 @@ val send_file :
     {- A {!Webs.Http.Status.not_found_404} empty response, if there's any
        file system call error (e.g. [EPERM]).
        A human readable explanation can be found in the response's
-       {{!Webs.Http.Response.explain}explanation} which stays on the server.}}
+       {{!Webs.Http.Response.log}log} which stays on the server.}}
 
     {b Caching.} The responses do not add caching information. You should
     add them yourself on [Ok _] responses, for example as follows:

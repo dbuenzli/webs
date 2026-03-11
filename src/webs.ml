@@ -1535,9 +1535,6 @@ module Request = struct
   | Error _ as e -> e
   | Ok host -> Ok (_to_url ~host request)
 
-  let to_url' request =
-    _to_url ~host:(Headers.(get host) request.headers) request
-
   let with_body body request = { request with body }
   let with_headers headers request = { request with headers }
   let override_headers ~by:headers request =
