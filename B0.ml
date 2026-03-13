@@ -113,7 +113,12 @@ let default =
     |> B0_meta.tag B0_opam.tag
     |> ~~ B0_opam.build
       {|[["ocaml" "pkg/pkg.ml" "build" "--dev-pkg" "%{dev}%"
-          "--with-cmdliner" "%{cmdliner:installed}%"]]|}
+          "--with-cmdliner" "%{cmdliner:installed}%"]
+         ["cmdliner" "install" "tool-support"
+          "--update-opam-install=%{_:name}%.install"
+          "_build/test/webs_tool.native:webs" {ocaml:native}
+          "_build/test/webs_tool.byte:webs" {!ocaml:native}
+          "_build/cmdliner-install"] {cmdliner:installed}]|}
     |> ~~ B0_opam.depopts ["cmdliner", ""]
     |> ~~ B0_opam.conflicts [ "cmdliner", {|< "1.3.0"|}]
     |> ~~ B0_opam.depends
