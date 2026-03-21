@@ -13,7 +13,7 @@ Webs is a toolkit for programming with HTTP in OCaml. It provides:
 - Optional HTTP service building blocks.
   {{!page-service_howto.serving_files}File serving},
   {{!Webs_authenticated_cookie}authenticated cookies},
-  {{!Webs_session}sessions}, etc.
+  {{!Webs_session}sessions}, {{!Webs_passkey}passkeys}, etc.
 
 Webs is not a framework, it is a set of building blocks.
 
@@ -43,6 +43,8 @@ APIs.
 
 {1:webs Library [webs]}
 
+The core [webs] library is made of the following modules.
+
 {!modules: Webs}
 {!modules:
 Webs.Http
@@ -66,6 +68,10 @@ Webs_hash
 Webs_session
 }
 
+{1:webs_crypto Library [webs.crypto]}
+
+This library depends on the [bytesrw.crypto] library.
+
 {1:webs_unix Library [webs.unix]}
 
 Provides tools to send files and simple connectors. Depends on OCaml's
@@ -85,6 +91,15 @@ Webs_http11_gateway}
 
 {2:unix_client_connectors Client connectors}
 {!modules: Webs_spawn_client}
+
+
+{1:webs_passkey Library [webs.passkey]}
+
+This library depends on the [bytesrw.crypto] and [jsont] libraries.
+
+{!modules:
+Webs_passkey
+}
 
 {1:webs_cli Library [webs.cli]}
 

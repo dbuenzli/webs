@@ -7,9 +7,13 @@ let unix = B0_ocaml.libname "unix"
 let threads = B0_ocaml.libname "threads.posix"
 let cmdliner = B0_ocaml.libname "cmdliner"
 let bytesrw = B0_ocaml.libname "bytesrw"
+let bytesrw_crypto = B0_ocaml.libname "bytesrw.crypto"
+let jsont_bytesrw = B0_ocaml.libname "jsont.bytesrw"
 
 let webs = B0_ocaml.libname "webs"
 let webs_kit = B0_ocaml.libname "webs.kit"
+let webs_crypto = B0_ocaml.libname "webs.crypto"
+let webs_passkey = B0_ocaml.libname "webs.passkey"
 let webs_unix = B0_ocaml.libname "webs.unix"
 let webs_cli = B0_ocaml.libname "webs.cli"
 
@@ -17,17 +21,27 @@ let webs_cli = B0_ocaml.libname "webs.cli"
 
 let webs_lib =
   let srcs = [`Dir ~/"src"] in
-  let requires = [bytesrw] in
-  B0_ocaml.lib ~name:"webs-lib" webs ~srcs ~requires
+  let requires = [bytesrw] and exports = [bytesrw] in
+  B0_ocaml.lib ~name:"webs-lib" webs ~srcs ~requires ~exports
 
 let webs_kit_lib =
   let srcs = [`Dir ~/"src/kit"] in
   B0_ocaml.lib webs_kit ~srcs ~requires:[webs] ~exports:[webs]
 
+let webs_crypto_lib =
+  let srcs = [`Dir ~/"src/crypto"] in
+  let requires = [webs; bytesrw_crypto] in
+  B0_ocaml.lib webs_crypto ~srcs ~requires ~exports:[webs]
+
 let webs_unix_lib =
   let srcs = [`Dir ~/"src/unix"] in
   let requires = [bytesrw; webs; unix; threads] in
   B0_ocaml.lib webs_unix ~srcs ~requires ~exports:[webs]
+
+let webs_passkey_lib =
+  let srcs = [`Dir ~/"src/passkey"] in
+  let requires = [unix; webs; webs_kit; bytesrw_crypto; jsont_bytesrw] in
+  B0_ocaml.lib webs_passkey ~srcs ~requires ~exports:[webs]
 
 let webs_cli_lib =
   let srcs = [`Dir ~/"src/cli"] in
@@ -91,6 +105,9 @@ let sse = test ~/"test/sse.ml" ~run:false ~requires:unix
 let unix_send_file =
   test ~/"test/unix_send_file.ml" ~run:false ~requires:unix
 
+let passkey =
+  test ~/"test/passkey.ml" ~run:false ~requires:(webs_passkey :: unix)
+
 let websocket = test ~/"test/websocket.ml" ~run:false ~requires:quick
 let webpage = test ~/"test/webpage.ml" ~run:false ~requires:quick
 let webpage_etag = test ~/"test/webpage_etag.ml" ~run:false ~requires:quick
@@ -109,20 +126,24 @@ let default =
     |> ~~ B0_meta.repo "git+https://erratique.ch/repos/webs.git"
     |> ~~ B0_meta.issues "https://github.com/dbuenzli/webs/issues"
     |> ~~ B0_meta.description_tags
-      ["web"; "webserver"; "http"; "org:erratique"; ]
+      ["web"; "webserver"; "passkeys"; "http"; "org:erratique"; ]
     |> B0_meta.tag B0_opam.tag
     |> ~~ B0_opam.build
       {|[["ocaml" "pkg/pkg.ml" "build" "--dev-pkg" "%{dev}%"
-          "--with-cmdliner" "%{cmdliner:installed}%"]
+          "--with-cmdliner" "%{cmdliner:installed}%"
+          "--with-conf-mbedtls" "%{conf-mbedtls:installed}%"
+          "--with-jsont" "%{jsont:installed}%"]
          ["cmdliner" "install" "tool-support"
           "--update-opam-install=%{_:name}%.install"
           "_build/test/webs_tool.native:webs" {ocaml:native}
           "_build/test/webs_tool.byte:webs" {!ocaml:native}
           "_build/cmdliner-install"] {cmdliner:installed}]|}
-    |> ~~ B0_opam.depopts ["cmdliner", ""]
+    |> ~~ B0_opam.depopts ["cmdliner", "";
+                           "conf-mbedtls", "";
+                          ]
     |> ~~ B0_opam.conflicts [ "cmdliner", {|< "1.3.0"|}]
     |> ~~ B0_opam.depends
-      [ "ocaml", {|>= "4.14.0"|};
+      [ "ocaml", {|>= "5.4.0"|};
         "ocamlfind", {|build|};
         "ocamlbuild", {|build|};
         "topkg", {|build & >= "1.1.0"|};

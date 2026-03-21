@@ -1,6 +1,7 @@
-description = "HTTP toolkit for OCaml"
+description = "HTTP client and server toolkit for OCaml"
 version = "%%VERSION_NUM%%"
 requires = "bytesrw"
+exports = "bytesrw"
 archive(byte) = "webs.cma"
 archive(native) = "webs.cmxa"
 plugin(byte) = "webs.cma"
@@ -12,6 +13,7 @@ package "cli" (
   description = "The webs.cli library"
   version = "%%VERSION_NUM%%"
   requires = "webs webs.unix cmdliner unix"
+  exports = "webs"
   archive(byte) = "webs_cli.cma"
   archive(native) = "webs_cli.cmxa"
   plugin(byte) = "webs_cli.cma"
@@ -19,11 +21,25 @@ package "cli" (
   exists_if = "webs_cli.cma webs_cli.cmxa"
 )
 
+package "crypto" (
+  directory = "crypto"
+  description = "The webs.crypto library"
+  version = "%%VERSION_NUM%%"
+  requires = "webs bytesrw.crypto"
+  exports = "webs"
+  archive(byte) = "webs_crypto.cma"
+  archive(native) = "webs_crypto.cmxa"
+  plugin(byte) = "webs_crypto.cma"
+  plugin(native) = "webs_crypto.cmxs"
+  exists_if = "webs_crypto.cma webs_crypto.cmxa"
+)
+
 package "kit" (
   directory = "kit"
   description = "The webs.kit library"
   version = "%%VERSION_NUM%%"
   requires = "webs"
+  exports = "webs"
   archive(byte) = "webs_kit.cma"
   archive(native) = "webs_kit.cmxa"
   plugin(byte) = "webs_kit.cma"
@@ -31,11 +47,25 @@ package "kit" (
   exists_if = "webs_kit.cma webs_kit.cmxa"
 )
 
+package "passkey" (
+  directory = "passkey"
+  description = "The webs.passkey library"
+  version = "%%VERSION_NUM%%"
+  requires = "unix webs webs.kit bytesrw.crypto jsont.bytesrw"
+  exports = "webs"
+  archive(byte) = "webs_passkey.cma"
+  archive(native) = "webs_passkey.cmxa"
+  plugin(byte) = "webs_passkey.cma"
+  plugin(native) = "webs_passkey.cmxs"
+  exists_if = "webs_passkey.cma webs_passkey.cmxa"
+)
+
 package "unix" (
   directory = "unix"
   description = "The webs.unix library"
   version = "%%VERSION_NUM%%"
   requires = "bytesrw webs unix threads.posix"
+  exports = "webs"
   archive(byte) = "webs_unix.cma"
   archive(native) = "webs_unix.cmxa"
   plugin(byte) = "webs_unix.cma"

@@ -6,39 +6,45 @@ Webs is a toolkit for programming with HTTP in OCaml. It provides:
 
 * IO and HTTP version agnostic representations for HTTP requests and responses.
 * A client connector abstraction for making client requests with HTTP client
-  implementations.
-* A service connector abstraction for running HTTP services defined as 
-  functions mapping requests to responses. Simple CGI and HTTP/1.1 gateway 
-  connectors are provided, but you can bring your own.
+  implementations. 
+* A service connector abstraction for running HTTP services defined. 
+  Simple CGI and HTTP/1.1 gateway connectors are provided, but you can 
+  bring your own.
 * Optional service building blocks. File serving, authenticated
-  cookies, sessions, etc.
+  cookies, sessions, passkeys, etc.
 
-Webs is not a framework, it is a set of building blocks.
+Webs is not a framework, it provides composable building blocks.
 
 Webs is distributed under the ISC license. The base library only
-depends on [`bytesrw`]. Some service building blocks and the optional
-gateway connectors depend on OCaml's `Unix` and `Thread` modules. The
-command line support depends on [`cmdliner`].
+depends on the core [`bytesrw`] library.
+
+Optional service building blocks and gateway connectors may add
+further dependencies for example on OCaml's `Unix` and `Thread`
+module. The `bytesrw.crypto` is needed for building blocks that need
+cryptography and some higher-level modules like support for `passkeys`
+need [`jsont`]. The command line interface support depends on
+[`cmdliner`].
 
 Homepage: <https://erratique.ch/software/webs>  
 
 [`cmdliner`]: https://erratique.ch/software/cmdliner
-[`bytesrw`]: https://erratique.ch/software/bytesrw"""
+[`bytesrw`]: https://erratique.ch/software/bytesrw
+[`jsont`]: https://erratique.ch/software/jsont"""
 maintainer: "Daniel Bünzli <daniel.buenzl i@erratique.ch>"
 authors: "The webs programmers"
 license: "ISC"
-tags: ["web" "webserver" "http" "org:erratique"]
+tags: ["web" "webserver" "passkeys" "http" "org:erratique"]
 homepage: "https://erratique.ch/software/webs"
 doc: "https://erratique.ch/software/webs/doc"
 bug-reports: "https://github.com/dbuenzli/webs/issues"
 depends: [
-  "ocaml" {>= "4.14.0"}
+  "ocaml" {>= "5.4.0"}
   "ocamlfind" {build}
   "ocamlbuild" {build}
   "topkg" {build & >= "1.1.0"}
   "bytesrw"
 ]
-depopts: ["cmdliner"]
+depopts: ["cmdliner" "conf-mbedtls"]
 conflicts: [
   "cmdliner" {< "1.3.0"}
 ]
@@ -51,6 +57,10 @@ build: [
     "%{dev}%"
     "--with-cmdliner"
     "%{cmdliner:installed}%"
+    "--with-conf-mbedtls"
+    "%{conf-mbedtls:installed}%"
+    "--with-jsont"
+    "%{jsont:installed}%"
   ]
   [
     "cmdliner"

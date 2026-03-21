@@ -5,31 +5,39 @@ Webs is a toolkit for programming with HTTP in OCaml. It provides:
 
 * IO and HTTP version agnostic representations for HTTP requests and responses.
 * A client connector abstraction for making client requests with HTTP client
-  implementations.
-* A service connector abstraction for running HTTP services defined as 
-  functions mapping requests to responses. Simple CGI and HTTP/1.1 gateway 
-  connectors are provided, but you can bring your own.
+  implementations. 
+* A service connector abstraction for running HTTP services defined. 
+  Simple CGI and HTTP/1.1 gateway connectors are provided, but you can 
+  bring your own.
 * Optional service building blocks. File serving, authenticated
-  cookies, sessions, etc.
+  cookies, sessions, passkeys, etc.
 
-Webs is not a framework, it is a set of building blocks.
+Webs is not a framework, it provides composable building blocks.
 
 Webs is distributed under the ISC license. The base library only
-depends on [`bytesrw`]. Some service building blocks and the optional
-gateway connectors depend on OCaml's `Unix` and `Thread` modules. The
-command line support depends on [`cmdliner`].
+depends on the core [`bytesrw`] library.
+
+Optional service building blocks and gateway connectors may add
+further dependencies for example on OCaml's `Unix` and `Thread`
+module. The `bytesrw.crypto` is needed for building blocks that need
+cryptography and some higher-level modules like support for `passkeys`
+need [`jsont`]. The command line interface support depends on
+[`cmdliner`].
 
 Homepage: <https://erratique.ch/software/webs>  
 
 [`cmdliner`]: https://erratique.ch/software/cmdliner
 [`bytesrw`]: https://erratique.ch/software/bytesrw
+[`jsont`]: https://erratique.ch/software/jsont
 
 ## Installation
 
 Webs can be installed with `opam`:
 
     opam install webs
-    opam install webs cmdliner # with cmdliner support
+    opam install webs cmdliner # cmdliner support
+    opam install webs conf-mbedtls # cryptography support
+    opam install webs conf-mbedtls jsont # passkey support
 
 If you don't use `opam` consult the [`opam`](opam) file for build
 instructions.
