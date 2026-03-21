@@ -9,7 +9,7 @@ let ( let* ) = Result.bind
 let strf = Printf.sprintf
 
 type time = int
-module Private_key = struct
+module Secret_key = struct
   type crypto_random = int -> string
   type t = [ `Hs256 of string ]
 
@@ -39,7 +39,7 @@ type t = string
 
 (* Encode *)
 
-let encode ~private_key:(`Hs256 key) ~expire data =
+let encode ~secret_key:(`Hs256 key) ~expire data =
   let expire = match expire with None -> "" | Some t -> string_of_int t in
   let msg = String.concat ":" [expire; data] in
   let hmac = Webs_hash.Sha_256.hmac ~key msg in
@@ -66,7 +66,7 @@ type error =
 | `Format of format_error ]
 
 let error_message = function
-| `Authentication -> "data not authenticated by private key"
+| `Authentication -> "data not authenticated by secret key"
 | `Format e -> format_error_message e
 | `Expired t -> strf "data expired at %d" t
 | `Missing_now_for t -> strf "missing current time for data expiring at %d." t
@@ -96,7 +96,7 @@ let decode_msg msg = match String.index_opt msg ':' with
     | None -> Error (`Scheme (Some hs256))
     | Some _ as t -> Ok (t, data)
 
-let decode ~private_key:(`Hs256 key) ~now s = match decode_hmac s with
+let decode ~secret_key:(`Hs256 key) ~now s = match decode_hmac s with
 | Error e -> Error (`Format e)
 | Ok (hmac, msg) ->
     let hmac' = Webs_hash.Sha_256.hmac ~key msg in

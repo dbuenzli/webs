@@ -56,9 +56,9 @@ let client_stored_error_message = function
 let client_stored_error_string r =
   Result.map_error client_stored_error_message r
 
-let client_stored ~private_key ?attributes ~name () =
+let client_stored ~secret_key ?attributes ~name () =
   let load sd r =
-    match Webs_authenticated_cookie.find ~private_key ~now:None ~name r with
+    match Webs_authenticated_cookie.find ~secret_key ~now:None ~name r with
     | Ok (Some (_, s)) ->
         begin match sd.State.decode s with
         | Error e -> Error (`State_decode e)
@@ -71,7 +71,7 @@ let client_stored ~private_key ?attributes ~name () =
   | Some s ->
       let data = sd.State.encode s in
       Webs_authenticated_cookie.set
-        ?attributes ~private_key ~expire:None ~name data r
+        ?attributes ~secret_key ~expire:None ~name data r
   in
   Handler.v ~load ~save ()
 

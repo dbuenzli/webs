@@ -99,7 +99,7 @@ val setup :
     This handler provides sessions by storing them on the client.
     The session data is {b unencrypted} but authenticated, the
     client cannot tamper with it – unless it finds out about your
-    private key.
+    secret key.
 
     This is convenient for small user state like login status as no
     state needs to be maintained on the server. However be mindful
@@ -121,13 +121,13 @@ val client_stored_error_string :
     [Result.map_error client_stored_error_message r]. *)
 
 val client_stored :
-  private_key:Webs_authenticatable.Private_key.t ->
+  secret_key:Webs_authenticatable.Secret_key.t ->
   ?attributes:Http.Cookie.attributes ->
   name:string -> unit -> ('a, client_stored_error) Handler.t
-(** [client_stored ~private_key ~atts ~name] stores
+(** [client_stored ~secret_key ~atts ~name] stores
     {{:expiring}non-expirable} state on the client in an
-    {!Webs_authenticated_cookie} authenticated with the private key
-    [private_key], named [name] and with attributes [atts]
+    {!Webs_authenticated_cookie} authenticated with the secret key
+    [secret_key], named [name] and with attributes [atts]
     [atts] (defaults to {!Webs.Http.Cookie.default_attributes}).
 
     {b Important.} The default [atts] has no path defined. This sets

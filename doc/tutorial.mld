@@ -7,11 +7,12 @@ application rather than decide on how it should be structured.
 
 {1:sessions Sessions}
 
-This means you need a private key in your service. An easy way to
+This means you need a secret key in your service. An easy way to
 handle this is o generate one randomly with
-{!Webs_authenticatable.Private_key.random_hs256} when you start
-your service. Note however that this invalidates any data currently
-stored on your clients whenever you restart your service – that may be
-okay, or not, save it and load it from a [0o600] protected file if
-it's not. Also if you use a single service key you cannot invalidate
-the data of your clients on a per-user basis.
+{!Webs_authenticatable.Secret_key.random_hs256} when you start your
+service. Note however that this invalidates any data currently stored
+on your clients whenever you restart your service – that may be okay,
+or not. Save it and load it from a [0o600] protected file if it's
+not. Also if you use a single service key you cannot invalidate the
+data of your clients on a per-user basis, in that case you should have
+one secret key per user.

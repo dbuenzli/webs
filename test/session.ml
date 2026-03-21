@@ -9,7 +9,7 @@
    Note that the session state travels on every request so you
    should keep it reasonable small.
 
-   Sessions expire whenever the service shutdowns since the private
+   Sessions expire whenever the service shutdowns since the secret
    authentication key for authenticating session cookies is not
    persisted and regenerated when the service starts. *)
 
@@ -28,8 +28,8 @@ y  <h1>Session</h1>
 </html>
 |} count
 
-let session ~private_key =
-  Webs_session.client_stored ~private_key ~name:"webs_count" ()
+let session ~secret_key =
+  Webs_session.client_stored ~secret_key ~name:"webs_count" ()
 
 let state =
   let encode i = string_of_int i in
@@ -47,16 +47,16 @@ let count c request =
   let headers = Http.Headers.(def cache_control "no-store" empty) in
   Some c', Http.Response.html Http.Status.ok_200 ~headers (countpage c')
 
-let service ~private_key request =
+let service ~secret_key request =
   Http.Response.result @@ match Http.Request.path request with
   | [""] ->
       let* `GET = Http.Request.allow Http.Method.[get] request in
-      Ok (Webs_session.setup state (session ~private_key) count request)
+      Ok (Webs_session.setup state (session ~secret_key) count request)
   | _ ->
       Http.Response.not_found_404 ()
 
 let main () =
-  let private_key = Webs_authenticatable.Private_key.random_hs256 () in
-  Webs_quick.serve (service ~private_key)
+  let secret_key = Webs_authenticatable.Secret_key.random_hs256 () in
+  Webs_quick.serve (service ~secret_key)
 
 let () = if !Sys.interactive then () else exit (main ())

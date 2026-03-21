@@ -7,8 +7,8 @@ open Webs
 
 (* Setting and clearing *)
 
-let set ~private_key ~expire ?attributes ~name data response =
-  let value = Webs_authenticatable.encode ~private_key ~expire data in
+let set ~secret_key ~expire ?attributes ~name data response =
+  let value = Webs_authenticatable.encode ~secret_key ~expire data in
   let cookie = Http.Cookie.encode ?attributes ~name value in
   let headers = Http.Response.headers response in
   let headers = Http.Headers.add_set_cookie cookie headers in
@@ -35,12 +35,12 @@ let error_message = function
 
 let error_string r = Result.map_error error_message r
 
-let find ~private_key ~now ~name request =
+let find ~secret_key ~now ~name request =
   match Http.Request.find_cookie ~name request with
   | Error e -> Error (`Cookie e)
   | Ok (None | Some "") -> Ok None
   | Ok (Some c) ->
-      let d = Webs_authenticatable.decode ~private_key ~now c in
+      let d = Webs_authenticatable.decode ~secret_key ~now c in
       let d =
         (d :> (Webs_authenticatable.time option * string, error) result)
       in

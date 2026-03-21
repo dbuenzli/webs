@@ -5,7 +5,7 @@
 
 (* Uses a client stored session for login.
 
-   Sessions expire whenever the service shutdowns since the private
+   Sessions expire whenever the service shutdowns since the secret
    authentication key for authenticating session cookies is not persisted
    and regenerated when the service starts.
 
@@ -95,8 +95,8 @@ module User = struct
   | _, _ -> false
 end
 
-let session ~private_key =
-  Webs_session.client_stored ~private_key ~name:"webs_login" ()
+let session ~secret_key =
+  Webs_session.client_stored ~secret_key ~name:"webs_login" ()
 
 let user_state =
   let encode = Fun.id and decode = Result.ok in
@@ -164,7 +164,7 @@ let logout_user ~and_goto user request =
   let status = Http.Status.see_other_303 in
   Ok (None, Http.Request.redirect_to_path request status and_goto ?log)
 
-let service ~private_key request =
+let service ~secret_key request =
   let serve user req =
     let user = Option.join @@ Result.to_option user (* drop sess. on error *) in
     Http.Response.result @@
@@ -176,11 +176,11 @@ let service ~private_key request =
     | ["logout"] -> logout_user ~and_goto:[""] user req
     | _ -> Webs_session.for_result user (Http.Response.not_found_404 ())
   in
-  Webs_session.setup user_state (session ~private_key) serve request
+  Webs_session.setup user_state (session ~secret_key) serve request
 
 let main () =
-  let private_key = Webs_authenticatable.Private_key.random_hs256 () in
-  Webs_quick.serve ~name:"login" (service ~private_key)
+  let secret_key = Webs_authenticatable.Secret_key.random_hs256 () in
+  Webs_quick.serve ~name:"login" (service ~secret_key)
 
 
 let () = if !Sys.interactive then () else exit (main ())

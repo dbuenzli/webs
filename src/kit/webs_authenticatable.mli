@@ -6,9 +6,10 @@
 (** Authenticatable data.
 
     This module {{!t}defines} a simple US-ASCII compatible encoding
-    scheme to publish {b non-encrypted}, expirable data bytes that can
-    be authentified with a private key. Human readability and secrecy
-    is a non-goal, storing state in non-trusted environments is.
+    scheme to publish {b non-encrypted}, expirable data that can
+    be authentified with a secret key. Human readability and secrecy
+    is a non-goal. The goal is to store data in non-trusted environments
+    and detect any alteration.
 
     {b The data is not encrypted}.
 
@@ -22,8 +23,8 @@ type time = int
     The semantics is left to the client. One can use a logical notion of time
     or the number of seconds since the Unix epoch. *)
 
-(** Private keys. *)
-module Private_key : sig
+(** Secret keys. *)
+module Secret_key : sig
 
   type crypto_random = int -> string
   (** The type for cryptographically secure random bytes generation.
@@ -35,12 +36,12 @@ module Private_key : sig
     (** Used with {{!Webs_hash.Sha_256.val-hmac}[HMAC-SHA-256]}, hence should
         be at least 32 bytes. *)
   ]
-  (** The type for private keys. This defines both a key and a correspoding
+  (** The type for secret keys. This defines both a key and a corresponding
       authentification scheme. *)
 
   val random_hs256 : ?crypto_random:crypto_random -> unit -> t
   (** [random_hs256 ()] are 64 random bytes sourced from the generator
-      [crypto_rantom] (defaults to {!Webs_cryptorand.get_random}). *)
+      [crypto_random] (defaults to {!Webs_cryptorand.get_random}). *)
 
   val to_ascii_string : t -> string
   (** [to_ascii_string k] encodes [k] to an URL safe US-ASCII
@@ -54,13 +55,13 @@ end
 (** {1:auth Authenticatable} *)
 
 type t = string
-(** The type for authenticatable bytes. The encoding scheme for bytes
-    [data] and an optional expiration timestamp [expire] and private key
-    [private_key] is defined by:
+(** The type for authenticatable bytes. The encoding scheme for a sequence
+    of bytes [data], an optional expiration timestamp [expire] and a secret
+    key [secret_key] is defined by:
 {[
-exp = match expire with None -> "" | Some e -> string_of_int e
-msg = exp ^ ":" ^ data
-hs256 = "HS256:" ^ (hmac_sha_256 private_key msg)
+expire = match expire with None -> "" | Some e -> string_of_int e
+msg = expire ^ ":" ^ data
+hs256 = "HS256:" ^ (hmac_sha_256 secret_key msg)
 auth = base64url_unpadded (hs256 ^ msg)
 ]}
     with [base64url_unpadded] being
@@ -69,10 +70,10 @@ auth = base64url_unpadded (hs256 ^ msg)
 
 (** {1:enc Encode} *)
 
-val encode : private_key:Private_key.t -> expire:time option -> string -> t
-(** [encode ~private_key ~expire data] makes data [data] expire at
-    [expire] (if any) and authenticatable via the private key and
-    scheme defined by [private_key]. *)
+val encode : secret_key:Secret_key.t -> expire:time option -> string -> t
+(** [encode ~secret_key ~expire data] makes data [data] expire at
+    [expire] (if any) and authenticatable via the secret key and
+    scheme defined by [secret_key]. *)
 
 (** {1:dec Decode} *)
 
@@ -98,26 +99,26 @@ val error_string : ('a, error) result -> ('a, string) result
 (** [error_string r] is [Result.map_error error_message r]. *)
 
 val decode :
-  private_key:Private_key.t -> now:time option -> t ->
+  secret_key:Secret_key.t -> now:time option -> t ->
   (time option * string, error) result
-(** [decode ~private_key ~now s] authenticates data [s] with
-    the private key and scheme defined by [private_key] and expires it
+(** [decode ~secret_key ~now s] authenticates data [s] with
+    the secret key and scheme defined by [secret_key] and expires it
     (if applicable) according to [now]. If [now] is [None] and [s] has
     an expiration timestamp, the result errors. More precisely the
     result is:
     {ul
     {- [Ok (expire, data)] with [data] the authenticated bytes and [expire]
        the expiration timestamp iff [s] is
-       authenticated by [private_key] and either:
+       authenticated by [secret_key] and either:
        {ul
        {- [expire] is [None]}
        {- [expire] is [Some t] and now is [Some now] with [now < t].}}}
     {- [Error `Authentication] if [s] cannot be authenticated by
-       [private_key].}
-    {- [Error (`Expired t)], if [s] is authenticated by [private_key]
+       [secret_key].}
+    {- [Error (`Expired t)], if [s] is authenticated by [secret_key]
        and expires at [t] but [now] is [Some now] with [now >= t].}
     {- [Error (`Missing_now_for t)], if [s] is authenticated by
-       [private_key] and expires at [t] but [now] is [None].}
+       [secret_key] and expires at [t] but [now] is [None].}
     {- [Error (`Format _)] if any other decoding error occurs.}} *)
 
 (** {1:untrusted Untrusted decode} *)

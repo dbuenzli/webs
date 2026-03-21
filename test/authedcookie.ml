@@ -10,7 +10,7 @@
    max-age mechanism.
 
    The counter also resets whenever the service restarts since the
-   private authentication key is not persisted and we simply reset the
+   secret authentication key is not persisted and we simply reset the
    counter on authentication errors.
 
    This code uses the default Webs cookie parameters, this means that
@@ -33,33 +33,33 @@ let countpage ~count = Printf.sprintf
 
 let cookie_name = "count"
 
-let get_expirable_count ~private_key ~now request =
+let get_expirable_count ~secret_key ~now request =
   let name = cookie_name and now = Some now and init = 0 in
-  match Webs_authenticated_cookie.find ~private_key ~now ~name request with
+  match Webs_authenticated_cookie.find ~secret_key ~now ~name request with
   | Ok (Some (_, s)) -> Option.value ~default:init (int_of_string_opt s)
   | Ok None | Error _ -> init
 
-let set_expirable_count ~private_key ~now ~count response =
+let set_expirable_count ~secret_key ~now ~count response =
   let name = cookie_name and expire = Some (now + 5) in
   let data = string_of_int count in
-  Webs_authenticated_cookie.set ~private_key ~expire ~name data response
+  Webs_authenticated_cookie.set ~secret_key ~expire ~name data response
 
-let service ~private_key request =
+let service ~secret_key request =
   Http.Response.result @@ match Http.Request.path request with
   | [""] ->
       let* `GET = Http.Request.allow Http.Method.[get] request in
       let now = truncate (Unix.gettimeofday ()) in
-      let count = get_expirable_count ~private_key ~now request + 1 in
+      let count = get_expirable_count ~secret_key ~now request + 1 in
       let headers = Http.Headers.(def cache_control "no-store" empty) in
       let page = countpage ~count in
       let response = Http.Response.html Http.Status.ok_200 ~headers page in
-      let response = set_expirable_count ~private_key ~now ~count response in
+      let response = set_expirable_count ~secret_key ~now ~count response in
       Ok response
   | _ ->
       Http.Response.not_found_404 ()
 
 let main () =
-  let private_key = Webs_authenticatable.Private_key.random_hs256 () in
-  Webs_quick.serve (service ~private_key)
+  let secret_key = Webs_authenticatable.Secret_key.random_hs256 () in
+  Webs_quick.serve (service ~secret_key)
 
 let () = if !Sys.interactive then () else exit (main ())

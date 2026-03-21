@@ -16,13 +16,13 @@ open Webs
 (** {1:setclear Setting and clearing} *)
 
 val set :
-  private_key:Webs_authenticatable.Private_key.t ->
+  secret_key:Webs_authenticatable.Secret_key.t ->
   expire:Webs_authenticatable.time option ->
   ?attributes:Http.Cookie.attributes ->
   name:Http.Cookie.name -> string -> Http.Response.t -> Http.Response.t
-(** [set ~private_key ~expire ~attributes ~name data response] sets in
+(** [set ~secret_key ~expire ~attributes ~name data response] sets in
     response [response] the cookie [name] to [data] authenticated by
-    [private_key] and expiring at [expire]. [attributes] are the
+    [secret_key] and expiring at [expire]. [attributes] are the
     cookie's attributes, they default to {!Webs.Http.Cookie.default_attributes}.
 
     {b Note.} The expiration [expire], if provided, expires the
@@ -54,12 +54,12 @@ val error_string : ('a, error) result -> ('a, string) result
 (** [error_string r] is [Result.map_error error_message r]. *)
 
 val find :
-  private_key:Webs_authenticatable.Private_key.t ->
+  secret_key:Webs_authenticatable.Secret_key.t ->
   now:Webs_authenticatable.time option ->
   name:Http.Cookie.name -> Http.Request.t ->
   ((Webs_authenticatable.time option * string) option, error) result
-(** [find ~private_key ~now ~name request] is the cookie of [request] named
-    [name] authenticated and expired by [private_key] and [now]. This
+(** [find ~secret_key ~now ~name request] is the cookie of [request] named
+    [name] authenticated and expired by [secret_key] and [now]. This
     is [Ok None] if no cookie named [name] could be found or if its
     value is [""].
 
