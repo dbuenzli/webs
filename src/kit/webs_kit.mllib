@@ -6,5 +6,6 @@ Webs_authenticatable
 Webs_authenticated_cookie
 Webs_session
 Webs_basic_auth
+Webs_url_resource
 Webs_bazaar
 Webs_base64
