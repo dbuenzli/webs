@@ -1694,6 +1694,12 @@ module Http : sig
     (** [pp] formats responses for inspection. Guarantees not to
         consume the {!val-body}. *)
 
+    val encode_http11 : include_body:bool -> t -> (string, string) result
+    (** [encode_http11 ~include_body request] encodes [request] to an
+        HTTP/1.1 request. If [include_body] is [true] the body is consumed
+        and included in the result. If [false] the body is left untouched
+        and the encoding stops after the header final double CRLF. *)
+
     (** {1:properties Properties} *)
 
     val body : t -> Body.t

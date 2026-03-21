@@ -1076,8 +1076,6 @@ module Headers = struct
 
   let encode_http11 hs = String.concat "" (fold encode_http11_header hs [])
 
-
-
   (* Predicates *)
 
   let is_empty = String_map.is_empty
@@ -1364,6 +1362,7 @@ module Response = struct
     Format.pp_close_box ppf ()
 
   let encode_http11 ~include_body response =
+    (* TODO body headers ? Also look at the head encoding in Private *)
     let ( let* ) = Result.bind in
     let version = Version.encode response.version in
     let status = string_of_int response.status in
@@ -1557,6 +1556,20 @@ module Request = struct
     if not (Headers.is_empty request.headers) then Fmt.cut ppf ();
     Fmt.field "body" Body.pp ppf request.body;
     Format.pp_close_box ppf ()
+
+  let encode_http11 ~include_body request =
+    (* TODO body headers ? Also look at the head encoding in Private *)
+    let ( let* ) = Result.bind in
+    let method' = Method.encode request.method' in
+    let version = Version.encode request.version in
+    let headers = Headers.encode_http11 request.headers in
+    let trgt = request.raw_path in
+    let* body = if include_body then Body.to_string request.body else Ok "" in
+    let msg =
+      method' :: " " :: trgt :: " " :: version :: crlf ::
+      headers :: crlf :: [body]
+    in
+    Ok (String.concat "" msg)
 
   (* Properties *)
 
