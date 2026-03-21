@@ -67,6 +67,7 @@ Webs_gateway
 Webs_hash
 Webs_session
 Webs_url_resource
+Webs_websocket
 }
 
 {1:webs_crypto Library [webs.crypto]}
