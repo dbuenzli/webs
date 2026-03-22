@@ -10,10 +10,9 @@ let strf = Printf.sprintf
 
 type time = int
 module Secret_key = struct
-  type crypto_random = int -> string
   type t = [ `Hs256 of string ]
 
-  let random_hs256 ?(crypto_random = Webs_cryptorand.get_random) () =
+  let random_hs256 ?(crypto_random = Webs_crypto_random.get) () =
     `Hs256 (crypto_random 64)
 
   let to_ascii_string = function

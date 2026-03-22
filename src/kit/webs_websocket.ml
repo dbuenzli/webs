@@ -106,13 +106,12 @@ let sha_1 s =
 
 (* Keys *)
 
-type crypto_random = int -> string
 type key = string
 let accept_uuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 let accept_header_value_of_key key =
   Webs_base64.encode `Padded (sha_1 (key ^ accept_uuid))
 
-let random_key ?(crypto_random = Webs_cryptorand.get_random) () =
+let random_key ?(crypto_random = Webs_crypto_random.get) () =
   Webs_base64.encode `Padded (crypto_random 16)
 
 (* Headers *)

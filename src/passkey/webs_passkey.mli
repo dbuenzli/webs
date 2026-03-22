@@ -52,13 +52,6 @@ module Challenge : sig
 
     (** {1:validators Validators} *)
 
-    type crypto_random = int -> string
-    (** The type for cryptographically secure random bytes generation.
-        Calling the function with [n] must return [n] cryptographically
-        secure random bytes.
-
-        {b Warning.} The function must be thread-safe. *)
-
     type now_s = unit -> int
     (** The type for an absolute notion of time in seconds.
         Calling the function must return the current time
@@ -73,7 +66,7 @@ module Challenge : sig
 
     val make :
       ?max:int -> ?challenge_byte_size:int -> ?challenge_validity_s:int ->
-      ?now_s:now_s -> ?crypto_random:crypto_random -> unit -> 'a t
+      ?now_s:now_s -> ?crypto_random:Webs_crypto_random.t -> unit -> 'a t
     (** [make ~crypto_random ()] is a challenge validator with:
         {ul
         {- [max] is the maximum number of pending challenges. See {!max}.

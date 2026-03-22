@@ -8,6 +8,7 @@ let threads = B0_ocaml.libname "threads.posix"
 let cmdliner = B0_ocaml.libname "cmdliner"
 let bytesrw = B0_ocaml.libname "bytesrw"
 let bytesrw_crypto = B0_ocaml.libname "bytesrw.crypto"
+let bytesrw_sysrandom = B0_ocaml.libname "bytesrw.sysrandom"
 let jsont_bytesrw = B0_ocaml.libname "jsont.bytesrw"
 
 let webs = B0_ocaml.libname "webs"
@@ -26,7 +27,8 @@ let webs_lib =
 
 let webs_kit_lib =
   let srcs = [`Dir ~/"src/kit"] in
-  B0_ocaml.lib webs_kit ~srcs ~requires:[webs] ~exports:[webs]
+  let requires = [webs; bytesrw_sysrandom] in
+  B0_ocaml.lib webs_kit ~srcs ~requires ~exports:[webs]
 
 let webs_crypto_lib =
   let srcs = [`Dir ~/"src/crypto"] in
@@ -69,8 +71,8 @@ let test_sha_256 =
 let test_authenticatable =
   test ~/"test/test_authenticatable.ml" ~run:true ~requires:[webs_kit]
 
-let test_cryptorand =
-  test ~/"test/test_cryptorand.ml" ~run:true ~requires:[webs_kit]
+let test_crypto_random =
+  test ~/"test/test_crypto_random.ml" ~run:true ~requires:[webs_kit]
 
 (* Examples *)
 

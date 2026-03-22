@@ -57,7 +57,7 @@ module Challenge = struct
     let make
         ?(max = 1024) ?(challenge_byte_size = 64)
         ?(challenge_validity_s = 300) ?(now_s = ptime_now)
-        ?(crypto_random = Webs_cryptorand.get_random) ()
+        ?(crypto_random = Webs_crypto_random.get) ()
       =
       if max <= 0 then invalid_arg (err_max max);
       if challenge_byte_size < 16

@@ -15,16 +15,11 @@ open Webs
 
 (** {1:keys Keys} *)
 
-type crypto_random = int -> string
-(** The type for cryptographically secure random bytes generation.
-    Calling the function with [n] must return [n] cryptographically
-    secure random bytes. *)
-
 type key = string
 (** The type for websocket keys. These are random 16 bytes
     encoded in base64 with padding. *)
 
-val random_key : ?crypto_random:crypto_random -> unit -> key
+val random_key : ?crypto_random:Webs_crypto_random.t -> unit -> key
 (** [random_key ()] is a random websocket key sourced from the generator
     [crypto_random] (default to {!Webs_cryptorand.get_random}). *)
 

@@ -4,6 +4,7 @@ true : bin_annot, safe_string
 <src/**> : package(bytesrw)
 
 <src/kit> : include
+<src/kit/**> : package(bytesrw.sysrandom)
 <src/kit/vendor> : include
 <src/kit/webs_kit.{cma,cmxa}> : record_webs_kit_stubs
 <src/kit/webs_kit.cmxs> : link_webs_kit_stubs

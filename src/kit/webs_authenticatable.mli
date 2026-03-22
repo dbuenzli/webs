@@ -26,11 +26,6 @@ type time = int
 (** Secret keys. *)
 module Secret_key : sig
 
-  type crypto_random = int -> string
-  (** The type for cryptographically secure random bytes generation.
-      Calling the function with [n] must return [n] cryptographically
-      secure random bytes. *)
-
   type t = [
     | `Hs256 of string
     (** Used with {{!Webs_hash.Sha_256.val-hmac}[HMAC-SHA-256]}, hence should
@@ -39,9 +34,9 @@ module Secret_key : sig
   (** The type for secret keys. This defines both a key and a corresponding
       authentification scheme. *)
 
-  val random_hs256 : ?crypto_random:crypto_random -> unit -> t
+  val random_hs256 : ?crypto_random:Webs_crypto_random.t -> unit -> t
   (** [random_hs256 ()] are 64 random bytes sourced from the generator
-      [crypto_random] (defaults to {!Webs_cryptorand.get_random}). *)
+      [crypto_random] (defaults to {!Webs_crypto_random.get}). *)
 
   val to_ascii_string : t -> string
   (** [to_ascii_string k] encodes [k] to an URL safe US-ASCII

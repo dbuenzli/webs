@@ -38,7 +38,7 @@ package "kit" (
   directory = "kit"
   description = "The webs.kit library"
   version = "%%VERSION_NUM%%"
-  requires = "webs"
+  requires = "webs bytesrw.sysrandom"
   exports = "webs"
   archive(byte) = "webs_kit.cma"
   archive(native) = "webs_kit.cmxa"
