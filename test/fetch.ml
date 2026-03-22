@@ -12,7 +12,7 @@ let main () =
   Result.retract @@ Result.map_error (fun e -> prerr_endline e; 1) @@
   let url = Sys.argv.(1) in
   let* httpc = Webs_spawn_client.make () in
-  let* page = Http_client.get httpc ~follow:true ~url in
+  let* page = Http.Client.get httpc ~follow:true ~url in
   print_endline page;
   Ok 0
 

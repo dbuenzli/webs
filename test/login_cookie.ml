@@ -167,7 +167,7 @@ let logout_user ~and_goto user request =
 let service ~secret_key request =
   let serve user req =
     let user = Option.join @@ Result.to_option user (* drop sess. on error *) in
-    Http.Response.result @@
+    Result.retract @@
     let* () = Webs_session.for_error user (Http.Request.clean_path request) in
     match Http.Request.path request with
     | [ "" ] -> Webs_session.for_result user @@ home request

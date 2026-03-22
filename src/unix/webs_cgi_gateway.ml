@@ -12,7 +12,7 @@ module String_map = Map.Make (String)
 
 let chop_prefix ~prefix s =
   if not (String.starts_with ~prefix s) then s else
-  Http.Connector.Private.string_subrange ~first:(String.length prefix) s
+  Http.string_subrange ~first:(String.length prefix) s
 
 let io_buffer_size = 65536 (* IO_BUFFER_SIZE 4.0.0 *)
 
@@ -44,7 +44,7 @@ type t =
 let make
     ?(extra_vars = []) ?(log = Http.Connector.Log.default ~trace:false ())
     ?(max_request_body_byte_size =
-      Http.Connector.Default.max_request_body_byte_size)
+      Http.Connector.Default.max_http_body_byte_size)
     ?(service_path = Http.Path.root) ()
   =
   let with_header_name v = v, extra_var_to_header_name v in
@@ -79,7 +79,7 @@ let write_cgi_response fd response =
   let reason = Http.Response.reason response in
   let hs = Http.Response.headers response in
   let hs = Http.Headers.for_connector hs (Http.Response.body response) in
-  let hs = Http.Headers.(def_if_undef connection "close") hs in
+  let hs = Http.Headers.(define_if_undefined connection "close") hs in
   let head = encode_cgi_response_head status reason hs in
   let head = Bytes.unsafe_of_string head and length = String.length head in
   Webs_unix.Fd.write fd head ~start:0 ~length;
@@ -107,7 +107,7 @@ let headers_of_env ~extra_vars env =
   let add_var ~add_empty env hs (var, name) =
     match String_map.find_opt var env with
     | Some v when add_empty || v <> "" ->
-        Http.Headers.def name (Http.Connector.Private.trim_ows v) hs
+        Http.Headers.define name (Http.Headers.value_trim_ows v) hs
     | _ -> hs
   in
   let rec loop i max env hs others =
@@ -116,8 +116,8 @@ let headers_of_env ~extra_vars env =
     match String.index_opt b '=' with
     | None -> failwith err_malformed_env
     | Some eq ->
-        let var = Http.Connector.Private.string_subrange ~last:(eq - 1) b in
-        let value = Http.Connector.Private.string_subrange ~first:(eq + 1) b in
+        let var = Http.string_subrange ~last:(eq - 1) b in
+        let value = Http.string_subrange ~first:(eq + 1) b in
         match is_http_var var with
         | false -> loop (i + 1) max env hs (String_map.add var value others)
         | true ->
@@ -125,7 +125,7 @@ let headers_of_env ~extra_vars env =
             | Error e -> failwith e
             | Ok v ->
                 let hs =
-                  Http.Headers.def v (Http.Connector.Private.trim_ows value) hs
+                  Http.Headers.define v (Http.Headers.value_trim_ows value) hs
                 in
                 loop (i + 1) max env hs others
   in
@@ -146,7 +146,7 @@ let get_var var decode env = match find_var var decode env with
 
 let head_of_env ~extra_vars env =
   let hs, env = headers_of_env ~extra_vars env in
-  let version = get_var "SERVER_PROTOCOL" Http.Version.decode env in
+  let version = get_var "SERVER_PROTOCOL" Webs_http11.Version.decode env in
   let meth = get_var "REQUEST_METHOD" Http.Method.decode env in
   let raw_path = get_var "REQUEST_URI" Result.ok env in
   version, meth, raw_path, hs
@@ -167,36 +167,45 @@ let read_request c env fd_in fd_out =
     let version, method', raw_path, headers =
       head_of_env ~extra_vars:c.extra_vars env
     in
-    let path, query =
-      match Http.Path.and_query_string_of_request_target raw_path with
-      | Ok v -> v | Error e -> failwith e
-    in
-    let service_path, path =
-      if path = [] (* "*" request line FIXME not sure it's a good idea,
-                      maybe we coud fail *)
-      then [], [] else
-      match Http.Path.strip_prefix ~prefix:c.service_path path with
-      | [] -> failwith "Cannot strip service path from requested URI"
-      | path -> c.service_path, path
-    in
     let buf = Bytes.create io_buffer_size in
     let* content_length = content_length headers in
     let content_type =
       Http.Headers.(find ~lowervalue:true content_length) headers
     in
     let* content = handle_expect_header headers in
-    let content =
-      let first_start = 0 and first_len = 0 in
-      let max_request_body_byte_size = c.max_request_body_byte_size in
-      Webs_unix.Fd.bytes_reader
-        ~max_request_body_byte_size ~content_length fd_in buf ~first_start
-        ~first_len
-    in
     let body =
+      let content =
+        let first_start = 0 and first_len = 0 in
+        let max_request_body_byte_size = c.max_request_body_byte_size in
+        Webs_unix.Fd.bytes_reader
+          ~max_request_body_byte_size ~content_length fd_in buf ~first_start
+          ~first_len
+      in
       Http.Body.of_bytes_reader ?content_length ?content_type content
     in
-    Ok (Http.Request.make ~headers ~path ~query ~service_path ~version
-          method' ~raw_path body)
+    (* FIXME replace request by _request it has the same logic
+       But it is in another error monad. *)
+    let _request =
+      Http.Request.for_service_connector
+        ~service_path:c.service_path ~version method' ~raw_path ~headers body
+    in
+    let request =
+      let path, query =
+        match Http.Path.and_query_string_of_request_target raw_path with
+        | Ok v -> v | Error e -> failwith e
+      in
+      let service_path, path =
+        if path = [] (* "*" request line FIXME not sure it's a good idea,
+                        maybe we coud fail *)
+        then [], [] else
+        match Http.Path.strip_prefix ~prefix:c.service_path path with
+        | [] -> failwith "Cannot strip service path from requested URI"
+        | path -> c.service_path, path
+      in
+      Http.Request.make ~headers ~path ~query ~service_path ~version
+        method' ~raw_path body
+    in
+    Ok request
   with
   | Failure e -> Error (`Malformed e)
   (* FIXME maybe for error from header_section we should rather throw

@@ -16,22 +16,18 @@ type check = username:username -> password:password -> (unit, error) result
 let decode_basic_authentication credentials =
   match Http.Headers.values_of_string ~sep:' ' credentials with
   | scheme :: credentials :: _ ->
-      let scheme = Http.Connector.Private.string_lowercase scheme in
+      let scheme = Http.string_lowercase scheme in
       if scheme <> "basic"
       then Error (strf "auth-scheme %s: unsupported" scheme) else
       let* credentials =
         Result.map_error (Fun.const "base64 decode error") @@
-        Webs_base64.decode' `Padded credentials
+        Webs_base64.decode' Padded credentials
       in
       begin match String.index_opt credentials ':' with
       | None -> Error ("No ':' found in basic authentication credentials")
       | Some i ->
-          let u =
-            Http.Connector.Private.string_subrange ~last:(i - 1) credentials
-          in
-          let p =
-            Http.Connector.Private.string_subrange ~first:(i + 1) credentials
-          in
+          let u = Http.string_subrange ~last:(i - 1) credentials in
+          let p = Http.string_subrange ~first:(i + 1) credentials in
           Ok (u, p)
       end
   | _ -> Error ("Not a basic auth-scheme")
@@ -42,7 +38,9 @@ let decode_credentials request =
 
 let unauthorized_401 ~realm ~log =
   let auth = strf "basic realm=\"%s\", charset=\"utf-8\"" realm in
-  let headers = Http.Headers.(def www_authenticate) auth Http.Headers.empty in
+  let headers =
+    Http.Headers.(define www_authenticate) auth Http.Headers.empty
+  in
   Http.Response.unauthorized_401 ~log ~headers ()
 
 let enticate ~check ~realm request =

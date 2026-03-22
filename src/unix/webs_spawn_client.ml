@@ -3,9 +3,9 @@
    SPDX-License-Identifier: ISC
   ---------------------------------------------------------------------------*)
 
+open Result.Syntax
+open Bytesrw
 open Webs
-
-let ( let* ) = Result.bind
 
 type tool = string
 
@@ -63,9 +63,8 @@ module Curl = struct
     let headers = Http.Request.headers request in
     let body = Http.Request.body request in
     let has_body = not (Http.Body.is_empty body) in
-    let* body_data =
-      if has_body then Result.map Option.some (Http.Body.to_string body)
-      else Ok None
+    let body_data =
+      if has_body then Option.some (Http.Body.to_string body) else None
     in
     let headers = Http.Headers.for_connector headers body in
     let headers = cli_headers headers in
@@ -77,9 +76,7 @@ module Curl = struct
     Ok (cmd, body_data)
 
   let response_of_curl_stdout s =
-    let b = Bytes.unsafe_of_string s in
-    match Http.Connector.Private.decode_http11_response b ~first:0 with
-    | r -> Ok r | exception Failure e -> Error e
+    Webs_http11.Response.read (Bytes.Reader.of_string s)
 
   let request curl request =
     let err e = Error (Printf.sprintf "%s spawn: %s" curl.tool e) in
@@ -123,11 +120,14 @@ end
 type cmd = [ `Curl of tool * string list ]
 let default_cmd = `Curl ("curl", ["-s" (* silent *) ])
 
-let make ?(trace = fun _ _ -> ()) ?(cmd = default_cmd) ?(insecure = false) () =
+let make
+    ?(trace = fun _ _ -> ()) ?(cmd = default_cmd) ?(insecure = false) ?session
+    ()
+  =
   match cmd with
   | `Curl (tool, args) ->
       let* c = Curl.make ~trace ~insecure tool args in
-      Ok (Http_client.make (module Curl) c)
+      Ok (Http.Client.make (module Curl) c session)
 
 (* Tracing *)
 

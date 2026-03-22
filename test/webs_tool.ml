@@ -55,11 +55,11 @@ let do_request ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~url
   | Some b -> Result.map Http.Body.of_string (read_file b)
   in
   let headers =
-    let add_header acc (n, v) = Http.Headers.def n v acc in
+    let add_header acc (n, v) = Http.Headers.define n v acc in
     List.fold_left add_header Http.Headers.empty headers
   in
   let* request = Http.Request.of_url method' ~headers ~url ~body in
-  Http_client.request ~max_redirections httpc ~follow request
+  Http.Client.request ~max_redirections httpc ~follow request
 
 (* HTTP service *)
 
@@ -74,7 +74,7 @@ let absolute_docroot = function
     | Unix.Unix_error (e, _, _) -> error "%s: %s" dir (Unix.error_message e)
 
 let file_service ~docroot ~dir_response ~clean_urls req =
-  Http.Response.result @@ match docroot with
+  Result.retract @@ match docroot with
   | None -> Http.Response.not_found_404 ()
   | Some docroot ->
       let* `GET = Http.Request.allow Http.Method.[get] req in
@@ -132,7 +132,7 @@ let scrape_urls
           ~url
       in
       match Http.Response.status response with
-      | 200 -> Http.Body.to_string (Http.Response.body response)
+      | 200 -> Ok (Http.Body.to_string (Http.Response.body response))
       | st -> Error (Format.asprintf "%a" Http.Status.pp st)
   in
   let root =
@@ -153,10 +153,10 @@ let request
   let* response =
     do_request ~method' ~headers ~body ~trace ~max_redirections ~no_follow ~url
   in
-  let* data =
+  let data =
     if not dump
     then Http.Body.to_string (Http.Response.body response)
-    else Http.Response.encode_http11 ~include_body:true response
+    else Webs_http11.Response.encode response
   in
   let* () = write_file outf data in
   match Http.Response.status response with
@@ -177,12 +177,16 @@ let headers =
   let doc = "$(docv) of the form $(b,key: value) is added to the request's \
              headers. Repeatable."
   in
-  let header = Arg.conv' Http.Headers.(decode_http11_header, pp_header) in
+  let pp_header ppf (n, v) =
+    Format.fprintf ppf "%a: %s" Http.Headers.Name.pp n v
+  in
+  let parse = Http.Headers.header_of_string in
+  let header = Arg.conv' (parse, pp_header) ~docv:"HEADER" in
   Arg.(value & opt_all header [] & info ["H"; "header"] ~doc ~docv:"HEADER")
 
 let max_redirections =
   let doc = "$(docv) is the maximal number of redirections followed." in
-  Arg.(value & opt int Http_client.default_max_redirection &
+  Arg.(value & opt int Http.Client.default_max_redirection &
        info ["max-redirections"] ~doc ~docv:"COUNT")
 
 let no_follow =

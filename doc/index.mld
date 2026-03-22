@@ -5,10 +5,10 @@ Webs is a toolkit for programming with HTTP in OCaml. It provides:
 - IO and HTTP version agnostic representations for HTTP
   {{!Webs.Http.Request}requests} and {{!Webs.Http.Response}responses}.
 - A client connector abstraction for making
-  {{!Webs.Http_client}client requests} with HTTP client implementations.
+  {{!Webs.Http.Client}client requests} with HTTP client implementations.
 - A service connector abstraction for running HTTP services defined as
   functions mapping requests to responses. Simple
-  {{!Webs_cgi}CGI} and {{!Webs_http11_gateway}HTTP/1.1 gateway}
+  {{!Webs_cgi_gateway}CGI} and {{!Webs_http11_gateway}HTTP/1.1 gateway}
   connectors are provided, but you can bring your own.
 - Optional HTTP service building blocks.
   {{!page-service_howto.serving_files}File serving},
@@ -45,14 +45,23 @@ APIs.
 
 This library depends only on the [bytesrw] library.
 
+It provides the core data structures:
+
 {!modules: Webs}
 {!modules:
 Webs.Http
 Webs.Http.Request
 Webs.Http.Response
-Webs.Http_client
+Webs.Http.Client
 Webs.Media_type
 Webs.Url}
+
+And these encoding modules:
+
+{!modules:
+Webs_base64
+Webs_http11
+}
 
 {1:webs_kit Library [webs.kit]}
 
@@ -61,9 +70,7 @@ This library depends on the [bytesrw.sysrandom] library.
 {!modules:
 Webs_authenticatable
 Webs_authenticated_cookie
-Webs_base64
 Webs_basic_auth
-Webs_bazaar
 Webs_crypto_random
 Webs_gateway
 Webs_hash
@@ -90,7 +97,7 @@ Webs_fs
 
 {2:unix_service_connectors Service connectors}
 {!modules:
-Webs_cgi
+Webs_cgi_gateway
 Webs_http11_gateway}
 
 {2:unix_client_connectors Client connectors}
@@ -123,14 +130,14 @@ samples} in the dev repo.
 
 Fetch an URL with this [fetch.ml] file:
 {[
-open Webs
 open Result.Syntax
+open Webs
 
 let main () =
   Result.retract @@ Result.map_error (fun e -> prerr_endline e; 1) @@
   let url = Sys.argv.(1) in
   let* httpc = Webs_spawn_client.make () in
-  let* page = Http_client.get httpc ~follow:true ~url in
+  let* page = Http.Client.get httpc ~follow:true ~url in
   print_endline page;
   Ok 0
 
@@ -177,8 +184,7 @@ current limitations, some of which will be lifted in the future.
    your service with an HTTP gateway like Apache, nginx, etc. See the
    {{!page-service_howto}service howto} for more details.
    Alternatively you can develop your own connector with your own concurrency
-   model.}
-{- TODO chunked encoding}
+   model and TLS infrastructure.}
 {- Webs supports the [application/x-www-form-urlencoded] content type for
    form posting but it's missing an implementation of the [multipart/form]
    body content type (e.g. to upload files). This will be added in the future

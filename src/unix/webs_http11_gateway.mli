@@ -32,7 +32,7 @@ type t
 val make :
   ?listener:Webs_listener.t -> ?log:(Http.Connector.Log.msg -> unit) ->
   ?max_connections:int -> ?max_request_body_byte_size:int ->
-  ?max_request_headers_byte_size:int -> ?service_path:Http.Path.t ->
+  ?max_request_head_byte_size:int -> ?service_path:Http.Path.t ->
   unit -> t
 (** [make ()] is a new connector with:
     {ul
@@ -45,11 +45,11 @@ val make :
        this defines the size of the {!Webs_thread_pool}. That is the number
        of threads in your program}
     {- [max_request_body_byte_size] the maximal request body size in bytes.
-       Defaults to {!Webs.Http.Connector.Default.max_request_body_byte_size}.
+       Defaults to {!Webs.Http.Connector.Default.max_http_body_byte_size}.
        {b Warning} Not enforced for now.}
-    {- [max_request_headers_byte_size] is the maximal allowed size in bytes for
+    {- [max_request_head_byte_size] is the maximal allowed size in bytes for
        to the request line and headers. Defaults to
-       {!Webs.Http.Connector.Default.max_request_headers_byte_size}.}
+       {!Webs.Http.Connector.Default.max_http_head_byte_size}.}
     {- [service_path] is the path on which the root of the service is
        served by the gateway. Defaults to {!Webs.Http.Path.root}.}} *)
 
@@ -68,8 +68,8 @@ val max_request_body_byte_size : t -> int
     for requests handled by [c]. {b Warning} not enforced for now. See
     {!make}. *)
 
-val max_request_headers_byte_size : t -> int
-(** [max_request_headers_byte_size c] is the maximal headers size in
+val max_request_head_byte_size : t -> int
+(** [max_request_head_byte_size c] is the maximal headers size in
     bytes for requests handled by [c]. See {!make}. *)
 
 val service_path : t -> Http.Path.t

@@ -5,15 +5,15 @@
 
 (* See https://www.rfc-editor.org/rfc/rfc4648 *)
 
-type encoding = [ `Base64 | `Base64url ]
-type padding = [ `Padded | `Unpadded ]
+type encoding = Base64 | Base64url
+type padding = Padded | Unpadded
 type error =
 | Invalid_length of int
 | Invalid_letter of char * int
 | Non_canonical_encoding
 
 let error_message enc err =
-  let enc = match enc with `Base64url -> "base64url" | `Base64 -> "base64" in
+  let enc = match enc with Base64url -> "base64url" | Base64 -> "base64" in
   match err with
   | Invalid_length len ->
       Printf.sprintf "%s: Invalid input length (%d)" enc len
@@ -31,8 +31,8 @@ let alpha_url =
 let enc enc pad s = match String.length s with
 | 0 -> ""
 | len ->
-    let alpha = match enc with `Base64url -> alpha_url | `Base64 -> alpha in
-    let pad = match pad with `Padded -> true | `Unpadded -> false in
+    let alpha = match enc with Base64url -> alpha_url | Base64 -> alpha in
+    let pad = match pad with Padded -> true | Unpadded -> false in
     let elen = if pad then ((len + 2) / 3) * 4 else (len * 4 + 2) / 3 in
     let e = Bytes.create elen in
     let i = ref 0 and ei = ref 0 in
@@ -88,8 +88,8 @@ let dec enc pad s =
   let len = String.length s in
   if len = 0 then Ok "" else
   try
-    let url = match enc with `Base64url -> true | `Base64 -> false in
-    let padded = match pad with `Padded -> true | `Unpadded -> false in
+    let url = match enc with Base64url -> true | Base64 -> false in
+    let padded = match pad with Padded -> true | Unpadded -> false in
     let d = Bytes.create (decoded_length ~padded len) in
     try
       let i = ref 0 and di = ref 0 in
@@ -130,11 +130,11 @@ let dec enc pad s =
   with
   | Error e -> Error e
 
-let encode p s = enc `Base64 p s
-let decode' p s = dec `Base64 p s
-let decode p s = Result.map_error (error_message `Base64) (decode' p s)
+let encode p s = enc Base64 p s
+let decode' p s = dec Base64 p s
+let decode p s = Result.map_error (error_message Base64) (decode' p s)
 
-let encode_base64url p s = enc `Base64url p s
-let decode_base64url' p s = dec `Base64url p s
+let encode_base64url p s = enc Base64url p s
+let decode_base64url' p s = dec Base64url p s
 let decode_base64url p s =
-  Result.map_error (error_message `Base64url) (decode_base64url' p s)
+  Result.map_error (error_message Base64url) (decode_base64url' p s)

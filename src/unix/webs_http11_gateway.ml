@@ -3,9 +3,8 @@
    SPDX-License-Identifier: ISC
   ---------------------------------------------------------------------------*)
 
+open Result.Syntax
 open Webs
-
-let ( let* ) = Result.bind
 
 (* Unixies *)
 
@@ -39,7 +38,7 @@ type t =
     log : Http.Connector.Log.msg -> unit;
     max_connections : int;
     max_request_body_byte_size : int;
-    max_request_headers_byte_size : int;
+    max_request_head_byte_size : int;
     service_path : Http.Path.t;
     mutable serving : bool; }
 
@@ -48,19 +47,19 @@ let make
     ?(log = Http.Connector.Log.default ~trace:true ())
     ?(max_connections = default_max_connections)
     ?(max_request_body_byte_size =
-      Http.Connector.Default.max_request_body_byte_size)
-    ?(max_request_headers_byte_size =
-      Http.Connector.Default.max_request_headers_byte_size)
+      Http.Connector.Default.max_http_body_byte_size)
+    ?(max_request_head_byte_size =
+      Http.Connector.Default.max_http_head_byte_size)
     ?(service_path = Webs.Http.Path.root) ()
   =
   { listener; log; max_connections; max_request_body_byte_size;
-    max_request_headers_byte_size; service_path; serving = false; }
+    max_request_head_byte_size; service_path; serving = false; }
 
 let listener c = c.listener
 let log c = c.log
 let max_connections c = c.max_connections
 let max_request_body_byte_size c = c.max_request_body_byte_size
-let max_request_headers_byte_size c = c.max_request_headers_byte_size
+let max_request_head_byte_size c = c.max_request_head_byte_size
 let service_path c = c.service_path
 let serving c = c.serving
 
@@ -68,14 +67,7 @@ let serving c = c.serving
 
 let write_http11_response fd response =
   let write_body = Webs_unix.Fd.body_writer (Http.Response.body response) in
-  let status = Http.Response.status response in
-  let reason = Http.Response.reason response in
-  let hs = Http.Response.headers response in
-  let hs = Http.Headers.for_connector hs (Http.Response.body response) in
-(*  let hs = Http.Headers.(def_if_undef connection "close") hs in *)
-  let head =
-    Http.Connector.Private.encode_http11_response_head status ~reason hs
-  in
+  let head = Webs_http11.Response.encode_head response in
   let head = Bytes.unsafe_of_string head and length = String.length head in
   Webs_unix.Fd.write fd head ~start:0 ~length;
   write_body fd
@@ -108,16 +100,16 @@ let read_http11_request c fd =
   | Ok `Chunked -> Error (`Not_implemented "chunked bodies") (* TODO *)
   in
   try
-    let max_bytes = c.max_request_headers_byte_size in
+    let max_bytes = c.max_request_head_byte_size in
     let buf = Bytes.create (max io_buffer_size max_bytes) in
     let crlfs, first_start, first_len =
       Webs_unix.Fd.read_http11_head_crlfs ~max_bytes buf fd
     in
     let method', raw_path, version =
-      let crlf = List.hd crlfs in
-      Http.Connector.Private.decode_request_line buf ~first:0 ~crlf
+      let last = List.hd crlfs - 1 in
+      Webs_http11.Request.decode_line buf ~first:0 ~last
     in
-    let headers = Http.Connector.Private.decode_headers buf ~crlfs in
+    let headers = Webs_http11.decode_header_list buf ~crlfs in
     let* content_length = content_length headers in
     let lowervalue = true in
     let content_type = Http.Headers.(find ~lowervalue content_type) headers in
@@ -130,10 +122,11 @@ let read_http11_request c fd =
     let body =
       Http.Body.of_bytes_reader ?content_length ?content_type content
     in
-    let service_path = c.service_path in
+    (* FIXME replace request by _request it has the same logic
+       But it is in another error monad. *)
     let _request =
       Http.Request.for_service_connector
-        ~service_path ~version method' ~raw_path ~headers body
+        ~service_path:c.service_path ~version method' ~raw_path ~headers body
     in
     let request =
       let path, query =

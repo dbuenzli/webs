@@ -39,7 +39,7 @@ let sloppy_restrict request =
   Ok ()
 
 let service request =
-  Http.Response.result @@
+  Result.retract @@
   let* () = sloppy_restrict request in
   match Http.Request.path request with
   | [""] ->

@@ -38,13 +38,13 @@ let index = {|
 |}
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [""] ->
       let* `GET = Http.Request.allow Http.Method.[get] request in
       Ok (Http.Response.html Http.Status.ok_200 index)
   | ["websocket"] ->
       let* `GET = Http.Request.allow Http.Method.[get] request in
-      Webs_bazaar.Websocket.upgrade request
+      Webs_websocket.upgrade_request request
   | _ ->
       Http.Response.not_found_404 ()
 

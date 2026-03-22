@@ -18,6 +18,8 @@
     {- It reads request and response bodies in memory. TODO we can
        easily do better when we integrate [bytesrw]}} *)
 
+open Webs
+
 type tool = string
 (** The type for executable tools. If the string has no file separator
     it is looked up in [PATH]. *)
@@ -31,7 +33,8 @@ val default_cmd : cmd
 
 val make :
   ?trace:(int -> string array -> unit) ->
-  ?cmd:cmd -> ?insecure:bool -> unit -> (Webs.Http_client.t, string) result
+  ?cmd:cmd -> ?insecure:bool -> ?session:Http.Client.Session.t -> unit ->
+  (Http.Client.t, string) result
 (** [make ~search ~cmd ()] is an HTTP client using [cmd] (defaults to
     {!default_cmd}). If [insecure] is [true], TLS certificates are not
     checked (defaults to [false]). This errors if the tool of [cmd]

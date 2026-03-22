@@ -6,66 +6,48 @@
 open B0_testing
 open Webs
 
-let raises_invalid f = try f (); assert false with Invalid_argument _ -> ()
-
-let test_version =
-  Test.test "Http.Version.{encode,decode}" @@ fun () ->
-  assert (Http.Version.decode "HTTP/0.9" = Ok (0, 9));
-  assert (Http.Version.decode "HTTP/1.0" = Ok (1, 0));
-  assert (Http.Version.decode "HTTP/1.1" = Ok (1, 1));
-  assert (Http.Version.decode "HTTP/1.2" = Ok (1, 2));
-  assert (Http.Version.decode "HTTP/2.2" = Ok (2, 2));
-  (* curl -i gives us HTTP/2 so we accept single digits. *)
-  assert (Http.Version.decode "HTTP/2" = Ok (2, 0));
-  assert (Http.Version.decode "HTTP/3" = Ok (3, 0));
-  assert (Result.is_error @@ Http.Version.decode "HTTP /1.1");
-  assert (Result.is_error @@ Http.Version.decode "HTTP/1.1 ");
-  assert (Result.is_error @@ Http.Version.decode "HTTP/1.10");
-  assert (Result.is_error @@ Http.Version.decode "HTTP/10.1");
-  assert (Http.Version.encode (0, 9) = "HTTP/0.9");
-  assert (Http.Version.encode (1, 0) = "HTTP/1.0");
-  assert (Http.Version.encode (1, 1) = "HTTP/1.1");
-  assert (Http.Version.encode (2, 2) = "HTTP/2.2");
-  ()
-
 let test_method =
   Test.test "Http.Method.{encode,decode}" @@ fun () ->
-  assert (Http.Method.decode "GET" = Ok `GET);
-  assert (Http.Method.decode "HEAD" = Ok `HEAD);
-  assert (Http.Method.decode "POST" = Ok `POST);
-  assert (Http.Method.decode "PUT" = Ok `PUT);
-  assert (Http.Method.decode "DELETE" = Ok `DELETE);
-  assert (Http.Method.decode "CONNECT" = Ok `CONNECT);
-  assert (Http.Method.decode "OPTIONS" = Ok `OPTIONS);
-  assert (Http.Method.decode "TRACE" = Ok `TRACE);
-  assert (Http.Method.decode "PATCH" = Ok `PATCH);
-  assert (Http.Method.decode "Get" = Ok (`Other "Get"));
-  assert (Result.is_error @@ Http.Method.decode " GET");
-  assert (Result.is_error @@ Http.Method.decode " Get");
-  assert (Result.is_error @@ Http.Method.decode "Get,Get");
-  assert (Http.Method.encode `GET = "GET");
-  assert (Http.Method.encode `HEAD = "HEAD");
-  assert (Http.Method.encode `POST = "POST");
-  assert (Http.Method.encode `PUT = "PUT");
-  assert (Http.Method.encode `DELETE = "DELETE");
-  assert (Http.Method.encode `CONNECT = "CONNECT");
-  assert (Http.Method.encode `OPTIONS = "OPTIONS");
-  assert (Http.Method.encode `TRACE = "TRACE");
-  assert (Http.Method.encode `PATCH = "PATCH");
-  assert (Http.Method.encode (`Other "Get") = "Get");
-  raises_invalid (fun () -> Http.Method.encode (`Other " Get"));
-  raises_invalid (fun () -> Http.Method.encode (`Other "Get,Get"));
+  let snap = Snap.result (module Http.Method) in
+  let test = Test.eq (Test.T.result ~ok:(module Http.Method)) in
+  test (Http.Method.decode "GET") (Ok `GET);
+  test (Http.Method.decode "HEAD") (Ok `HEAD);
+  test (Http.Method.decode "POST") (Ok `POST);
+  test (Http.Method.decode "PUT") (Ok `PUT);
+  test (Http.Method.decode "DELETE") (Ok `DELETE);
+  test (Http.Method.decode "CONNECT") (Ok `CONNECT);
+  test (Http.Method.decode "OPTIONS") (Ok `OPTIONS);
+  test (Http.Method.decode "TRACE") (Ok `TRACE);
+  test (Http.Method.decode "PATCH") (Ok `PATCH);
+  test (Http.Method.decode "Get") (Ok (`Other "Get"));
+  snap (Http.Method.decode " GET")
+  @> __POS_OF__ (Error "\" GET\" is not an HTTP token");
+  snap (Http.Method.decode " Get")
+  @> __POS_OF__ (Error "\" Get\" is not an HTTP token");
+  snap (Http.Method.decode "Get,Get")
+  @> __POS_OF__ (Error "\"Get,Get\" is not an HTTP token");
+  Snap.string (Http.Method.encode `GET) @> __POS_OF__ ("GET");
+  Snap.string (Http.Method.encode `HEAD) @> __POS_OF__ ("HEAD");
+  Snap.string (Http.Method.encode `POST) @> __POS_OF__ ("POST");
+  Snap.string (Http.Method.encode `PUT) @> __POS_OF__ ("PUT");
+  Snap.string (Http.Method.encode `DELETE) @> __POS_OF__ ("DELETE");
+  Snap.string (Http.Method.encode `CONNECT) @> __POS_OF__ ("CONNECT");
+  Snap.string (Http.Method.encode `OPTIONS) @> __POS_OF__ ("OPTIONS");
+  Snap.string (Http.Method.encode `TRACE) @> __POS_OF__ ("TRACE");
+  Snap.string (Http.Method.encode `PATCH) @> __POS_OF__ ("PATCH");
+  Snap.string (Http.Method.encode (`Other "Get")) @> __POS_OF__ ("Get");
+  Test.invalid_arg (fun () -> Http.Method.encode (`Other " Get"));
+  Test.invalid_arg (fun () -> Http.Method.encode (`Other "Get,Get"));
   ()
 
 let test_headers_case =
   Test.test "Http.headers case" @@ fun () ->
-  let hs = Http.Headers.empty |> Http.Headers.(def (name "ha") "ho") in
-  assert (Http.Headers.(mem (Http.Headers.name "Ha") hs));
+  let hs = Http.Headers.empty |> Http.Headers.(define (Name.make "ha") "ho") in
+  Test.holds (Http.Headers.(mem (Http.Headers.Name.make "Ha") hs));
   ()
 
 let test_path_encode_decode =
-  Test.test  "Http.Path.{encode,decode}" @@
-  fun () ->
+  Test.test  "Http.Path.{encode,decode}" @@ fun () ->
   assert (Http.Path.decode "/" = Ok [""]);
   assert (Http.Path.decode "//" = Ok ["";""]);
   assert (Http.Path.decode "//a" = Ok ["";"a"]);
@@ -270,30 +252,35 @@ let test_path_relativize =
 let test_digits =
   Test.test "Http.Digit.{decode,encode}" @@ fun () ->
   let overflow = (Format.asprintf "%d0" max_int) in
-  assert (Http.Digits.decode "0" = Ok 0);
-  assert (Http.Digits.decode "42" = Ok 42);
-  assert (Http.Digits.decode "042" = Ok 42);
-  assert (Http.Digits.decode "1024" = Ok 1024);
-  assert (Result.is_error @@ Http.Digits.decode overflow);
-  assert (Result.is_error @@ Http.Digits.decode "");
-  assert (Result.is_error @@ Http.Digits.decode "-1");
-  assert (Http.Digits.encode 0 = "0");
-  assert (Http.Digits.encode 42 = "42");
-  assert (Http.Digits.encode 1024 = "1024");
-  raises_invalid (fun () -> Http.Digits.encode (-1));
-  raises_invalid (fun () -> Http.Digits.encode min_int);
+  let snap = Snap.(result T.int) in
+  snap (Http.Digits.decode "0") @> __POS_OF__ (Ok 0);
+  snap (Http.Digits.decode "42") @> __POS_OF__ (Ok 42);
+  snap (Http.Digits.decode "042") @> __POS_OF__ (Ok 42);
+  snap (Http.Digits.decode "1024") @> __POS_OF__ (Ok 1024);
+  snap (Http.Digits.decode overflow)
+  @> __POS_OF__ (Error "sequence of digits overflows");
+  snap (Http.Digits.decode "")
+  @> __POS_OF__ (Error "empty string");
+  snap (Http.Digits.decode "-1")
+  @> __POS_OF__ (Error "'-' is not a digit");
+  Snap.string (Http.Digits.encode 0) @> __POS_OF__ ("0");
+  Snap.string (Http.Digits.encode 42) @> __POS_OF__ ("42");
+  Snap.string (Http.Digits.encode 1024) @> __POS_OF__ ("1024");
+  Test.invalid_arg (fun () -> Http.Digits.encode (-1));
+  Test.invalid_arg (fun () -> Http.Digits.encode min_int);
   ()
 
 let test_etags =
   Test.test "Http.Etag.{decode,decode_cond}" @@ fun () ->
+  let test = Test.eq (Test.T.result ~ok:(module Http.Etag)) in
   let etags t = Http.Etag.make ~weak:false t, Http.Etag.make ~weak:true t in
   let empty, w_empty = etags "" in
   let xyzzy, w_xyzzy = etags "xyzzy" in
   let r2d2xxxx, w_r2d2xxxx = etags "r2d2xxxx" in
   let c3piozzzz, w_c3piozzzz = etags "c3piozzzz" in
-  assert (Http.Etag.decode {|"xyzzy"|} = Ok xyzzy);
-  assert (Http.Etag.decode {|W/"xyzzy"|} = Ok w_xyzzy);
-  assert (Http.Etag.decode {|""|} = Ok empty);
+  test (Http.Etag.decode {|"xyzzy"|}) (Ok xyzzy);
+  test (Http.Etag.decode {|W/"xyzzy"|}) (Ok w_xyzzy);
+  test (Http.Etag.decode {|""|})  (Ok empty);
   assert (Http.Etag.decode_cond {|"xyzzy"|} = Ok (`Etags [xyzzy]));
   assert (Http.Etag.decode_cond {|"xyzzy", "r2d2xxxx", "c3piozzzz"|}
           = Ok (`Etags [xyzzy; r2d2xxxx; c3piozzzz]));
@@ -307,25 +294,26 @@ let test_etags =
 
 let test_ranges =
   Test.test "Http.Range.decode" @@ fun () ->
-  let r0_499 = `Range (0, 499) in
-  let r500_999 = `Range (500, 999) in
-  let last500 = `Last 500 in
-  let fst9500 = `First 9500 in
-  let ok l = Ok (`Bytes l) in
-  assert (Http.Range.decode "bytes=0-499" = ok [r0_499]);
-  assert (Http.Range.decode "bytes=0-499,500-999" = ok [r0_499;r500_999]);
-  assert (Http.Range.decode "bytes=-500" = ok [last500]);
-  assert (Http.Range.decode "bytes=9500-" = ok [fst9500]);
-  assert (Http.Range.decode "bytes=0-0,-1" = ok [`Range (0, 0); `Last 1]);
-  assert (Result.is_error @@ Http.Range.decode "bytes=2-1");
-  assert (Result.is_error @@ Http.Range.decode "by tes=1-2");
-  assert (Http.Range.decode "unit=1-2" = Ok (`Other ("unit", "1-2")));
+  let test = Test.eq (Test.T.result ~ok:(module Http.Range)) in
+  let snap = Snap.result (module Http.Range) in
+  let r0_499 = Http.Range.Range { first = 0; last = 499} in
+  let r500_999 = Http.Range.Range { first = 500; last = 999} in
+  let last500 = Http.Range.Last  500 in
+  let fst9500 = Http.Range.First 9500 in
+  let ok l = Ok (Http.Range.Bytes l) in
+  test (Http.Range.decode "bytes=0-499") (ok [r0_499]);
+  test (Http.Range.decode "bytes=0-499,500-999") (ok [r0_499;r500_999]);
+  test (Http.Range.decode "bytes=-500") (ok [last500]);
+  test (Http.Range.decode "bytes=9500-") (ok [fst9500]);
+  test
+    (Http.Range.decode "bytes=0-0,-1")
+    (ok [Http.Range.Range {first = 0; last = 0}; Last 1]);
+  snap (Http.Range.decode "bytes=2-1")
+  @> __POS_OF__ (Error "invalid range");
+  snap (Http.Range.decode "by tes=1-2")
+  @> __POS_OF__ (Error "\"by tes\" is not an HTTP token");
+  test (Http.Range.decode "unit=1-2") (Ok (Other ("unit", "1-2")));
   ()
 
-let main () =
-  Test.main @@ fun () ->
-  Test.Log.msg "Testing Webs.Http module";
-  Test.autorun ();
-  ()
-
+let main () = Test.main @@ fun () -> Test.autorun ()
 let () = if !Sys.interactive then () else exit (main ())

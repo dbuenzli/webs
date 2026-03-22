@@ -21,7 +21,9 @@ let css_href_versioned = String.concat "?" ["style.css"; css_version]
 let css_response request =
   let etag = Http.Etag.make ~weak:false css_version in
   let forever = "public, max-age=31536000, immutable" in
-  let headers = Http.Headers.(def cache_control) forever Http.Headers.empty in
+  let headers =
+    Http.Headers.(define cache_control) forever Http.Headers.empty
+  in
   let* headers = Http.Request.eval_if_none_match request etag ~headers in
   let content_type = Media_type.text_css in
   Ok (Http.Response.content ~headers ~content_type Http.Status.ok_200 css)
@@ -39,7 +41,7 @@ let html_response request =
   Ok (Http.Response.html Http.Status.ok_200 html)
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [""] -> html_response request
   | [seg] when seg = css_href -> css_response request
   | _ -> Http.Response.not_found_404 ()

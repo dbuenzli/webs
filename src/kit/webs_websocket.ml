@@ -109,41 +109,33 @@ let sha_1 s =
 type key = string
 let accept_uuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 let accept_header_value_of_key key =
-  Webs_base64.encode `Padded (sha_1 (key ^ accept_uuid))
+  Webs_base64.encode Padded (sha_1 (key ^ accept_uuid))
 
 let random_key ?(crypto_random = Webs_crypto_random.get) () =
-  Webs_base64.encode `Padded (crypto_random 16)
+  Webs_base64.encode Padded (crypto_random 16)
 
-(* Headers *)
+(* Errors *)
 
-let sec_websocket_accept = Http.Headers.name "sec-websocket-accept"
-let sec_websocket_extensions = Http.Headers.name "sec-websocket-extensions"
-let sec_websocket_key = Http.Headers.name "sec-websocket-key"
-let sec_websocket_protocol = Http.Headers.name "sec-websocket-protocol"
-let sec_websocket_version = Http.Headers.name "sec-websocket-version"
-
-(* Upgrading *)
-
+let strf = Format.asprintf
 let err_no_key = "No sec-websocket-key header"
 let err_no_version = "No sec-websocket-version header"
-let err_unsupported_version v = "unsupported sec-websocket-version: " ^  v
+let err_unsupported_version v = "Unsupported sec-websocket-version: " ^  v
+let err_response_not_upgrading = "No websocket upgrade found in headers"
+let err_not_switching_101 status =
+  strf "Expected a 101 response but found %a" Http.Status.pp status
 
-let add_request_upgrade_headers ?(key = random_key ()) headers =
-  key,
-  headers
-  |> Http.Headers.def Http.Headers.upgrade "websocket"
-  |> Http.Headers.def Http.Headers.connection "upgrade"
-  |> Http.Headers.def sec_websocket_key key
-  |> Http.Headers.def sec_websocket_version "13"
+let err_accept_value_mismatch ~exp ~fnd =
+  strf "Expected accept value %s but found %s" exp fnd
 
-let request_upgrade_of_url
-    ?key ?(headers = Http.Headers.empty) ?log ?version url
-  =
-  let key, headers = add_request_upgrade_headers ?key headers in
-  let* request = Http.Request.of_url ?log ?version ~headers `GET ~url in
-  Ok (key, request)
+(* Header names *)
 
-let headers_upgradable headers =
+let sec_websocket_accept = Http.Headers.Name.make "sec-websocket-accept"
+let sec_websocket_extensions = Http.Headers.Name.make "sec-websocket-extensions"
+let sec_websocket_key = Http.Headers.Name.make "sec-websocket-key"
+let sec_websocket_protocol = Http.Headers.Name.make "sec-websocket-protocol"
+let sec_websocket_version = Http.Headers.Name.make "sec-websocket-version"
+
+let has_websocket_upgrade headers =
   let connection = Http.Headers.(find ~lowervalue:true connection) headers in
   let upgrade = Http.Headers.(find ~lowervalue:true upgrade) headers in
   match connection, upgrade with
@@ -152,12 +144,60 @@ let headers_upgradable headers =
       List.mem "websocket" (Http.Headers.values_of_string upgrade)
   | _, _ -> false
 
-let request_upgradable request =
-  headers_upgradable (Http.Request.headers request)
+let websocket_headers () =
+  Http.Headers.empty
+  |> Http.Headers.(define connection) "upgrade"
+  |> Http.Headers.(define upgrade) "websocket"
+
+(* Upgrading from the client *)
+
+let url_schemes = [ "http", 80; "https", 443; "ws", 80; "wss", 443]
+
+let add_request_upgrade_headers ?(key = random_key ()) headers =
+  key,
+  headers
+  |> Http.Headers.define Http.Headers.upgrade "websocket"
+  |> Http.Headers.define Http.Headers.connection "upgrade"
+  |> Http.Headers.define sec_websocket_key key
+  |> Http.Headers.define sec_websocket_version "13"
+
+let request_upgrade_of_url ?key ?(headers = Http.Headers.empty) ?log url =
+  let* url = match Url.scheme url with
+  | Some ("http" | "https") -> Ok url
+  | Some "ws" -> Ok (Url.of_url ~scheme:(Some "http") url ())
+  | Some "wss" -> Ok (Url.of_url ~scheme:(Some "https") url ())
+  | s ->
+      let fnd = match s with
+      | None -> "No scheme found"
+      | Some s -> strf "Unsupported scheme %s" s
+      in
+      Error (strf "URL %a: %s. Must be one of http, https, ws or wss."
+               Url.pp url fnd)
+  in
+  let key, headers = add_request_upgrade_headers ?key headers in
+  let* request = Http.Request.of_url ?log ~headers `GET ~url in
+  Ok (key, request)
+
+let accept_upgrade ~key response =
+  let headers = Http.Response.headers response in
+  let status = Http.Response.status response in
+  if not (Http.Status.equal Http.Status.switching_protocols_101 status)
+  then Error (err_not_switching_101 status) else
+  if not (has_websocket_upgrade headers)
+  then Error err_response_not_upgrading else
+  let value = accept_header_value_of_key key in
+  let* accept = Http.Headers.(find_or_error sec_websocket_accept) headers in
+  if not (String.equal value accept)
+  then Error (err_accept_value_mismatch ~exp:value ~fnd:accept) else
+  Ok ()
+
+(* Upgrading from the service *)
+
+let is_request_upgrade request =
+  has_websocket_upgrade (Http.Request.headers request)
 
 let upgrade_required_426 ?reason ~headers () =
-  let status = Http.Status.upgrade_required_426 in
-  Error (Http.Response.empty status ~headers ?reason)
+  Error (Http.Response.empty Http.Status.upgrade_required_426 ~headers ?reason)
 
 let check_version ~headers =
   match Http.Headers.find sec_websocket_version headers with
@@ -166,24 +206,19 @@ let check_version ~headers =
   | Some v ->
       (* RFC 6455 §4.2.2. 4 *)
       let headers = Http.Headers.empty in
-      let headers = Http.Headers.def sec_websocket_version "13" headers in
+      let headers = Http.Headers.define sec_websocket_version "13" headers in
       let reason = err_unsupported_version v in
       upgrade_required_426 ~headers ~reason ()
 
-let upgrade_response request =
-  let websocket_headers () =
-    Http.Headers.empty
-    |> Http.Headers.(def connection) "upgrade"
-    |> Http.Headers.(def upgrade) "websocket"
-    in
-    let headers = Http.Request.headers request in
-    if not (headers_upgradable headers)
-    then upgrade_required_426 ~headers:(websocket_headers ()) () else
-    let* () = check_version ~headers in
-    match Http.Headers.find sec_websocket_key headers with
-    | None -> Http.Response.bad_request_400 ~reason:err_no_key ()
-    | Some key ->
-        let accept = accept_header_value_of_key key in
-        let headers = websocket_headers () in
-        let headers = Http.Headers.def sec_websocket_accept accept headers in
-        Ok (Http.Response.empty Http.Status.switching_protocols_101 ~headers)
+let upgrade_request request =
+  if not (is_request_upgrade request)
+  then upgrade_required_426 ~headers:(websocket_headers ()) () else
+  let headers = Http.Request.headers request in
+  let* () = check_version ~headers in
+  match Http.Headers.find sec_websocket_key headers with
+  | None -> Http.Response.bad_request_400 ~reason:err_no_key ()
+  | Some key ->
+      let accept = accept_header_value_of_key key in
+      let headers = websocket_headers () in
+      let headers = Http.Headers.define sec_websocket_accept accept headers in
+      Ok (Http.Response.empty Http.Status.switching_protocols_101 ~headers)

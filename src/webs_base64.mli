@@ -15,15 +15,15 @@
 (** {1:enc_and_padding Encoding and padding specification} *)
 
 type encoding =
-[ `Base64
-  (** {{:https://www.rfc-editor.org/rfc/rfc4648#section-4}[base64]} *)
-| `Base64url
-  (** {{:https://www.rfc-editor.org/rfc/rfc4648#section-5}[base64url]} *) ]
+| Base64
+(** {{:https://www.rfc-editor.org/rfc/rfc4648#section-4}[base64]} *)
+| Base64url
+(** {{:https://www.rfc-editor.org/rfc/rfc4648#section-5}[base64url]} *)
 (** The type for encodings. *)
 
 type padding =
-[ `Padded (** Padded with ['='] characters. *)
-| `Unpadded (** Not padded. *) ]
+| Padded (** Padded with ['='] characters. *)
+| Unpadded (** Not padded. *)
 (** The type for specifing
     {{:https://www.rfc-editor.org/rfc/rfc4648#section-3.2}padding}. *)
 

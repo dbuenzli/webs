@@ -13,7 +13,7 @@ open Webs
 module Fd : sig
 
   type Http.Body.custom_content +=
-  | Writer of Unix.file_descr Http.Body.writer
+  | Writer of (Unix.file_descr -> unit)
   (** The type for direct file descriptor body writers.
 
       These writers write their bodies directly on the output file
@@ -39,16 +39,19 @@ module Fd : sig
       [fd] using buffer [b] and assuming the first [first_len] bytes
       are already in [b] at [first_start]. *)
 
-  val body_writer : Http.Body.t -> Unix.file_descr Http.Body.writer
+  val body_writer : Http.Body.t -> (Unix.file_descr -> unit)
   (** [body_writer b] is a body writer for [b] writing on a given
       file descriptors. This supports bodies with the following content:
       {ul
       {- {!Webs.Http.Body.Empty}}
-      {- {!Webs.Http.Body.Byte_writer}}
-      {- {!Webs.Http.Body.Byte_reader}}
+      {- {!Webs.Http.Body.Bytes_writer}}
+      {- {!Webs.Http.Body.Bytes_reader}}
       {- {!Webs.Http.Body.Custom} supporting {!Writer}}} *)
 
-  (** {1:http11 HTTP/1.1 support} *)
+  (** {1:http11 HTTP/1.1 support}
+
+      {b TODO} Try to get rid of that in favour of {!Webs_http11}.
+  *)
 
   val read_http11_head_crlfs :
     max_bytes:int -> bytes -> Unix.file_descr -> int list * int * int

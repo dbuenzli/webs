@@ -44,11 +44,11 @@ let count c request =
   | Some "prev" -> c - 1
   | Some _ | None -> c
   in
-  let headers = Http.Headers.(def cache_control "no-store" empty) in
+  let headers = Http.Headers.(define cache_control "no-store" empty) in
   Some c', Http.Response.html Http.Status.ok_200 ~headers (countpage c')
 
 let service ~secret_key request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [""] ->
       let* `GET = Http.Request.allow Http.Method.[get] request in
       Ok (Webs_session.setup state (session ~secret_key) count request)

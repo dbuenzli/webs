@@ -11,7 +11,7 @@ let set ~secret_key ~expire ?attributes ~name data response =
   let value = Webs_authenticatable.encode ~secret_key ~expire data in
   let cookie = Http.Cookie.encode ?attributes ~name value in
   let headers = Http.Response.headers response in
-  let headers = Http.Headers.add_set_cookie cookie headers in
+  let headers = Http.Headers.append_set_cookie cookie headers in
   Http.Response.with_headers headers response
 
 let clear ?attributes ~name response =
@@ -19,7 +19,7 @@ let clear ?attributes ~name response =
   let attributes = Http.Cookie.attributes ?init:attributes ~max_age () in
   let cookie = Http.Cookie.encode ~attributes ~name "" in
   let headers = Http.Response.headers response in
-  let headers = Http.Headers.add_set_cookie cookie headers in
+  let headers = Http.Headers.append_set_cookie cookie headers in
   Http.Response.with_headers headers response
 
 (* Getting *)

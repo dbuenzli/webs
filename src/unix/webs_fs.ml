@@ -49,19 +49,19 @@ let dir_404 ~etagger ~media_types _ fpath fd _ =
 
 let range_full ~file_size resp_headers =
   let size = Http.Digits.encode file_size in
-  let resp_headers = Http.Headers.(def content_length) size resp_headers in
+  let resp_headers = Http.Headers.(define content_length) size resp_headers in
   0, file_size - 1, resp_headers, Http.Status.ok_200
 
-let range_partial ~file_size ~first ~last resp_headers =
+let range_partial ~file_size ~first ~last headers =
   let range_len = Http.Digits.encode (last - first + 1) in
   let crange =
     let file_size = Http.Digits.encode file_size in
     let first, last = Http.Digits.encode first, Http.Digits.encode last in
     String.concat "" ["bytes "; first; "-"; last; "/"; file_size]
   in
-  let resp_headers = Http.Headers.(def content_range) crange resp_headers in
-  let resp_headers = Http.Headers.(def content_length) range_len resp_headers in
-  first, last, resp_headers, Http.Status.partial_content_206
+  let headers = Http.Headers.(define content_range) crange headers in
+  let headers = Http.Headers.(define content_length) range_len headers in
+  first, last, headers, Http.Status.partial_content_206
 
 let find_range request file etag ~file_size resp_headers =
   let* range =
@@ -69,8 +69,8 @@ let find_range request file etag ~file_size resp_headers =
   in
   match range with
   | None -> Ok (range_full ~file_size resp_headers)
-  | Some (`Other _) (* ignore *) -> Ok (range_full ~file_size resp_headers)
-  | Some (`Bytes rs as r) ->
+  | Some (Other _) (* ignore *) -> Ok (range_full ~file_size resp_headers)
+  | Some (Bytes rs as r) ->
       let* if_range =
         Http.Request.decode_header
           Http.Headers.if_range Http.Etag.decode request
@@ -121,8 +121,8 @@ let close_and_not_modified_304 file fd headers =
 
 let close_and_head_ok_200 ~file_size ~file_type file fd headers =
   let length = Http.Digits.encode file_size in
-  let headers = Http.Headers.(def content_length) length headers in
-  let headers = Http.Headers.(def content_type) file_type headers in
+  let headers = Http.Headers.(define content_length) length headers in
+  let headers = Http.Headers.(define content_type) file_type headers in
   close_noerr fd;
   Ok (Http.Response.empty ~log:file ~headers Http.Status.ok_200)
 
@@ -148,7 +148,7 @@ let file_response ~etagger ~media_types request method' file fd stat =
   | Error e -> file_error_404 file e | Ok _ as tag -> tag
   in
   let headers = Http.Headers.empty in
-  let headers = Http.Headers.(def etag) (Http.Etag.encode tag) headers in
+  let headers = Http.Headers.(define etag) (Http.Etag.encode tag) headers in
   let* () = check_if_match_cond request file tag in
   let* test = test_if_none_match request file tag in
   if not test then close_and_not_modified_304 file fd headers else
@@ -157,8 +157,8 @@ let file_response ~etagger ~media_types request method' file fd stat =
   let mtime = Webs_unix.http_date_of_posix_time_s stat.Unix.st_mtime in
   (* The [last_modified] header affects memory cache in blink based
      browsers, without it, it doesn't seem to get hit. *)
-  let headers = Http.Headers.(def last_modified) mtime headers in
-  let headers = Http.Headers.(def accept_ranges) "bytes" headers in
+  let headers = Http.Headers.(define last_modified) mtime headers in
+  let headers = Http.Headers.(define accept_ranges) "bytes" headers in
   match method' with
   | `HEAD -> close_and_head_ok_200 ~file_size ~file_type file fd headers
   | `GET ->

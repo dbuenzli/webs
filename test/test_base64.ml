@@ -7,21 +7,21 @@ open B0_testing
 
 let eq_error enc =
   let pp ppf e = Format.pp_print_string ppf (Webs_base64.error_message enc e) in
-  Test.T.make ~equal:( = ) ~pp ()
+  Test.T.make ~equal:Repr.equal ~pp ()
 
 let test_spec enc_spec decode encode =
-  let error = eq_error `Base64 in
+  let error = eq_error Base64 in
   let result ?__POS__ = Test.result' ?__POS__ ~ok:Test.T.string ~error in
   fun enc ~__POS__:pos ~p:dec_pad ~u:dec_unpadded ->
   Test.block ~__POS__:pos @@ fun () ->
-  result (decode `Padded enc) dec_pad ~__POS__;
+  result (decode Webs_base64.Padded enc) dec_pad ~__POS__;
   begin match dec_pad with
-  | Ok dec -> Test.string enc (encode `Padded dec) ~__POS__;
+  | Ok dec -> Test.string enc (encode Webs_base64.Padded dec) ~__POS__;
   | Error _ -> ()
   end;
-  result (decode `Unpadded enc) dec_unpadded ~__POS__;
+  result (decode Webs_base64.Unpadded enc) dec_unpadded ~__POS__;
   begin match dec_unpadded with
-  | Ok dec -> Test.string enc (encode `Unpadded dec) ~__POS__;
+  | Ok dec -> Test.string enc (encode Webs_base64.Unpadded dec) ~__POS__;
   | Error _ -> ()
   end;
   ()

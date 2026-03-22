@@ -14,7 +14,7 @@ open Webs
 
 {2:fetching_simple How do I fetch an URL to a [string]?}
 
-Use {!Webs.Http_client.get} with an appropriate {!Webs.Http_client.t}
+Use {!Webs.Http.Client.get} with an appropriate {!Webs.Http.Client.t}
 value. The following uses the {!Webs_spawn_client} to fetch an URL to
 a [string].
 
@@ -28,10 +28,10 @@ For more complex scenarios see {!fetching_control}
 
 {2:fetching_control How do I fetch an URL with more control?}
 
-Use {!Webs.Http_client.request} with appropriate {!Webs.Http_client}
+Use {!Webs.Http.Client.request} with appropriate {!Webs.Http.Client}
 and {!Webs.Http.Request.t} values. The following example shows how to
-implement {!Webs.Http_client.get} in terms of
-{!Webs.Http_client.request}
+implement {!Webs.Http.Client.get} in terms of
+{!Webs.Http.Client.request}
 
 {[
 let get httpc ~follow ~url =
@@ -44,9 +44,9 @@ let get httpc ~follow ~url =
 
 {2:fetching_redirect How do I find a fetch's final URL?}
 
-If you use [follow:true] with {!Webs.Http_client.request} and the
+If you use [follow:true] with {!Webs.Http.Client.request} and the
 request is redirected, the final location can be found in the
-{!Webs.Http_client.x_follow_location} header of the response. For example
+{!Webs.Http.Client.x_follow_location} header of the response. For example
 the following fetches and returns the concrete fetched location:
 
 {[

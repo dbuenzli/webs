@@ -10,8 +10,8 @@ open Webs
 let service = Http.Request.echo
 
 let main () =
-  let c = Webs_cgi.make ~extra_vars:["SERVER_SOFTWARE"] () in
-  match Webs_cgi.serve c service with
+  let c = Webs_cgi_gateway.make ~extra_vars:["SERVER_SOFTWARE"] () in
+  match Webs_cgi_gateway.serve c service with
   | Ok () -> 0
   | Error e -> prerr_endline ("Error: " ^ e); 1
 

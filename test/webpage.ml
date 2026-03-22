@@ -28,7 +28,7 @@ let html_response request =
   Ok (Http.Response.html Http.Status.ok_200 html)
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [""] -> html_response request
   | [seg] when seg = css_href -> css_response request
   | _ -> Http.Response.not_found_404 ()

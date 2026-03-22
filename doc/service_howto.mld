@@ -154,7 +154,7 @@ let send_asset ~strip ~file_root request =
   Webs_fs.send_file request file
 
 let service file_root request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | "assets" as pre :: _ -> send_asset ~strip:[pre] ~file_root request
   | _ -> Http.Response.not_found_404 ()
 
@@ -225,7 +225,7 @@ let send_asset ~strip ~file_root request =
   Webs_gateway.send_file ~header:send_header file
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | "assets" as pre :: _ -> send_asset ~strip:[pre] ~file_root request
   | _ -> Http.Response.not_found_404 ()
 
@@ -279,7 +279,7 @@ let html_response request =
   Ok (Http.Response.html Http.Status.ok_200 html)
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [""] -> html_response request
   | [seg] when seg = css_href -> css_response request
   | _ -> Http.Response.not_found_404 ()
@@ -343,8 +343,8 @@ let html_response request =
   Ok (Http.Response.html Http.Status.ok_200 html)
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
-  | [""] -> html_resposne request
+  Result.retract @@ match Http.Request.path request with
+  | [""] -> html_response request
   | [seg] when seg = css_href -> css_response request
   | _ -> Http.Response.not_found_404 ()
 
@@ -417,7 +417,7 @@ let html_response request =
   Ok (Http.Response.html Http.Status.ok_200 html)
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [""] -> html_response request
   | [seg] when seg = css_href -> css_response request
   | _ -> Http.Response.not_found_404 ()

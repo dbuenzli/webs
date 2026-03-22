@@ -32,30 +32,30 @@ let test_components =
     Test.(option T.string) ~__POS__ f' f;
     Test.(option T.string) ~__POS__ t' t;
   in
-  test "http://example.org:80/hey-hopla/bli" `Absolute
+  test "http://example.org:80/hey-hopla/bli" Absolute
     (Some "http") (Some "example.org:80") (Some "/hey-hopla/bli") None None
     ~__POS__ ;
-  test "" (`Relative `Empty) None None None None None
+  test "" (Relative Empty) None None None None None
     ~__POS__;
-  test "//example.org:80/hey-hopla/bli" (`Relative `Scheme)
+  test "//example.org:80/hey-hopla/bli" (Relative Scheme)
     None (Some "example.org:80") (Some "/hey-hopla/bli") None None
     ~__POS__;
-  test "/huhuhu:80/hey-hopla/bli" (`Relative `Absolute_path)
+  test "/huhuhu:80/hey-hopla/bli" (Relative Absolute_path)
     None None (Some "/huhuhu:80/hey-hopla/bli") None None
     ~__POS__;
-  test "huhuhu/hey-hopla/bli" (`Relative `Relative_path)
+  test "huhuhu/hey-hopla/bli" (Relative Relative_path)
     None None (Some "huhuhu/hey-hopla/bli") None None
     ~__POS__;
-  test "hopla://example.org/?#" `Absolute
+  test "hopla://example.org/?#" Absolute
     (Some "hopla") (Some "example.org") (Some "/") (Some "") (Some "")
     ~__POS__;
-  test "https://example.org/hey?bla#blu" `Absolute
+  test "https://example.org/hey?bla#blu" Absolute
     (Some "https") (Some "example.org") (Some "/hey") (Some "bla") (Some "blu")
     ~__POS__;
-  test "https://example.org?bla#blu" `Absolute
+  test "https://example.org?bla#blu" Absolute
     (Some "https") (Some "example.org") None (Some "bla") (Some "blu")
     ~__POS__;
-  test "https://example.org/bla#?blu" `Absolute
+  test "https://example.org/bla#?blu" Absolute
     (Some "https") (Some "example.org") (Some "/bla") None (Some "?blu")
     ~__POS__;
   ()
@@ -65,22 +65,22 @@ let test_append =
   let test root rel res ~__POS__ =
     Test.string (Webs.Url.append root rel) res ~__POS__
   in
-  (* `Abs *)
+  (* Abs *)
   test "https://example.org" "https://ocaml.org" "https://ocaml.org" ~__POS__;
-  (* `Rel Scheme *)
+  (* Rel Scheme *)
   test "https://example.org" "//example.org/b" "https://example.org/b" ~__POS__;
   test "ftp://example.org/hi" "//example.org/b" "ftp://example.org/b" ~__POS__;
-  (* `Rel `Rel_path *)
+  (* Rel Rel_path *)
   test "https://example.org/hi" "b" "https://example.org/b" ~__POS__;
   test "https://example.org/hi" "b/a" "https://example.org/b/a" ~__POS__;
   test "https://example.org/hi/" "b/a" "https://example.org/hi/b/a" ~__POS__;
   test "https://example.org" "b/a" "https://example.org/b/a" ~__POS__;
   test "https://example.org/" "b/a" "https://example.org/b/a" ~__POS__;
-  (* `Rel `Abs_path *)
+  (* Rel Abs_path *)
   test "https://example.org/hi/ha" "/b/a" "https://example.org/b/a" ~__POS__;
   test "https://example.org/" "/b/a" "https://example.org/b/a" ~__POS__;
   test "https://example.org" "/b/a" "https://example.org/b/a" ~__POS__;
-  (* `Rel `Empty *)
+  (* Rel Empty *)
   test "https://example.org/hey" "" "https://example.org/hey" ~__POS__;
   test "https://example.org/" "" "https://example.org/" ~__POS__;
   test "https://example.org" "" "https://example.org" ~__POS__;

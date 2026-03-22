@@ -18,7 +18,7 @@ let send_asset ~strip ~file_root request =
   Webs_fs.send_file request file
 
 let service file_root request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | "assets" as pre :: _ -> send_asset ~strip:[pre] ~file_root request
   | _ -> Http.Response.not_found_404 ()
 

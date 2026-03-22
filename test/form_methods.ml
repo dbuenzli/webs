@@ -33,7 +33,7 @@ let submit method' query =
   Format.asprintf "@[<v>%a@,%a@]" Http.Method.pp method' Http.Query.pp query
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [ "" | "post" | "get" as m ] ->
       let* `GET = Http.Request.allow Http.Method.[get] request in
       let method' = match m with "" -> "post" | m -> m in

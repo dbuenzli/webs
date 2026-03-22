@@ -45,7 +45,7 @@ open Webs
       naming scheme for arbitrary strings that is human readable,
       compatible with URL path segment syntax and unambiguously
       distinguishable from non-negative numerical identifers
-      (e.g. {!Res.Id}). *)
+      (e.g. {!Webs_url_resource.Id}). *)
 module Named : sig
 
   (** {1:resolution Resolution} *)
@@ -58,23 +58,24 @@ module Named : sig
     req_name:'name option ->
     req_id:'id -> unit -> ('res, Http.Response.t) result
   (** [resolve ~eq ~get_res ~res_name ~res_url ~req_name ~req_id ()]
-      implements the 301 redirection logic spelled out in the preamble of
-      this module.
+      implements the 301 redirection logic spelled out in the preamble
+      of this module.
 
       Given a request's parsed identifier [req_id] and name [req_name] (if any):
-        {ol
-        {- If [get_res req_id] is [Error _] this is returned by the function.}
-        {- If [get_res req_id] is [Ok res], let [n] be [res_name res].}
-        {- If [req_name] is [None] a
-           {{!Webs.Http.Status.moved_permanently_301}301}
-           moved permanently [Error _] to [res_url n req_id] is returned.}
-        {- If [req_name] is [Some n'] and [eq n n'] is [false] a
-           {{!Webs.Http.Status.moved_permanently_301}301} moved permanently
-           [Error _] to [res_url n req_id] is returned.}
-         {- Otherwise, [Ok res] is returned.}}
 
-        [eq] defaults to {!Stdlib.( = )}. [res_url] must return
-        a value suitable for the {!Webs.Http.Headers.location} header. *)
+      {ol
+      {- If [get_res req_id] is [Error _] this is returned by the function.}
+      {- If [get_res req_id] is [Ok res], let [n] be [res_name res].}
+      {- If [req_name] is [None] a
+         {{!Webs.Http.Status.moved_permanently_301}301}
+         moved permanently [Error _] to [res_url n req_id] is returned.}
+      {- If [req_name] is [Some n'] and [eq n n'] is [false] a
+         {{!Webs.Http.Status.moved_permanently_301}301} moved permanently
+         [Error _] to [res_url n req_id] is returned.}
+      {- Otherwise, [Ok res] is returned.}}
+
+      [eq] defaults to {!Repr.equal}. [res_url] must return a value suitable
+      for the {!Webs.Http.Headers.location} header. *)
 
   (** {1:names Names} *)
 
@@ -86,7 +87,8 @@ module Named : sig
       readable URL path segment. It transforms [s] to a sequence of ['-']
       separated tokens. A ['-'] is appended to the empty string and to
       sequences of US-ASCII digits only so that they can be distinguished
-      from numerical identifiers (e.g. {!Res.Id}). More precisely this:
+      from numerical identifiers (e.g. {!Webs_url_resource.Id}). More
+      precisely this:
 
       {ol
       {- Replaces all US-ASCII characters except letters and digits by ['-'].}

@@ -45,12 +45,12 @@ let set_expirable_count ~secret_key ~now ~count response =
   Webs_authenticated_cookie.set ~secret_key ~expire ~name data response
 
 let service ~secret_key request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [""] ->
       let* `GET = Http.Request.allow Http.Method.[get] request in
       let now = truncate (Unix.gettimeofday ()) in
       let count = get_expirable_count ~secret_key ~now request + 1 in
-      let headers = Http.Headers.(def cache_control "no-store" empty) in
+      let headers = Http.Headers.(define cache_control "no-store" empty) in
       let page = countpage ~count in
       let response = Http.Response.html Http.Status.ok_200 ~headers page in
       let response = set_expirable_count ~secret_key ~now ~count response in

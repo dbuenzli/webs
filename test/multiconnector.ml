@@ -14,7 +14,7 @@ open Webs
 
 let service = Http.Request.echo
 
-let cgi_server s = Webs_cgi.serve (Webs_cgi.make ()) s
+let cgi_server s = Webs_cgi_gateway.serve (Webs_cgi_gateway.make ()) s
 let web_server s = Webs_http11_gateway.serve (Webs_http11_gateway.make ()) s
 let select_server = function `Cgi -> cgi_server | `Web -> web_server
 

@@ -9,6 +9,7 @@ let cmdliner = B0_ocaml.libname "cmdliner"
 let bytesrw = B0_ocaml.libname "bytesrw"
 let bytesrw_crypto = B0_ocaml.libname "bytesrw.crypto"
 let bytesrw_sysrandom = B0_ocaml.libname "bytesrw.sysrandom"
+let bytesrw_unix = B0_ocaml.libname "bytesrw.unix"
 let jsont_bytesrw = B0_ocaml.libname "jsont.bytesrw"
 
 let webs = B0_ocaml.libname "webs"
@@ -37,7 +38,7 @@ let webs_crypto_lib =
 
 let webs_unix_lib =
   let srcs = [`Dir ~/"src/unix"] in
-  let requires = [bytesrw; webs; unix; threads] in
+  let requires = [bytesrw; bytesrw_unix; webs; unix; threads] in
   B0_ocaml.lib webs_unix ~srcs ~requires ~exports:[webs]
 
 let webs_passkey_lib =
@@ -63,6 +64,7 @@ let test ?(requires = []) =
   B0_ocaml.test ~requires:(b0_std :: webs :: requires)
 
 let test_http = test ~/"test/test_http.ml" ~run:true
+let test_http11 = test ~/"test/test_http11.ml" ~run:true
 let test_base64 = test ~/"test/test_base64.ml" ~run:true ~requires:[webs_kit]
 let test_url = test ~/"test/test_url.ml" ~run:true
 let test_sha_256 =
@@ -99,7 +101,8 @@ let login_cookie = test ~/"test/login_cookie.ml" ~run:false ~requires:quick
 let min = test ~/"test/min.ml" ~run:false ~requires:quick
 let multiconnector = test ~/"test/multiconnector.ml" ~run:false ~requires:unix
 let naive_fetch =
-  test ~/"test/naive_fetch.ml" ~run:false ~requires:(cmdliner :: unix)
+  let requires = cmdliner :: bytesrw_unix :: unix in
+  test ~/"test/naive_fetch.ml" ~run:false ~requires
 
 let serve = test ~/"test/serve.ml" ~run:false ~requires:quick
 let session = test ~/"test/session.ml" ~run:false ~requires:quick

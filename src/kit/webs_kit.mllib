@@ -1,12 +1,11 @@
 Webs_authenticatable
 Webs_authenticated_cookie
-Webs_base64
 Webs_basic_auth
-Webs_bazaar
 Webs_crypto_random
 Webs_gateway
 Webs_hash
 Webs_hit_stats
+Webs_kurl
 Webs_session
 Webs_url_resource
 Webs_websocket

@@ -7,11 +7,11 @@ open Result.Syntax
 
 let strf = Format.asprintf
 let pp_string_as_base64url ppf s =
-  Format.pp_print_string ppf (Webs_base64.encode_base64url `Unpadded s)
+  Format.pp_print_string ppf (Webs_base64.encode_base64url Unpadded s)
 
 let base64url_jsont =
-  let dec = Jsont.Base.dec_result (Webs_base64.decode_base64url `Unpadded) in
-  let enc = Webs_base64.encode_base64url `Unpadded in
+  let dec = Jsont.Base.dec_result (Webs_base64.decode_base64url Unpadded) in
+  let enc = Webs_base64.encode_base64url Unpadded in
   Jsont.Base.string (Jsont.Base.map ~kind:"base64url:unpadded" ~dec ~enc ())
 
 let pp_hex ppf k =
@@ -185,17 +185,17 @@ module Credential_id = struct
                            expected between 16 and 1023" len)
 
   let pp ppf c =
-    Format.pp_print_string ppf (Webs_base64.encode_base64url `Unpadded c)
+    Format.pp_print_string ppf (Webs_base64.encode_base64url Unpadded c)
 
   let jsont =
-    let dec meta s = match Webs_base64.decode_base64url `Unpadded s with
+    let dec meta s = match Webs_base64.decode_base64url Unpadded s with
     | Error e -> Jsont.Error.msg Jsont.Meta.none e
     | Ok id ->
         match of_binary_string id with
         | Ok id -> id
         | Error e -> Jsont.Error.msg Jsont.Meta.none e
     in
-    let enc = Webs_base64.encode_base64url `Unpadded in
+    let enc = Webs_base64.encode_base64url Unpadded in
     Jsont.Base.string (Jsont.Base.map ~kind:"credential_id" ~dec ~enc ())
 end
 
@@ -402,14 +402,14 @@ module Authenticator_data = struct
     Aaguid.of_binary_string (String.sub a 37 16) |> Result.get_ok
 
   let jsont =
-    let dec meta s = match Webs_base64.decode_base64url `Unpadded s with
+    let dec meta s = match Webs_base64.decode_base64url Unpadded s with
     | Error e -> Jsont.Error.msg Jsont.Meta.none e
     | Ok id ->
         match of_binary_string id with
         | Ok a -> a
         | Error e -> Jsont.Error.msg Jsont.Meta.none e
     in
-    let enc = Webs_base64.encode_base64url `Unpadded in
+    let enc = Webs_base64.encode_base64url Unpadded in
     Jsont.Base.string (Jsont.Base.map ~kind:"Authenticator data" ~dec ~enc ())
 
   let verify_rpid_hash ~rpid_hash:expected a =

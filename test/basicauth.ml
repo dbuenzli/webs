@@ -77,7 +77,7 @@ let protected request path ~username = match path with
 | _ -> Http.Response.not_found_404 ()
 
 let service read_users request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [""] ->
       let* `GET = Http.Request.allow Http.Method.[get] request in
       Ok (Http.Response.html Http.Status.ok_200 homepage)

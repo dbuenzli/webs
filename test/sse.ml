@@ -21,8 +21,9 @@
    which is specific to nginx. You may need to adapt this if you
    are using another gateway. *)
 
+open Result.Syntax
 open Webs
-let ( let* ) = Result.bind
+open Bytesrw
 
 let homepage =
 {|<!DOCTYPE html>
@@ -45,26 +46,27 @@ let homepage =
 </html>
 |}
 
-let rec event_stream write =
+let rec event_stream ~eod w =
   let ptime = Float.to_int (Unix.gettimeofday ()) in
   let data = Printf.sprintf "data: The server POSIX time is %d\n\n" ptime in
-  write (Some (Bytes.unsafe_of_string data, 0, String.length data));
-  Unix.sleep 1;
-  event_stream write
+  Bytes.Writer.write_string w data;
+  event_stream ~eod w
 
-let x_accel_buffering = Http.Headers.name "x-accel-buffering" (* for nginx *)
+let x_accel_buffering =
+  Http.Headers.Name.make "x-accel-buffering" (* for nginx *)
+
 let respond_events () =
   let headers =
     Http.Headers.empty
-    |> Http.Headers.(def x_accel_buffering) "no"
-    |> Http.Headers.(def cache_control) "no-cache"
-    |> Http.Headers.(def content_type) "text/event-stream"
+    |> Http.Headers.(define x_accel_buffering) "no"
+    |> Http.Headers.(define cache_control) "no-cache"
+    |> Http.Headers.(define content_type) "text/event-stream"
   in
-  let body = Http.Body.of_byte_writer event_stream in
+  let body = Http.Body.of_bytes_writer event_stream in
   Http.Response.make ~headers Http.Status.ok_200 body
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [""] ->
       let* `GET = Http.Request.allow Http.Method.[get] request in
       Ok (Http.Response.html Http.Status.ok_200 homepage)

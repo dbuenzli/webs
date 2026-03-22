@@ -20,7 +20,7 @@ let if_error_bad_request_400 = function
 module Page = struct
   let base64_encode_challenge c =
     let c = Webs_passkey.Challenge.to_binary_string c in
-    Webs_base64.encode `Padded c
+    Webs_base64.encode Padded c
 
   let create_account_link ?(label = "Create an account") () =
     strf {|<a href="/users/create">%s</a>|} label
@@ -195,7 +195,7 @@ let login_create request =
           Ok (Http.Response.text Http.Status.ok_200 text)
 
 let service request =
-  Http.Response.result @@ match Http.Request.path request with
+  Result.retract @@ match Http.Request.path request with
   | [ "" ] ->
       let login = ["users"; "login"] in
       Ok (Http.Request.redirect_to_path request Http.Status.found_302 login)

@@ -64,7 +64,7 @@ package "unix" (
   directory = "unix"
   description = "The webs.unix library"
   version = "%%VERSION_NUM%%"
-  requires = "bytesrw webs unix threads.posix"
+  requires = "bytesrw bytesrw.unix webs unix threads.posix"
   exports = "webs"
   archive(byte) = "webs_unix.cma"
   archive(native) = "webs_unix.cmxa"

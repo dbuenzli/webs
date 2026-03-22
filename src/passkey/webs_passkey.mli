@@ -82,7 +82,7 @@ module Challenge : sig
            uses {!Unix.gettimeofday}.}
         {- [crypto_random] is a function returning random bytes of
            cryptographic quality for the challenges. Defaults to
-           {!Webs_cryptorandom.get_random}}} *)
+           {!Webs_crypto_random.get}}} *)
 
     val max : 'a t -> int
     (** [max v] is the maximal number of pending challenges in [v].

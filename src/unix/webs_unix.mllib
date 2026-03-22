@@ -2,6 +2,6 @@ Webs_unix
 Webs_thread_pool
 Webs_fs
 Webs_listener
-Webs_cgi
+Webs_cgi_gateway
 Webs_http11_gateway
 Webs_spawn_client

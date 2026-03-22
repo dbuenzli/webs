@@ -9,7 +9,8 @@ open Webs
 let unix_buffer_size = 65536 (* UNIX_BUFFER_SIZE 4.0.0 *)
 
 module Fd = struct
-  type Http.Body.custom_content += Writer of Unix.file_descr Http.Body.writer
+  type Http.Body.custom_content +=
+  | Writer of (Unix.file_descr -> unit)
 
   (* Uninterrupted reads and writes *)
 
@@ -52,8 +53,10 @@ module Fd = struct
     end;
     reader
 
+      (*
   let rec write_stream_chunk fd = function
   | None -> () | Some (b, start, length) -> write fd b ~start ~length
+*)
 
   let rec bytes_reader_body_writer r fd = match Bytes.Reader.read r with
   | slice when Bytes.Slice.is_eod slice -> ()
@@ -65,7 +68,11 @@ module Fd = struct
 
   let body_writer b = match Http.Body.content b with
   | Empty -> fun fd -> ()
-  | Byte_writer write -> fun fd -> write (write_stream_chunk fd)
+  | Bytes_writer write ->
+      (fun fd ->
+         let writer = Bytesrw_unix.bytes_writer_of_fd fd in
+         write ~eod:true writer)
+
   | Bytes_reader read -> bytes_reader_body_writer read
   | Custom (Writer w) -> w
   | Custom _ -> invalid_arg "Unknown custom body contents"
@@ -99,13 +106,7 @@ module Fd = struct
 
   let write_http11_request fd request =
     let write_body = body_writer (Http.Request.body request) in
-    let m = Http.Request.method' request in
-    let request_target = Http.Request.raw_path request in
-    let hs = Http.Request.headers request in
-    let hs = Http.Headers.for_connector hs (Http.Request.body request) in
-    let head =
-      Http.Connector.Private.encode_http11_request_head m ~request_target hs
-    in
+    let head = Webs_http11.Request.encode_head request in
     let head = Bytes.unsafe_of_string head and length = String.length head in
     write fd head ~start:0 ~length;
     write_body fd
