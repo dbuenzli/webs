@@ -6,14 +6,14 @@ Webs is a toolkit for programming with HTTP in OCaml. It provides:
   {{!Webs.Http.Request}requests} and {{!Webs.Http.Response}responses}.
 - A client connector abstraction for making
   {{!Webs.Http.Client}client requests} with HTTP client implementations.
-- A service connector abstraction for running HTTP services defined as
-  functions mapping requests to responses. Simple
+- A service connector abstraction for running HTTP services. Simple
   {{!Webs_cgi_gateway}CGI} and {{!Webs_http11_gateway}HTTP/1.1 gateway}
   connectors are provided, but you can bring your own.
-- Optional HTTP service building blocks.
+- Optional service building blocks.
   {{!page-service_howto.serving_files}File serving},
   {{!Webs_authenticated_cookie}authenticated cookies},
   {{!Webs_session}sessions}, {{!Webs_passkey}passkeys}, etc.
+- Support for end-to-end testing (via WebDriver BiDi).
 
 Webs is not a framework, it is a set of building blocks.
 
@@ -118,6 +118,12 @@ Standard command line options and quick service setup.
 {!modules:
 Webs_cli
 Webs_quick
+}
+
+{1:webs_webdriver Library [webs.webdriver]}
+
+{!modules:
+Webs_webdriver
 }
 
 {1:quick_start Quick start}

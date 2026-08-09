@@ -25,6 +25,11 @@ true : bin_annot, safe_string
 <src/cli> : include
 <src/cli/**> : package(cmdliner)
 
+<src/webdriver> : include
+<src/webdriver/**> : package(more), package(jsont.bytesrw), \
+                     package(bytesrw.websocket), package(bytesrw.sysrandom), \
+                     package(bytesrw.unix)
+
 <test/webs_tool*> : thread, package(bytesrw), package(bytesrw.unix), \
                     package(threads.posix), package(cmdliner), \
                     use_webs_unix_stubs, use_webs_kit_stubs

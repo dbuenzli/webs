@@ -6,12 +6,14 @@ open Topkg
 let cmdliner = Conf.with_pkg "cmdliner"
 let conf_mbedtls = Conf.with_pkg "conf-mbedtls" (* => bytesrw.crypto *)
 let jsont = Conf.with_pkg "jsont"
+let more = Conf.with_pkg "more"
 
 let () =
   Pkg.describe "webs" @@ fun c ->
   let cmdliner = Conf.value c cmdliner in
   let conf_mbedtls = Conf.value c conf_mbedtls in
   let jsont = Conf.value c jsont in
+  let more = Conf.value c more in
   Ok [
     Pkg.mllib "src/webs.mllib";
     Pkg.mllib "src/kit/webs_kit.mllib" ~dst_dir:"kit";
@@ -24,6 +26,8 @@ let () =
       ~cond:(conf_mbedtls && jsont)
       "src/passkey/webs_passkey.mllib" ~dst_dir:"passkey";
     Pkg.mllib ~cond:cmdliner "src/cli/webs_cli.mllib" ~dst_dir:"cli";
+    Pkg.mllib ~cond:(jsont && more)
+      "src/webdriver/webs_webdriver.mllib" ~dst_dir:"webdriver";
     Pkg.bin ~cond:cmdliner "test/webs_tool" ~dst:"webs";
     Pkg.doc "doc/index.mld" ~dst:"odoc-pages/index.mld";
     Pkg.doc "doc/cookbook.mld" ~dst:"odoc-pages/cookbook.mld";

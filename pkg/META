@@ -72,3 +72,15 @@ package "unix" (
   plugin(native) = "webs_unix.cmxs"
   exists_if = "webs_unix.cma webs_unix.cmxa"
 )
+
+package "webdriver" (
+  directory = "webdriver"
+  description = "The webs.webdriver library"
+  version = "%%VERSION_NUM%%"
+  requires = "more bytesrw.websocket bytesrw.unix jsont.bytesrw bytesrw.sysrandom webs webs.kit webs.unix"
+  archive(byte) = "webs_webdriver.cma"
+  archive(native) = "webs_webdriver.cmxa"
+  plugin(byte) = "webs_webdriver.cma"
+  plugin(native) = "webs_webdriver.cmxs"
+  exists_if = "webs_webdriver.cma webs_webdriver.cmxa"
+)

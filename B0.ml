@@ -10,7 +10,9 @@ let bytesrw = B0_ocaml.libname "bytesrw"
 let bytesrw_crypto = B0_ocaml.libname "bytesrw.crypto"
 let bytesrw_sysrandom = B0_ocaml.libname "bytesrw.sysrandom"
 let bytesrw_unix = B0_ocaml.libname "bytesrw.unix"
+let bytesrw_websocket = B0_ocaml.libname "bytesrw.websocket"
 let jsont_bytesrw = B0_ocaml.libname "jsont.bytesrw"
+let more = B0_ocaml.libname "more" (* webdriver, can we get rid of it? *)
 
 let webs = B0_ocaml.libname "webs"
 let webs_kit = B0_ocaml.libname "webs.kit"
@@ -18,6 +20,8 @@ let webs_crypto = B0_ocaml.libname "webs.crypto"
 let webs_passkey = B0_ocaml.libname "webs.passkey"
 let webs_unix = B0_ocaml.libname "webs.unix"
 let webs_cli = B0_ocaml.libname "webs.cli"
+let webs_webdriver = B0_ocaml.libname "webs.webdriver"
+
 
 (* Libraries *)
 
@@ -51,6 +55,14 @@ let webs_cli_lib =
   let requires = [webs; webs_unix; cmdliner; unix] in
   B0_ocaml.lib webs_cli ~srcs ~requires ~exports:[webs]
 
+let webs_webdriver_lib =
+  let srcs = [`Dir ~/"src/webdriver"] in
+  let requires =
+    [more; bytesrw_websocket; bytesrw_unix; jsont_bytesrw;
+     bytesrw_sysrandom; webs; webs_kit; webs_unix;]
+  in
+  B0_ocaml.lib webs_webdriver ~srcs ~requires
+
 (* Tools *)
 
 let webs_tool =
@@ -75,6 +87,18 @@ let test_authenticatable =
 
 let test_crypto_random =
   test ~/"test/test_crypto_random.ml" ~run:true ~requires:[webs_kit]
+
+let test_bytesrw_websocket =
+  let requires = [more; bytesrw_websocket; bytesrw_unix; webs_kit] in
+  test ~/"test/test_bytesrw_websocket.ml" ~run:false ~requires
+
+let test_webdriver =
+  let requires = [more; webs_webdriver; cmdliner] in
+  test ~/"test/test_webdriver.ml" ~run:false ~requires
+
+let test_webdriver_concurrency =
+  let requires = [more; webs_webdriver; cmdliner] in
+  test ~/"test/test_webdriver_concurrency.ml" ~run:false ~requires
 
 (* Examples *)
 
@@ -117,6 +141,11 @@ let websocket = test ~/"test/websocket.ml" ~run:false ~requires:quick
 let webpage = test ~/"test/webpage.ml" ~run:false ~requires:quick
 let webpage_etag = test ~/"test/webpage_etag.ml" ~run:false ~requires:quick
 let webpage_cache = test ~/"test/webpage_cache.ml" ~run:false ~requires:quick
+
+let browser_console =
+  let requires = [more; cmdliner; webs_webdriver] in
+  test ~/"test/browser_console.ml" ~run:false ~requires
+
 
 (* Packs *)
 
