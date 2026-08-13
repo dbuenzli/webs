@@ -149,7 +149,9 @@ module Chrome = struct
     | _ -> Error "TODO"
     in
     let* tmpdir = Os.Dir.tmp () in
-    let user_data_dir = Fmt.str "--user-data-dir=%s" (Fpath.to_string tmpdir) in
+    let user_data_dir =
+      Fmt.str "--user-data-dir=%s" (Filepath.to_string tmpdir)
+    in
     let port_opt = Fmt.str "--remote-debugging-port=%d" (Config.port config) in
     let headless = Cmd.(if' (Config.headless config) (arg "--headless=new")) in
     let no_first_run = "--no-first-run" in
@@ -179,7 +181,7 @@ module Firefox = struct
     | _ -> "firefox"
     in
     let* tmpdir = Os.Dir.tmp () in
-    let profile = Fmt.str "--profile=%s" (Fpath.to_string tmpdir) in
+    let profile = Fmt.str "--profile=%s" (Filepath.to_string tmpdir) in
     let port_opt = Fmt.str "--remote-debugging-port=%d" (Config.port config) in
     let headless = Cmd.(if' (Config.headless config) (arg "--headless")) in
     let new_instance = "--new-instance" (* XXX doesn't work on macos *) in

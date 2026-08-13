@@ -66,7 +66,7 @@ let webs_webdriver_lib =
 (* Tools *)
 
 let webs_tool =
-  let srcs = Fpath.[`File (v "test/webs_tool.ml")] in
+  let srcs = Filepath.[`File (v "test/webs_tool.ml")] in
   let requires = [cmdliner; unix; webs; webs_kit; webs_unix; webs_cli] in
   B0_ocaml.exe "webs" ~public:true ~doc:"Webs HTTP tool" ~srcs ~requires
 

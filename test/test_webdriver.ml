@@ -110,8 +110,12 @@ let test_browsing_context =
   let* pdf = Webs_base64.decode Padded data in
   (* FIXME remove that *)
   let force = true and make_path = false in
-  let* () = More.Os.File.write ~force ~make_path (Fpath.v "/tmp/shot.png")png in
-  let* () = More.Os.File.write ~force ~make_path (Fpath.v "/tmp/shot.pdf")pdf in
+  let* () =
+    More.Os.File.write ~force ~make_path (Filepath.v "/tmp/shot.png") png
+  in
+  let* () =
+    More.Os.File.write ~force ~make_path (Filepath.v "/tmp/shot.pdf") pdf
+  in
   let _nodes =
     log "locateNodes" Wd_browsing_context.Locate_nodes_result.jsont @@
     let locator = `Css "html head title" in
