@@ -1,4 +1,5 @@
 open B0_kit.V000
+open Result.Syntax
 
 (* OCaml library names *)
 
@@ -21,7 +22,6 @@ let webs_passkey = B0_ocaml.libname "webs.passkey"
 let webs_unix = B0_ocaml.libname "webs.unix"
 let webs_cli = B0_ocaml.libname "webs.cli"
 let webs_webdriver = B0_ocaml.libname "webs.webdriver"
-
 
 (* Libraries *)
 
@@ -146,6 +146,43 @@ let browser_console =
   let requires = [more; cmdliner; webs_webdriver] in
   test ~/"test/browser_console.ml" ~run:false ~requires
 
+(* Updating vendored code. *)
+
+let copy_file ?substs ~src_dir ~dst_dir src dst =
+  Log.stdout (fun m -> m "Copy %s to %s in %a" src dst Filepath.pp dst_dir);
+  let src = Filepath.(src_dir / src) in
+  let dst = Filepath.(dst_dir / dst) in
+  let force = true and make_path = false in
+  match substs with
+  | None -> Os.File.copy ~force ~make_path src ~dst:dst
+  | Some substs ->
+      let* src = Os.File.read src in
+      let replace src (sub, by) = String.replace_all ~sub ~by src in
+      let src = List.fold_left replace src substs in
+      Os.File.write ~force ~make_path dst src
+
+let copy_module ?substs ~src_dir ~dst_dir src dst =
+  let mli base = Fmt.str "%s.mli" base and ml base = Fmt.str "%s.ml" base in
+  let* () = copy_file ?substs ~src_dir ~dst_dir (mli src) (mli dst) in
+  let* () = copy_file ?substs ~src_dir ~dst_dir (ml src) (ml dst) in
+  Ok ()
+
+let with_cloned_repo_dir ~env ~repo f =
+  let* git = B0_vcs_repo.Git.get_cmd ~search:(B0_env.get_cmd env) () in
+  Result.join @@ Os.Dir.with_tmp @@ fun dir ->
+  let* () = Os.Cmd.run Cmd.(git % "clone" % repo %% path dir) in
+  f dir
+
+let vendor_more_modules =
+  let doc = "Update vendored More modules" in
+  B0_unit.of_action "update-more" ~doc @@ fun env _ ~args ->
+  let repo = "https://erratique.ch/repos/more.git" in
+  with_cloned_repo_dir ~env ~repo @@ fun dir ->
+  let dst_dir = B0_env.in_scope_dir env ~/"src" in
+  let src_dir = Filepath.(dir / "src") in
+  let substs = [] in
+  let* () = copy_module ~substs ~src_dir ~dst_dir "more__url" "webs__url" in
+  Ok ()
 
 (* Packs *)
 
