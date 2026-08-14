@@ -2,6 +2,10 @@
 
 - Review [decode] functions perhaps move to raise [Failure].
 - Should Http.Query move to URL ?
+- Get rid of Webs_hash. I think we can implement Authenticatable using
+  HMAC-BLAKE2S with the stdlib's blake2b implementation. This makes
+  the basics tool. We need to figure out something about our use of
+  pbkdf2_sha_256 (only in tests
 
 {1:bodies Bodies}
 
