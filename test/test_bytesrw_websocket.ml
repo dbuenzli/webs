@@ -8,13 +8,12 @@ open Bytesrw
 let supported_schemes = [ "ws", 80]
 
 let webssocket_handshake ~url =
-  let* endpoint = Url.to_endpoint ~supported_schemes url in
-  let* fd, close, addr =
-    Os.Socket.connect_endpoint ~nonblock:false endpoint SOCK_STREAM
-  in
+  let* peer = Url.to_endpoint ~supported_schemes url in
+  let* c = Net.Connection.open' ~nonblock:false ~peer () in
+  let fd = Net.Connection.fd c in
   let send = Bytesrw_unix.bytes_writer_of_fd fd in
   let recv = Bytesrw_unix.bytes_reader_of_fd fd in
-  let close () = if close then Os.Fd.close_noerr fd; Ok () in
+  let close () = Net.Connection.close_noerr c; Ok () in
   try
     Result.map_error (fun e -> ignore (close ()); e) @@
     let* key, request = Webs_websocket.request_upgrade_of_url url in

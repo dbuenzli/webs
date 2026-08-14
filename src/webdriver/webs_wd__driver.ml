@@ -24,13 +24,12 @@ let kill_and_reap pid =
 let websocket_handshake ~max_recv_message_byte_size ~url =
   let connect ~endpoint =
     let timeout = Mtime.Span.(5 * s) in
-    let* () = Os.Socket.endpoint_wait_connectable ~timeout endpoint in
-    let* fd, close, _addr =
-      Os.Socket.connect_endpoint ~nonblock:false endpoint SOCK_STREAM
-    in
+    let* () = Net.Endpoint.wait_connectable ~timeout endpoint in
+    let* c = Net.Connection.open' ~nonblock:false ~peer:endpoint () in
+    let fd = Net.Connection.fd c in
     let send = Bytesrw_unix.bytes_writer_of_fd fd in
     let recv = Bytesrw_unix.bytes_reader_of_fd fd in
-    Ok (fd, close, send, recv)
+    Ok (c, send, recv)
   in
   let supported_schemes =
     (* We should provide a way to support wss but that pulls-in
@@ -39,8 +38,8 @@ let websocket_handshake ~max_recv_message_byte_size ~url =
   in
   let* endpoint = Url.to_endpoint ~supported_schemes url in
   let* key, request = Webs_websocket.request_upgrade_of_url url in
-  let* fd, close, send, recv = connect ~endpoint in
-  let close () = if close then Os.Fd.close_noerr fd; Ok () in
+  let* c, send, recv = connect ~endpoint in
+  let close () = Net.Connection.close_noerr c; Ok () in
   try
     Result.map_error failwith @@
     let () = Webs_http11.Request.write ~eod:false send request in
@@ -137,7 +136,7 @@ module Chrome = struct
       (* We can likely use Webs_http11 directly *)
       let* httpc = Webs_spawn_client.(make ()) in
       let ep = `Host (host, port) and timeout = Mtime.Span.(5 * s) in
-      let* () = Os.Socket.endpoint_wait_connectable ~timeout ep in
+      let* () = Net.Endpoint.wait_connectable ~timeout ep in
       let cdp_url = Fmt.str "http://%s:%d/json/version" host port in
       let* json = Http.Client.get httpc ~follow:true ~url:cdp_url in
       let ws = Jsont.mem "webSocketDebuggerUrl" Jsont.string in
