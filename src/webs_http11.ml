@@ -62,7 +62,7 @@ let read_head_bytes r head = (* write in [head] returns the last written byte *)
       begin
         Bytes.blit bytes first head next len;
         if !state <> Crlf_crlf then loop r head (next + len) !state else
-        let () = match Bytes.Slice.drop len slice with
+        let () = match Bytes.Slice.drop_first len slice with
         | None -> ()
         | Some rem -> Bytes.Reader.push_back r rem
         in
